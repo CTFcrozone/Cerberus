@@ -1,0 +1,33 @@
+[workspace]
+resolver = "2"
+members = [
+    "rust-xp-aya-ebpf",
+    "rust-xp-aya-ebpf-common",
+    "rust-xp-aya-ebpf-ebpf",
+]
+default-members = ["rust-xp-aya-ebpf", "rust-xp-aya-ebpf-common"]
+
+[workspace.package]
+license = "MIT OR Apache-2.0"
+
+[workspace.dependencies]
+aya = { version = "0.13.1", default-features = false }
+aya-build = { version = "0.1.2", default-features = false }
+aya-ebpf = { version = "0.1.1", default-features = false }
+aya-log = { version = "0.2.1", default-features = false }
+aya-log-ebpf = { version = "0.1.1", default-features = false }
+
+anyhow = { version = "1", default-features = false }
+# `std` feature is currently required to build `clap`.
+#
+# See https://github.com/clap-rs/clap/blob/61f5ee5/clap_builder/src/lib.rs#L15.
+clap = { version = "4.5.20", default-features = false, features = ["std"] }
+libc = { version = "0.2.159", default-features = false }
+derive_more = { version = "2", features = ["from", "display"] }
+tokio = { version = "1.40.0", default-features = false }
+which = { version = "6.0.0", default-features = false }
+tracing = { version = "0.1", default-features = false }
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+[profile.release.package.rust-xp-aya-ebpf-ebpf]
+debug = 2
+codegen-units = 1

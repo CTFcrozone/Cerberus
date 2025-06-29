@@ -1,0 +1,17 @@
+[package]
+name = "rust-xp-aya-ebpf-ebpf"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+rust-xp-aya-ebpf-common = { path = "../rust-xp-aya-ebpf-common" }
+
+aya-ebpf = { workspace = true }
+aya-log-ebpf = { workspace = true }
+
+[build-dependencies]
+which = { workspace = true }
+
+[[bin]]
+name = "rust-xp-aya-ebpf"
+path = "src/main.rs"
