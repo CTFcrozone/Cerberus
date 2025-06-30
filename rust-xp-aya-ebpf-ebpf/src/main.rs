@@ -1,8 +1,12 @@
 #![no_std]
 #![no_main]
 
-use aya_ebpf::{macros::tracepoint, programs::TracePointContext};
-use aya_log_ebpf::info;
+use aya_ebpf::{
+	helpers::{bpf_get_current_comm, bpf_get_current_uid_gid},
+	macros::tracepoint,
+	programs::TracePointContext,
+};
+use aya_log_ebpf::{debug, info, warn};
 
 // name: sys_enter_kill
 // ID: 183
@@ -40,8 +44,22 @@ fn try_rust_xp_aya_ebpf(ctx: TracePointContext) -> Result<u32, u32> {
 		Err(_) => return Err(1),
 	};
 
-	if tp_ctx.sig == 9 {
-		info!(&ctx, "__x64_sys_kill: pid={}, sig={}", tp_ctx.pid, tp_ctx.sig);
+	// let comm = bpf_get_current_comm().map_err(|_| 1u32)?;
+	// let cmd = unsafe { core::str::from_utf8_unchecked(&comm[..]) };
+
+	let uid = bpf_get_current_uid_gid() as u32;
+	// info!(&ctx, "->> Received comm: {}", cmd);
+
+	match (tp_ctx.sig, uid) {
+		(9, 0) => info!(
+			&ctx,
+			"->> ROOT USER Attempted __x64_sys_kill: pid={}, sig={}, uid={}", tp_ctx.pid, tp_ctx.sig, uid
+		),
+		(9, _) => warn!(
+			&ctx,
+			"->> NON-ROOT USER Attempted __x64_sys_kill: pid={}, sig={}, uid={}", tp_ctx.pid, tp_ctx.sig, uid
+		),
+		_ => (),
 	}
 
 	Ok(0)

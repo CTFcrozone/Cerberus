@@ -10,7 +10,7 @@ use tracing_subscriber::EnvFilter;
 #[tokio::main]
 async fn main() -> Result<()> {
 	tracing_subscriber::fmt()
-		.with_target(true)
+		.with_target(false)
 		.with_env_filter(EnvFilter::from_default_env())
 		.init();
 
@@ -43,9 +43,8 @@ async fn main() -> Result<()> {
 	program.attach("syscalls", "sys_enter_kill")?;
 
 	let ctrl_c = signal::ctrl_c();
-	println!("Waiting for Ctrl-C...");
 	ctrl_c.await?;
-	println!("Exiting...");
+	info!("Exiting...");
 
 	Ok(())
 }
