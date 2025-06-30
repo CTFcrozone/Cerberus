@@ -1,10 +1,12 @@
 #![no_std]
 #![no_main]
 
+mod event;
+
 use aya_ebpf::{
-	helpers::{bpf_get_current_comm, bpf_get_current_uid_gid},
-	macros::tracepoint,
-	programs::TracePointContext,
+	helpers::{bpf_get_current_comm, bpf_get_current_pid_tgid, bpf_get_current_uid_gid},
+	macros::{kprobe, tracepoint},
+	programs::{ProbeContext, TracePointContext},
 };
 use aya_log_ebpf::{debug, info, warn};
 
@@ -36,6 +38,30 @@ pub fn rust_xp_aya_ebpf(ctx: TracePointContext) -> u32 {
 		Ok(ret) => ret,
 		Err(ret) => ret,
 	}
+}
+
+#[kprobe]
+pub fn trace_openat(ctx: ProbeContext) -> u32 {
+	match try_openat(ctx) {
+		Ok(ret) => ret,
+		Err(ret) => ret,
+	}
+}
+
+fn try_openat(ctx: ProbeContext) -> Result<u32, u32> {
+	let uid = bpf_get_current_uid_gid() as u32;
+
+	let comm_raw = bpf_get_current_comm().unwrap_or([0u8; 16]);
+	let len = comm_raw.iter().position(|&b| b == 0).unwrap_or(comm_raw.len());
+	let comm = unsafe { core::str::from_utf8_unchecked(&comm_raw[..len]) };
+
+	let pid = bpf_get_current_pid_tgid() as u32;
+
+	if comm == "gedit" {
+		info!(&ctx, "[OPENAT] pid={} uid={} comm={}", pid, uid, comm);
+	}
+
+	Ok(0)
 }
 
 fn try_rust_xp_aya_ebpf(ctx: TracePointContext) -> Result<u32, u32> {

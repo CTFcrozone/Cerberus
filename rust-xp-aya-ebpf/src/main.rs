@@ -1,7 +1,7 @@
 mod error;
 
 pub use self::error::{Error, Result};
-use aya::programs::TracePoint;
+use aya::programs::{KProbe, TracePoint};
 #[rustfmt::skip]
 use tracing::{info, debug, warn};
 use tokio::signal;
@@ -41,6 +41,10 @@ async fn main() -> Result<()> {
 	let program: &mut TracePoint = ebpf.program_mut("rust_xp_aya_ebpf").unwrap().try_into()?;
 	program.load()?;
 	program.attach("syscalls", "sys_enter_kill")?;
+
+	let kp_openat: &mut KProbe = ebpf.program_mut("trace_openat").unwrap().try_into()?;
+	kp_openat.load()?;
+	kp_openat.attach("do_sys_openat2", 0)?;
 
 	let ctrl_c = signal::ctrl_c();
 	ctrl_c.await?;
