@@ -1,4 +1,5 @@
 use derive_more::{Display, From};
+use flume::{RecvError, SendError};
 
 pub type Result<T> = core::result::Result<T, Error>;
 
@@ -7,7 +8,8 @@ pub type Result<T> = core::result::Result<T, Error>;
 pub enum Error {
 	#[from(String, &String, &str)]
 	Custom(String),
-
+	EventSend(String),
+	EventRecv(RecvError),
 	// -- Externals
 	//
 	#[from]
@@ -16,6 +18,18 @@ pub enum Error {
 	AyaProgram(aya::programs::ProgramError),
 	#[from]
 	Io(std::io::Error), // as example
+}
+
+impl<T> From<SendError<T>> for Error {
+	fn from(value: SendError<T>) -> Self {
+		Self::EventSend(value.to_string())
+	}
+}
+
+impl From<RecvError> for Error {
+	fn from(err: RecvError) -> Self {
+		Self::EventRecv(err)
+	}
 }
 
 // region:    --- Custom

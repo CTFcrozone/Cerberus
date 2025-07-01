@@ -1,5 +1,5 @@
 mod error;
-
+mod trx;
 pub use self::error::{Error, Result};
 use aya::programs::{KProbe, TracePoint};
 #[rustfmt::skip]

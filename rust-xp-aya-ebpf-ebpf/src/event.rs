@@ -1,8 +1,5 @@
-#[repr(C)]
-pub struct Event {
-	pub pid: u32,
-	pub uid: u32,
-	pub sig: u64,
-	pub comm: [u8; 16],
-	pub event_type: u8, // 1 = kill, 2 = exec, 3 = openat
-}
+use aya_ebpf::macros::map;
+use aya_ebpf::maps::RingBuf;
+
+#[map]
+static mut EVT_MAP: RingBuf = RingBuf::with_byte_size(64 * 1024, 0);

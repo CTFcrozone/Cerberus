@@ -1,14 +1,12 @@
 #![no_std]
 #![no_main]
 
-mod event;
-
 use aya_ebpf::{
 	helpers::{bpf_get_current_comm, bpf_get_current_pid_tgid, bpf_get_current_uid_gid},
 	macros::{kprobe, tracepoint},
 	programs::{ProbeContext, TracePointContext},
 };
-use aya_log_ebpf::{debug, info, warn};
+use aya_log_ebpf::{info, warn};
 
 // name: sys_enter_kill
 // ID: 183

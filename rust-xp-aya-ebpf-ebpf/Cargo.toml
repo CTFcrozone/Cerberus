@@ -5,7 +5,6 @@ edition = "2021"
 
 [dependencies]
 rust-xp-aya-ebpf-common = { path = "../rust-xp-aya-ebpf-common" }
-
 aya-ebpf = { workspace = true }
 aya-log-ebpf = { workspace = true }
 
