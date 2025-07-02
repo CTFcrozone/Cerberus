@@ -11,7 +11,9 @@ default-members = ["rust-xp-aya-ebpf", "rust-xp-aya-ebpf-common"]
 license = "MIT OR Apache-2.0"
 
 [workspace.dependencies]
-aya = { version = "0.13.1", default-features = false }
+aya = { version = "0.13.1", default-features = false, features = [
+    "async_tokio",
+] }
 aya-build = { version = "0.1.2", default-features = false }
 aya-ebpf = { version = "0.1.1", default-features = false }
 aya-log = { version = "0.2.1", default-features = false }

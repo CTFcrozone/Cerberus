@@ -1,4 +1,8 @@
+#[cfg(feature = "aya")]
+use aya::Pod;
+
 #[repr(C)]
+#[derive(Clone, Copy, Debug)]
 pub struct Event {
 	pub pid: u32,
 	pub uid: u32,
@@ -6,3 +10,6 @@ pub struct Event {
 	pub comm: [u8; 16],
 	pub event_type: u8, // 1 = kill, 2 = exec, 3 = openat
 }
+#[cfg(feature = "aya")]
+
+unsafe impl Pod for Event {}

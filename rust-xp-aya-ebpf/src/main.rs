@@ -1,10 +1,14 @@
 mod error;
 mod trx;
+mod worker;
 pub use self::error::{Error, Result};
-use aya::programs::{KProbe, TracePoint};
+use aya::{
+	maps::RingBuf,
+	programs::{KProbe, TracePoint},
+};
 #[rustfmt::skip]
 use tracing::{info, debug, warn};
-use tokio::signal;
+use tokio::{io::unix::AsyncFd, signal};
 use tracing_subscriber::EnvFilter;
 
 #[tokio::main]
@@ -38,13 +42,39 @@ async fn main() -> Result<()> {
 		// This can happen if you remove all log statements from your eBPF program.
 		warn!("failed to initialize eBPF logger: {e}");
 	}
-	let program: &mut TracePoint = ebpf.program_mut("rust_xp_aya_ebpf").unwrap().try_into()?;
+
+	// Now do all program_mut calls BEFORE wrapping in AsyncFd
+	let program: &mut TracePoint = ebpf
+		.program_mut("rust_xp_aya_ebpf")
+		.ok_or(Error::EbpfProgNotFound)?
+		.try_into()?;
 	program.load()?;
 	program.attach("syscalls", "sys_enter_kill")?;
 
-	let kp_openat: &mut KProbe = ebpf.program_mut("trace_openat").unwrap().try_into()?;
+	let kp_openat: &mut KProbe = ebpf.program_mut("trace_openat").ok_or(Error::EbpfProgNotFound)?.try_into()?;
 	kp_openat.load()?;
 	kp_openat.attach("do_sys_openat2", 0)?;
+
+	// let ring_buf = RingBuf::try_from(ebpf.map_mut("EVTS").ok_or(Error::EbpfProgNotFound)?)?;
+	// let mut evt_fd = AsyncFd::new(ring_buf)?;
+
+	// tokio::spawn(async move {
+	// 	loop {
+	// 		match evt_fd.readable_mut().await {
+	// 			Ok(mut guard) => {
+	// 				let evts = guard.get_inner_mut();
+
+	// 				while let Some(evt) = evts.next() {}
+
+	// 				guard.clear_ready();
+	// 			}
+	// 			Err(e) => {
+	// 				eprintln!("Error waiting for evt_fd readiness: {}", e);
+	// 				break;
+	// 			}
+	// 		}
+	// 	}
+	// });
 
 	let ctrl_c = signal::ctrl_c();
 	ctrl_c.await?;

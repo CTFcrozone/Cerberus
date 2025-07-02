@@ -10,10 +10,14 @@ pub enum Error {
 	Custom(String),
 	EventSend(String),
 	EventRecv(RecvError),
+	EbpfProgNotFound,
+	InvalidEventSize,
 	// -- Externals
 	//
 	#[from]
 	AyaEbpf(aya::EbpfError),
+	#[from]
+	AyaMaps(aya::maps::MapError),
 	#[from]
 	AyaProgram(aya::programs::ProgramError),
 	#[from]
