@@ -3,13 +3,15 @@ mod trx;
 mod worker;
 pub use self::error::{Error, Result};
 use aya::{
-	maps::RingBuf,
+	maps::{MapData, RingBuf},
 	programs::{KProbe, TracePoint},
 };
 #[rustfmt::skip]
 use tracing::{info, debug, warn};
 use tokio::{io::unix::AsyncFd, signal};
 use tracing_subscriber::EnvFilter;
+use trx::new_trx_pair;
+use worker::{ReceiverWorker, RingBufWorker};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -55,8 +57,11 @@ async fn main() -> Result<()> {
 	kp_openat.load()?;
 	kp_openat.attach("do_sys_openat2", 0)?;
 
-	// let ring_buf = RingBuf::try_from(ebpf.map_mut("EVTS").ok_or(Error::EbpfProgNotFound)?)?;
-	// let mut evt_fd = AsyncFd::new(ring_buf)?;
+	let ring_buf = RingBuf::try_from(ebpf.take_map("EVT_MAP").ok_or(Error::EbpfProgNotFound)?)?;
+	let trx = new_trx_pair();
+	let fd = AsyncFd::new(ring_buf)?;
+	RingBufWorker::start(fd, trx.0).await?;
+	ReceiverWorker::start(trx.1).await?;
 
 	// tokio::spawn(async move {
 	// 	loop {

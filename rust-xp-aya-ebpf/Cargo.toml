@@ -15,7 +15,8 @@ aya = { workspace = true }
 aya-log = { workspace = true }
 libc = { workspace = true }
 flume = { workspace = true }
-
+zerocopy = { workspace = true }
+zerocopy-derive = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 tokio = { workspace = true, features = [

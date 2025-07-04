@@ -1,13 +1,14 @@
 #![no_std]
 #![no_main]
 
-mod maps;
 use aya_ebpf::{
-	helpers::{bpf_get_current_comm, bpf_get_current_pid_tgid, bpf_get_current_uid_gid},
-	macros::{kprobe, tracepoint},
+	helpers::{bpf_get_current_comm, bpf_get_current_pid_tgid, bpf_get_current_uid_gid, gen::bpf_ktime_get_ns},
+	macros::{kprobe, map, tracepoint},
+	maps::RingBuf,
 	programs::{ProbeContext, TracePointContext},
 };
 use aya_log_ebpf::{info, warn};
+use rust_xp_aya_ebpf_common::Event;
 
 // name: sys_enter_kill
 // ID: 183
@@ -22,6 +23,9 @@ use aya_log_ebpf::{info, warn};
 // 	field:int sig;	offset:24;	size:8;	signed:0;
 
 // print fmt: "pid: 0x%08lx, sig: 0x%08lx", ((unsigned long)(REC->pid)), ((unsigned long)(REC->sig))
+
+#[map]
+static EVT_MAP: RingBuf = RingBuf::with_byte_size(64 * 1024, 0);
 
 #[repr(C)]
 struct SysEnterKillCtx {
@@ -56,9 +60,9 @@ fn try_openat(ctx: ProbeContext) -> Result<u32, u32> {
 
 	let pid = bpf_get_current_pid_tgid() as u32;
 
-	if comm == "gedit" {
-		info!(&ctx, "[OPENAT] pid={} uid={} comm={}", pid, uid, comm);
-	}
+	// if comm == "gedit" {
+	// 	info!(&ctx, "[OPENAT] pid={} uid={} comm={}", pid, uid, comm);
+	// }
 
 	Ok(0)
 }
@@ -69,21 +73,37 @@ fn try_rust_xp_aya_ebpf(ctx: TracePointContext) -> Result<u32, u32> {
 		Err(_) => return Err(1),
 	};
 
-	// let comm = bpf_get_current_comm().map_err(|_| 1u32)?;
-	// let cmd = unsafe { core::str::from_utf8_unchecked(&comm[..]) };
+	let comm_raw = bpf_get_current_comm().unwrap_or([0u8; 16]);
 
 	let uid = bpf_get_current_uid_gid() as u32;
-	// info!(&ctx, "->> Received comm: {}", cmd);
+	let timestamp = unsafe { bpf_ktime_get_ns() >> 20 } as u32;
 
 	match (tp_ctx.sig, uid) {
 		(9, 0) => info!(
 			&ctx,
 			"->> ROOT USER Attempted __x64_sys_kill: pid={}, sig={}, uid={}", tp_ctx.pid, tp_ctx.sig, uid
 		),
-		(9, _) => warn!(
-			&ctx,
-			"->> NON-ROOT USER Attempted __x64_sys_kill: pid={}, sig={}, uid={}", tp_ctx.pid, tp_ctx.sig, uid
-		),
+		(9, _) => {
+			warn!(
+				&ctx,
+				"->> NON-ROOT USER Attempted __x64_sys_kill: pid={}, sig={}, uid={}", tp_ctx.pid, tp_ctx.sig, uid
+			);
+			let event = Event {
+				pid: tp_ctx.pid as u32,
+				uid,
+				sig: tp_ctx.sig,
+				comm: comm_raw,
+				event_type: 1,
+				syscall_nr: tp_ctx.__syscall_nr as u8,
+				exit_code: 0,
+				timestamp_ns: timestamp,
+			};
+
+			match EVT_MAP.output(&event, 0) {
+				Ok(_) => (),
+				Err(e) => return Err(e as u32),
+			}
+		}
 		_ => (),
 	}
 

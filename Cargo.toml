@@ -20,6 +20,8 @@ aya-log = { version = "0.2.1", default-features = false }
 aya-log-ebpf = { version = "0.1.1", default-features = false }
 flume = { version = "0.11", default-features = false, features = ["async"] }
 anyhow = { version = "1", default-features = false }
+zerocopy = "0.8"
+zerocopy-derive = "0.8"
 # `std` feature is currently required to build `clap`.
 #
 # See https://github.com/clap-rs/clap/blob/61f5ee5/clap_builder/src/lib.rs#L15.

@@ -1,5 +1,6 @@
 use derive_more::{Display, From};
 use flume::{RecvError, SendError};
+use rust_xp_aya_ebpf_common::Event;
 
 pub type Result<T> = core::result::Result<T, Error>;
 
@@ -11,6 +12,7 @@ pub enum Error {
 	EventSend(String),
 	EventRecv(RecvError),
 	EbpfProgNotFound,
+	InvalidEventAlign,
 	InvalidEventSize,
 	// -- Externals
 	//
