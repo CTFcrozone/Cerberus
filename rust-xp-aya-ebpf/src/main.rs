@@ -3,7 +3,7 @@ mod trx;
 mod worker;
 pub use self::error::{Error, Result};
 use aya::{
-	maps::{MapData, RingBuf},
+	maps::RingBuf,
 	programs::{KProbe, TracePoint},
 };
 #[rustfmt::skip]
@@ -53,33 +53,29 @@ async fn main() -> Result<()> {
 	program.load()?;
 	program.attach("syscalls", "sys_enter_kill")?;
 
-	let kp_openat: &mut KProbe = ebpf.program_mut("trace_openat").ok_or(Error::EbpfProgNotFound)?.try_into()?;
-	kp_openat.load()?;
-	kp_openat.attach("do_sys_openat2", 0)?;
+	let tp_io_uring: &mut TracePoint = ebpf
+		.program_mut("trace_io_uring_submit")
+		.ok_or(Error::EbpfProgNotFound)?
+		.try_into()?;
+	tp_io_uring.load()?;
+	tp_io_uring.attach("io_uring", "io_uring_submit_req")?;
+
+	// let kp_mprotect: &mut KProbe = ebpf.program_mut("trace_mprotect").ok_or(Error::EbpfProgNotFound)?.try_into()?;
+	// kp_mprotect.load()?;
+	// kp_mprotect.attach("mprotect_fixup", 0)?;
+
+	let kp_commit_creds: &mut KProbe = ebpf
+		.program_mut("trace_commit_creds")
+		.ok_or(Error::EbpfProgNotFound)?
+		.try_into()?;
+	kp_commit_creds.load()?;
+	kp_commit_creds.attach("commit_creds", 0)?;
 
 	let ring_buf = RingBuf::try_from(ebpf.take_map("EVT_MAP").ok_or(Error::EbpfProgNotFound)?)?;
 	let trx = new_trx_pair();
 	let fd = AsyncFd::new(ring_buf)?;
 	RingBufWorker::start(fd, trx.0).await?;
 	ReceiverWorker::start(trx.1).await?;
-
-	// tokio::spawn(async move {
-	// 	loop {
-	// 		match evt_fd.readable_mut().await {
-	// 			Ok(mut guard) => {
-	// 				let evts = guard.get_inner_mut();
-
-	// 				while let Some(evt) = evts.next() {}
-
-	// 				guard.clear_ready();
-	// 			}
-	// 			Err(e) => {
-	// 				eprintln!("Error waiting for evt_fd readiness: {}", e);
-	// 				break;
-	// 			}
-	// 		}
-	// 	}
-	// });
 
 	let ctrl_c = signal::ctrl_c();
 	ctrl_c.await?;

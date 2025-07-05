@@ -5,10 +5,10 @@ use crate::{
 use aya::maps::{MapData, RingBuf};
 use rust_xp_aya_ebpf_common::Event;
 use tokio::io::unix::AsyncFd;
-use tracing::{debug, info};
+use tracing::info;
 use zerocopy::FromBytes;
 
-use crate::trx::{new_trx_pair, EventTx};
+use crate::trx::EventTx;
 
 pub struct ReceiverWorker {
 	pub rx: EventRx,
@@ -16,13 +16,39 @@ pub struct ReceiverWorker {
 
 impl ReceiverWorker {
 	pub async fn start(rx: EventRx) -> Result<()> {
+		let worker = ReceiverWorker { rx };
 		tokio::spawn(async move {
-			while let Ok(evt) = rx.recv().await {
-				// let comm = String::from_utf8_lossy(&evt.comm);
-				// let comm = comm.trim_end_matches('\0');
-				info!("EVT RECEIVED ->> {evt:?}");
-			}
+			let res = worker.start_worker().await;
+			res
 		});
+		Ok(())
+	}
+
+	pub async fn start_worker(&self) -> Result<()> {
+		while let Ok(evt) = self.rx.recv().await {
+			let comm = String::from_utf8_lossy(&evt.comm);
+			let comm = comm.trim_end_matches('\0');
+
+			let (event_name, detail) = match evt.event_type {
+				1 => ("KILL", format!("Signal: {}", evt.meta)),
+				2 => ("IO_URING", format!("Opcode: {}", evt.meta)),
+				// 3 => {
+				// 	let prot_flags = match evt.meta {
+				// 		0x01 => "RWX",
+				// 		0x02 => "WX",
+				// 		_ => "OTHER",
+				// 	};
+				// 	("MPROTECT", format!("Flags: {}", prot_flags))
+				// }
+				4 => ("COMMIT_CREDS", format!("Meta: {}", evt.meta)),
+				_ => ("UNKNOWN", format!("meta: {}", evt.meta)),
+			};
+
+			info!(
+				"EVT RECEIVED ->> {} | PID: {} | UID: {} | CMD: {} | {}",
+				event_name, evt.pid, evt.uid, comm, detail
+			);
+		}
 		Ok(())
 	}
 }
@@ -62,23 +88,9 @@ impl RingBufWorker {
 			guard.clear_ready();
 		}
 	}
-
-	// async fn send_to_channel(&self, evt: Event) -> Result<()> {
-	// 	self.tx.send(evt).await
-	// }
 }
 
 fn parse_event_from_bytes(data: &[u8]) -> Result<Event> {
 	let evt = Event::ref_from_prefix(data).map_err(|_| Error::InvalidEventSize)?.0;
 	Ok(*evt)
 }
-
-// fn parse_event_from_bytes(data: &[u8]) -> Result<Event> {
-// 	if data.len() < std::mem::size_of::<Event>() {
-// 		return Err(Error::InvalidEventSize);
-// 	}
-
-// 	let evt = Event::ref_from_prefix(data).map_err(|_| Error::InvalidEventSize)?.0;
-// 	// let event = unsafe { std::ptr::read_unaligned(data.as_ptr() as *const Event) };
-// 	Ok(*evt)
-// }

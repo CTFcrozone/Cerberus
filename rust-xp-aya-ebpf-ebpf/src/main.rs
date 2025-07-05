@@ -2,43 +2,40 @@
 #![no_main]
 
 use aya_ebpf::{
-	helpers::{
-		bpf_get_current_comm, bpf_get_current_pid_tgid, bpf_get_current_uid_gid,
-		gen::{
-			bpf_get_current_cgroup_id, bpf_get_current_task, bpf_get_current_task_btf, bpf_get_ns_current_pid_tgid,
-			bpf_ktime_get_ns,
-		},
-	},
+	helpers::{bpf_get_current_comm, bpf_get_current_pid_tgid, bpf_get_current_uid_gid},
 	macros::{kprobe, map, tracepoint},
 	maps::RingBuf,
 	programs::{ProbeContext, TracePointContext},
 };
-use aya_log_ebpf::{debug, info, warn};
 use rust_xp_aya_ebpf_common::Event;
 
-// name: sys_enter_kill
-// ID: 183
-// format:
-// 	field:unsigned short common_type;	offset:0;	size:2;	signed:0;
-// 	field:unsigned char common_flags;	offset:2;	size:1;	signed:0;
-// 	field:unsigned char common_preempt_count;	offset:3;	size:1;signed:0;
-// 	field:int common_pid;	offset:4;	size:4;	signed:1;
+#[repr(C)]
+struct IoUringSubmitReq {
+	common_type: u16,
+	common_flags: u8,
+	common_preempt_count: u8,
+	common_pid: i32,
 
-// 	field:int __syscall_nr;	offset:8;	size:4;	signed:1;
-// 	field:pid_t pid;	offset:16;	size:8;	signed:0;
-// 	field:int sig;	offset:24;	size:8;	signed:0;
-
-// print fmt: "pid: 0x%08lx, sig: 0x%08lx", ((unsigned long)(REC->pid)), ((unsigned long)(REC->sig))
+	ctx: u64,
+	req: u64,
+	user_data: u64,
+	opcode: u8,
+	_pad1: [u8; 7],
+	flags: u64,
+	sq_thread: u8,
+	_pad2: [u8; 3],
+	op_str: u32,
+}
 
 #[map]
 static EVT_MAP: RingBuf = RingBuf::with_byte_size(64 * 1024, 0);
 
 #[repr(C)]
 struct SysEnterKillCtx {
-	__syscall_nr: i32, // 4 bytes
-	_padding: [u8; 4], // to align next field (8 bytes)
-	pid: u64,          // 8 bytes
-	sig: u64,          // 8 bytes
+	__syscall_nr: i32,
+	_padding: [u8; 4],
+	pid: u64,
+	sig: u64,
 }
 
 #[tracepoint]
@@ -49,25 +46,120 @@ pub fn rust_xp_aya_ebpf(ctx: TracePointContext) -> u32 {
 	}
 }
 
-#[kprobe]
-pub fn trace_openat(ctx: ProbeContext) -> u32 {
-	match try_openat(ctx) {
+#[tracepoint]
+pub fn trace_io_uring_submit(ctx: TracePointContext) -> u32 {
+	match try_io_uring_submit(ctx) {
 		Ok(ret) => ret,
 		Err(ret) => ret,
 	}
 }
 
-fn try_openat(ctx: ProbeContext) -> Result<u32, u32> {
+// #[kprobe]
+// pub fn trace_mprotect(ctx: ProbeContext) -> u32 {
+// 	match try_mprotect(ctx) {
+// 		Ok(ret) => ret,
+// 		Err(ret) => ret,
+// 	}
+// }
+
+#[kprobe]
+pub fn trace_commit_creds(ctx: ProbeContext) -> u32 {
+	match try_commit_creds(ctx) {
+		Ok(ret) => ret,
+		Err(ret) => ret,
+	}
+}
+
+fn try_io_uring_submit(ctx: TracePointContext) -> Result<u32, u32> {
 	let uid = bpf_get_current_uid_gid() as u32;
-	let comm_raw = bpf_get_current_comm().unwrap_or([0u8; 16]);
-	let len = comm_raw.iter().position(|&b| b == 0).unwrap_or(comm_raw.len());
-	let comm = unsafe { core::str::from_utf8_unchecked(&comm_raw[..len]) };
-
 	let pid = bpf_get_current_pid_tgid() as u32;
+	let tgid = (bpf_get_current_pid_tgid() >> 32) as u32;
+	let comm_raw = bpf_get_current_comm().unwrap_or([0u8; 16]);
 
-	// if comm == "gedit" {
-	// 	info!(&ctx, "[OPENAT] pid={} uid={} comm={}", pid, uid, comm);
-	// }
+	let req = match unsafe { ctx.read_at::<IoUringSubmitReq>(0) } {
+		Ok(r) => r,
+		Err(_) => return Err(1),
+	};
+
+	let event = Event {
+		pid,
+		uid,
+		tgid,
+		comm: comm_raw,
+		event_type: 2,
+		meta: req.opcode as u32,
+	};
+
+	match EVT_MAP.output(&event, 0) {
+		Ok(_) => (),
+		Err(e) => return Err(e as u32),
+	}
+
+	Ok(0)
+}
+
+// fn try_mprotect(ctx: ProbeContext) -> Result<u32, u32> {
+// 	let uid = bpf_get_current_uid_gid() as u32;
+// 	let pid = bpf_get_current_pid_tgid() as u32;
+// 	let tgid = (bpf_get_current_pid_tgid() >> 32) as u32;
+// 	let comm_raw = bpf_get_current_comm().unwrap_or([0u8; 16]);
+
+// 	// mprotect_fixup(struct vm_area_struct *vma, struct vm_area_struct **pprev,
+// 	//               unsigned long start, unsigned long end, unsigned long newflags)
+// 	let newflags = match ctx.arg::<u64>(4) {
+// 		Some(val) => val,
+// 		None => 0,
+// 	};
+
+// 	let is_rwx = (newflags & 0x7) == 0x7;
+// 	let is_wx = (newflags & 0x6) == 0x6;
+
+// 	let event = Event {
+// 		pid,
+// 		uid,
+// 		tgid,
+// 		comm: comm_raw,
+// 		event_type: 3,
+// 		meta: if is_rwx {
+// 			0x01
+// 		} else if is_wx {
+// 			0x02
+// 		} else {
+// 			0x00
+// 		},
+// 	};
+
+// 	match EVT_MAP.output(&event, 0) {
+// 		Ok(_) => (),
+// 		Err(e) => return Err(e as u32),
+// 	}
+
+// 	Ok(0)
+// }
+
+fn try_commit_creds(_ctx: ProbeContext) -> Result<u32, u32> {
+	let old_uid = bpf_get_current_uid_gid() as u32;
+	let pid = bpf_get_current_pid_tgid() as u32;
+	let tgid = (bpf_get_current_pid_tgid() >> 32) as u32;
+	let comm_raw = bpf_get_current_comm().unwrap_or([0u8; 16]);
+
+	let new_uid = _ctx.arg(1).unwrap_or(0) as u32;
+
+	if old_uid != 0 && new_uid == 0 {
+		let event = Event {
+			pid,
+			uid: old_uid,
+			tgid,
+			comm: comm_raw,
+			event_type: 4,
+			meta: 0x00,
+		};
+
+		match EVT_MAP.output(&event, 0) {
+			Ok(_) => (),
+			Err(e) => return Err(e as u32),
+		}
+	}
 
 	Ok(0)
 }
@@ -82,32 +174,18 @@ fn try_rust_xp_aya_ebpf(ctx: TracePointContext) -> Result<u32, u32> {
 	let comm_raw = bpf_get_current_comm().unwrap_or([0u8; 16]);
 	let uid = bpf_get_current_uid_gid() as u32;
 
-	match (tp_ctx.sig, uid) {
-		(9, 0) => debug!(
-			&ctx,
-			"->> ROOT USER Attempted __x64_sys_kill: pid={}, sig={}, uid={}", tp_ctx.pid, tp_ctx.sig, uid
-		),
-		(9, _) => {
-			debug!(
-				&ctx,
-				"->> NON-ROOT USER Attempted __x64_sys_kill: pid={}, sig={}, uid={}", tp_ctx.pid, tp_ctx.sig, uid
-			);
-			let event = Event {
-				pid: tp_ctx.pid as u32,
-				uid,
-				tgid,
-				sig: tp_ctx.sig,
-				comm: comm_raw,
-				event_type: 1,
-				syscall_nr: tp_ctx.__syscall_nr as u8,
-			};
+	let event = Event {
+		pid: tp_ctx.pid as u32,
+		uid,
+		tgid,
+		comm: comm_raw,
+		event_type: 1,
+		meta: tp_ctx.sig as u32,
+	};
 
-			match EVT_MAP.output(&event, 0) {
-				Ok(_) => (),
-				Err(e) => return Err(e as u32),
-			}
-		}
-		_ => (),
+	match EVT_MAP.output(&event, 0) {
+		Ok(_) => (),
+		Err(e) => return Err(e as u32),
 	}
 
 	Ok(0)
