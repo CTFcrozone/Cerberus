@@ -6,6 +6,7 @@ use aya::maps::{MapData, RingBuf};
 use rust_xp_aya_ebpf_common::Event;
 use tokio::io::unix::AsyncFd;
 use tracing::{debug, info};
+use zerocopy::FromBytes;
 
 use crate::trx::{new_trx_pair, EventTx};
 
@@ -17,6 +18,8 @@ impl ReceiverWorker {
 	pub async fn start(rx: EventRx) -> Result<()> {
 		tokio::spawn(async move {
 			while let Ok(evt) = rx.recv().await {
+				// let comm = String::from_utf8_lossy(&evt.comm);
+				// let comm = comm.trim_end_matches('\0');
 				info!("EVT RECEIVED ->> {evt:?}");
 			}
 		});
@@ -66,9 +69,16 @@ impl RingBufWorker {
 }
 
 fn parse_event_from_bytes(data: &[u8]) -> Result<Event> {
-	if data.len() < std::mem::size_of::<Event>() {
-		return Err(Error::InvalidEventSize);
-	}
-	let event = unsafe { std::ptr::read_unaligned(data.as_ptr() as *const Event) };
-	Ok(event)
+	let evt = Event::ref_from_prefix(data).map_err(|_| Error::InvalidEventSize)?.0;
+	Ok(*evt)
 }
+
+// fn parse_event_from_bytes(data: &[u8]) -> Result<Event> {
+// 	if data.len() < std::mem::size_of::<Event>() {
+// 		return Err(Error::InvalidEventSize);
+// 	}
+
+// 	let evt = Event::ref_from_prefix(data).map_err(|_| Error::InvalidEventSize)?.0;
+// 	// let event = unsafe { std::ptr::read_unaligned(data.as_ptr() as *const Event) };
+// 	Ok(*evt)
+// }

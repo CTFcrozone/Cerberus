@@ -1,6 +1,7 @@
+use std::str::Utf8Error;
+
 use derive_more::{Display, From};
 use flume::{RecvError, SendError};
-use rust_xp_aya_ebpf_common::Event;
 
 pub type Result<T> = core::result::Result<T, Error>;
 
@@ -16,6 +17,8 @@ pub enum Error {
 	InvalidEventSize,
 	// -- Externals
 	//
+	#[from]
+	Utf8(Utf8Error),
 	#[from]
 	AyaEbpf(aya::EbpfError),
 	#[from]

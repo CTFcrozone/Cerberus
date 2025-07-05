@@ -2,12 +2,18 @@
 #![no_main]
 
 use aya_ebpf::{
-	helpers::{bpf_get_current_comm, bpf_get_current_pid_tgid, bpf_get_current_uid_gid, gen::bpf_ktime_get_ns},
+	helpers::{
+		bpf_get_current_comm, bpf_get_current_pid_tgid, bpf_get_current_uid_gid,
+		gen::{
+			bpf_get_current_cgroup_id, bpf_get_current_task, bpf_get_current_task_btf, bpf_get_ns_current_pid_tgid,
+			bpf_ktime_get_ns,
+		},
+	},
 	macros::{kprobe, map, tracepoint},
 	maps::RingBuf,
 	programs::{ProbeContext, TracePointContext},
 };
-use aya_log_ebpf::{info, warn};
+use aya_log_ebpf::{debug, info, warn};
 use rust_xp_aya_ebpf_common::Event;
 
 // name: sys_enter_kill
@@ -53,7 +59,6 @@ pub fn trace_openat(ctx: ProbeContext) -> u32 {
 
 fn try_openat(ctx: ProbeContext) -> Result<u32, u32> {
 	let uid = bpf_get_current_uid_gid() as u32;
-
 	let comm_raw = bpf_get_current_comm().unwrap_or([0u8; 16]);
 	let len = comm_raw.iter().position(|&b| b == 0).unwrap_or(comm_raw.len());
 	let comm = unsafe { core::str::from_utf8_unchecked(&comm_raw[..len]) };
@@ -73,30 +78,28 @@ fn try_rust_xp_aya_ebpf(ctx: TracePointContext) -> Result<u32, u32> {
 		Err(_) => return Err(1),
 	};
 
+	let tgid = (bpf_get_current_pid_tgid() >> 32) as u32;
 	let comm_raw = bpf_get_current_comm().unwrap_or([0u8; 16]);
-
 	let uid = bpf_get_current_uid_gid() as u32;
-	let timestamp = unsafe { bpf_ktime_get_ns() >> 20 } as u32;
 
 	match (tp_ctx.sig, uid) {
-		(9, 0) => info!(
+		(9, 0) => debug!(
 			&ctx,
 			"->> ROOT USER Attempted __x64_sys_kill: pid={}, sig={}, uid={}", tp_ctx.pid, tp_ctx.sig, uid
 		),
 		(9, _) => {
-			warn!(
+			debug!(
 				&ctx,
 				"->> NON-ROOT USER Attempted __x64_sys_kill: pid={}, sig={}, uid={}", tp_ctx.pid, tp_ctx.sig, uid
 			);
 			let event = Event {
 				pid: tp_ctx.pid as u32,
 				uid,
+				tgid,
 				sig: tp_ctx.sig,
 				comm: comm_raw,
 				event_type: 1,
 				syscall_nr: tp_ctx.__syscall_nr as u8,
-				exit_code: 0,
-				timestamp_ns: timestamp,
 			};
 
 			match EVT_MAP.output(&event, 0) {
