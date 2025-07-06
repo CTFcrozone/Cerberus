@@ -22,6 +22,8 @@ pub enum Error {
 	#[from]
 	AyaEbpf(aya::EbpfError),
 	#[from]
+	AyaBtf(aya::BtfError),
+	#[from]
 	AyaMaps(aya::maps::MapError),
 	#[from]
 	AyaProgram(aya::programs::ProgramError),

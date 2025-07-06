@@ -39,8 +39,8 @@ struct SysEnterKillCtx {
 }
 
 #[tracepoint]
-pub fn rust_xp_aya_ebpf(ctx: TracePointContext) -> u32 {
-	match try_rust_xp_aya_ebpf(ctx) {
+pub fn trace_sys_enter_kill(ctx: TracePointContext) -> u32 {
+	match try_sys_enter_kill(ctx) {
 		Ok(ret) => ret,
 		Err(ret) => ret,
 	}
@@ -164,7 +164,7 @@ fn try_commit_creds(_ctx: ProbeContext) -> Result<u32, u32> {
 	Ok(0)
 }
 
-fn try_rust_xp_aya_ebpf(ctx: TracePointContext) -> Result<u32, u32> {
+fn try_sys_enter_kill(ctx: TracePointContext) -> Result<u32, u32> {
 	let tp_ctx = match unsafe { ctx.read_at::<SysEnterKillCtx>(8) } {
 		Ok(val) => val,
 		Err(_) => return Err(1),
