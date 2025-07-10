@@ -8,6 +8,6 @@ pub struct Event {
 	pub tgid: u32,
 
 	pub comm: [u8; 16],
-	pub event_type: u8,
-	pub meta: u32, // Sometimes syscall num, exitcode, some permission flags..etc
+	pub event_type: u8, // 1 => kill, 2 => IO_URING, 3 => SOCKET_CONNECT, 4 => COMMIT_CREDS
+	pub meta: u32,      // Sometimes syscall num, exitcode, some permission flags..etc
 }

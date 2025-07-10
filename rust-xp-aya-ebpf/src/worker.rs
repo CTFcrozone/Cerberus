@@ -32,14 +32,11 @@ impl ReceiverWorker {
 			let (event_name, detail) = match evt.event_type {
 				1 => ("KILL", format!("Signal: {}", evt.meta)),
 				2 => ("IO_URING", format!("Opcode: {}", evt.meta)),
-				// 3 => {
-				// 	let prot_flags = match evt.meta {
-				// 		0x01 => "RWX",
-				// 		0x02 => "WX",
-				// 		_ => "OTHER",
-				// 	};
-				// 	("MPROTECT", format!("Flags: {}", prot_flags))
-				// }
+				3 => {
+					let ip_bytes = evt.meta.to_be_bytes();
+					let ip_str = format!("{}.{}.{}.{}", ip_bytes[0], ip_bytes[1], ip_bytes[2], ip_bytes[3]);
+					("SOCKET_CONNECT", format!("Destination IP: {}", ip_str))
+				}
 				4 => ("COMMIT_CREDS", format!("Meta: {}", evt.meta)),
 				_ => ("UNKNOWN", format!("meta: {}", evt.meta)),
 			};

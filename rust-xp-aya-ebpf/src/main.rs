@@ -4,7 +4,8 @@ mod worker;
 pub use self::error::{Error, Result};
 use aya::{
 	maps::RingBuf,
-	programs::{KProbe, TracePoint},
+	programs::{lsm, KProbe, Lsm, TracePoint},
+	Btf,
 };
 #[rustfmt::skip]
 use tracing::{info, debug, warn};
@@ -52,6 +53,14 @@ async fn main() -> Result<()> {
 		.try_into()?;
 	program.load()?;
 	program.attach("syscalls", "sys_enter_kill")?;
+
+	let btf = Btf::from_sys_fs()?;
+	let lsm_socket_connect: &mut Lsm = ebpf
+		.program_mut("trace_socket_connect")
+		.ok_or(Error::EbpfProgNotFound)?
+		.try_into()?;
+	lsm_socket_connect.load("socket_connect", &btf)?;
+	lsm_socket_connect.attach()?;
 
 	let tp_io_uring: &mut TracePoint = ebpf
 		.program_mut("trace_io_uring_submit")

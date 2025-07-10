@@ -1,13 +1,19 @@
 #![no_std]
 #![no_main]
 
+use core::mem::transmute;
+
 use aya_ebpf::{
+	cty::c_int,
 	helpers::{bpf_get_current_comm, bpf_get_current_pid_tgid, bpf_get_current_uid_gid},
-	macros::{kprobe, map, tracepoint},
+	macros::{kprobe, lsm, map, tracepoint},
 	maps::RingBuf,
-	programs::{ProbeContext, TracePointContext},
+	programs::{LsmContext, ProbeContext, TracePointContext},
 };
+use aya_log_ebpf::{error, info};
 use rust_xp_aya_ebpf_common::Event;
+mod vmlinux;
+use vmlinux::{sock, sockaddr, sockaddr_in};
 
 #[repr(C)]
 struct IoUringSubmitReq {
@@ -30,12 +36,22 @@ struct IoUringSubmitReq {
 #[map]
 static EVT_MAP: RingBuf = RingBuf::with_byte_size(64 * 1024, 0);
 
+const AF_INET: u16 = 2;
+
 #[repr(C)]
 struct SysEnterKillCtx {
 	__syscall_nr: i32,
 	_padding: [u8; 4],
 	pid: u64,
 	sig: u64,
+}
+
+#[lsm(hook = "socket_connect")]
+pub fn trace_socket_connect(ctx: LsmContext) -> i32 {
+	match try_socket_connect(ctx) {
+		Ok(ret) => ret,
+		Err(ret) => ret,
+	}
 }
 
 #[tracepoint]
@@ -137,13 +153,13 @@ fn try_io_uring_submit(ctx: TracePointContext) -> Result<u32, u32> {
 // 	Ok(0)
 // }
 
-fn try_commit_creds(_ctx: ProbeContext) -> Result<u32, u32> {
+fn try_commit_creds(ctx: ProbeContext) -> Result<u32, u32> {
 	let old_uid = bpf_get_current_uid_gid() as u32;
 	let pid = bpf_get_current_pid_tgid() as u32;
 	let tgid = (bpf_get_current_pid_tgid() >> 32) as u32;
 	let comm_raw = bpf_get_current_comm().unwrap_or([0u8; 16]);
 
-	let new_uid = _ctx.arg(1).unwrap_or(0) as u32;
+	let new_uid = ctx.arg(1).unwrap_or(0) as u32;
 
 	if old_uid != 0 && new_uid == 0 {
 		let event = Event {
@@ -161,6 +177,42 @@ fn try_commit_creds(_ctx: ProbeContext) -> Result<u32, u32> {
 		}
 	}
 
+	Ok(0)
+}
+
+fn try_socket_connect(ctx: LsmContext) -> Result<i32, i32> {
+	let addr: *const sockaddr = unsafe { ctx.arg(1) };
+	let ret: i32 = unsafe { ctx.arg(3) };
+
+	if (ret != 0) {
+		return Ok(ret);
+	}
+
+	let sa_family = unsafe { (*addr).sa_family };
+	if sa_family != AF_INET {
+		return Ok(0);
+	}
+
+	let addr_in = addr as *const sockaddr_in;
+	let dest_ip = unsafe { (*addr_in).sin_addr.s_addr };
+
+	let uid = bpf_get_current_uid_gid() as u32;
+	let pid = bpf_get_current_pid_tgid() as u32;
+	let tgid = (bpf_get_current_pid_tgid() >> 32) as u32;
+	let comm_raw = bpf_get_current_comm().unwrap_or([0u8; 16]);
+
+	let event = Event {
+		pid,
+		uid,
+		tgid,
+		comm: comm_raw,
+		event_type: 3,
+		meta: dest_ip,
+	};
+	match EVT_MAP.output(&event, 0) {
+		Ok(_) => (),
+		Err(e) => error!(&ctx, "Couldn't write to the ring buffer ->> ERROR: {}", e), //  prints the error instead of returning, so the syscall is not blocked
+	}
 	Ok(0)
 }
 
