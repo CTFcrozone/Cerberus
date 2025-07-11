@@ -1,5 +1,5 @@
 [package]
-name = "rust-xp-aya-ebpf-common"
+name = "cerberus-common"
 version = "0.1.0"
 edition = "2021"
 

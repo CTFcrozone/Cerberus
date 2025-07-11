@@ -19,8 +19,8 @@ fn main() -> Result<()> {
 		.map_err(|_| Error::ExecFail)?;
 	let ebpf_package = packages
 		.into_iter()
-		.find(|cargo_metadata::Package { name, .. }| name == "rust-xp-aya-ebpf-ebpf")
-		.ok_or_else(|| Error::Custom("rust-aya-ebpf-xp-ebpf package not found".to_string()))?;
+		.find(|cargo_metadata::Package { name, .. }| name == "cerberus-ebpf")
+		.ok_or_else(|| Error::Custom("cerberus-ebpf package not found".to_string()))?;
 	aya_build::build_ebpf([ebpf_package]).map_err(|_| Error::BuildFail)?;
 	Ok(())
 }

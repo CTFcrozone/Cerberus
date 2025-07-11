@@ -1,14 +1,12 @@
 [package]
-name = "rust-xp-aya-ebpf"
+name = "cerberus"
 version = "0.1.0"
 edition = "2021"
 
 license.workspace = true
 
 [dependencies]
-rust-xp-aya-ebpf-common = { path = "../rust-xp-aya-ebpf-common", features = [
-    "user",
-] }
+cerberus-common = { path = "../cerberus-common", features = ["user"] }
 derive_more = { workspace = true }
 anyhow = { workspace = true, default-features = true }
 aya = { workspace = true }
@@ -44,9 +42,9 @@ aya-build = { workspace = true }
 # Finally note that *any* usage of `artifact = ...` in *any* Cargo.toml in the workspace breaks
 # workflows with stable cargo; stable cargo outright refuses to load manifests that use unstable
 # features.
-rust-xp-aya-ebpf-ebpf = { path = "../rust-xp-aya-ebpf-ebpf" }
+cerberus-ebpf = { path = "../cerberus-ebpf" }
 
 [[bin]]
-name = "rust-xp-aya-ebpf"
+name = "cerberus"
 
 path = "src/main.rs"

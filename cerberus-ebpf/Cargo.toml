@@ -1,10 +1,10 @@
 [package]
-name = "rust-xp-aya-ebpf-ebpf"
+name = "cerberus-ebpf"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-rust-xp-aya-ebpf-common = { path = "../rust-xp-aya-ebpf-common" }
+cerberus-common = { path = "../cerberus-common" }
 aya-ebpf = { workspace = true }
 aya-log-ebpf = { workspace = true }
 
@@ -12,5 +12,5 @@ aya-log-ebpf = { workspace = true }
 which = { workspace = true }
 
 [[bin]]
-name = "rust-xp-aya-ebpf"
+name = "cerberus"
 path = "src/main.rs"

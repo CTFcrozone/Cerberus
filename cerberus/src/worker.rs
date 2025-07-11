@@ -5,9 +5,8 @@ use crate::{
 	trx::EventRx,
 };
 use aya::maps::{MapData, RingBuf};
+use cerberus_common::Event;
 use dns_lookup::lookup_addr;
-use libc::getnameinfo;
-use rust_xp_aya_ebpf_common::Event;
 use tokio::io::unix::AsyncFd;
 use tracing::info;
 use zerocopy::FromBytes;

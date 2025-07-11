@@ -1,6 +1,6 @@
 use crate::Result;
+use cerberus_common::Event;
 use flume::{Receiver, Sender};
-use rust_xp_aya_ebpf_common::Event;
 
 #[derive(Clone)]
 pub struct EventTx {

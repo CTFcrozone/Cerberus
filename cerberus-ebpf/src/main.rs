@@ -1,19 +1,16 @@
 #![no_std]
 #![no_main]
 
-use core::mem::transmute;
-
 use aya_ebpf::{
-	cty::c_int,
 	helpers::{bpf_get_current_comm, bpf_get_current_pid_tgid, bpf_get_current_uid_gid},
 	macros::{kprobe, lsm, map, tracepoint},
 	maps::RingBuf,
 	programs::{LsmContext, ProbeContext, TracePointContext},
 };
-use aya_log_ebpf::{error, info};
-use rust_xp_aya_ebpf_common::Event;
+use aya_log_ebpf::error;
+use cerberus_common::Event;
 mod vmlinux;
-use vmlinux::{sock, sockaddr, sockaddr_in, task_struct};
+use vmlinux::{sockaddr, sockaddr_in, task_struct};
 
 #[repr(C)]
 struct IoUringSubmitReq {
@@ -37,14 +34,6 @@ struct IoUringSubmitReq {
 static EVT_MAP: RingBuf = RingBuf::with_byte_size(64 * 1024, 0);
 
 const AF_INET: u16 = 2;
-
-#[repr(C)]
-struct SysEnterKillCtx {
-	__syscall_nr: i32,
-	_padding: [u8; 4],
-	pid: u64,
-	sig: u64,
-}
 
 #[lsm(hook = "socket_connect")]
 pub fn trace_socket_connect(ctx: LsmContext) -> i32 {
@@ -184,7 +173,7 @@ fn try_socket_connect(ctx: LsmContext) -> Result<i32, i32> {
 	let addr: *const sockaddr = unsafe { ctx.arg(1) };
 	let ret: i32 = unsafe { ctx.arg(3) };
 
-	if (ret != 0) {
+	if ret != 0 {
 		return Ok(ret);
 	}
 

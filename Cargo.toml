@@ -1,11 +1,7 @@
 [workspace]
 resolver = "2"
-members = [
-    "rust-xp-aya-ebpf",
-    "rust-xp-aya-ebpf-common",
-    "rust-xp-aya-ebpf-ebpf",
-]
-default-members = ["rust-xp-aya-ebpf", "rust-xp-aya-ebpf-common"]
+members = ["cerberus", "cerberus-common", "cerberus-ebpf"]
+default-members = ["cerberus", "cerberus-common"]
 
 [workspace.package]
 license = "MIT OR Apache-2.0"
@@ -33,6 +29,6 @@ tokio = { version = "1.40.0", default-features = false }
 which = { version = "6.0.0", default-features = false }
 tracing = { version = "0.1", default-features = false }
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-[profile.release.package.rust-xp-aya-ebpf-ebpf]
+[profile.release.package.cerberus-ebpf]
 debug = 2
 codegen-units = 1
