@@ -1,8 +1,12 @@
+use std::net::{IpAddr, Ipv4Addr};
+
 use crate::{
 	error::{Error, Result},
 	trx::EventRx,
 };
 use aya::maps::{MapData, RingBuf};
+use dns_lookup::lookup_addr;
+use libc::getnameinfo;
 use rust_xp_aya_ebpf_common::Event;
 use tokio::io::unix::AsyncFd;
 use tracing::info;
@@ -34,8 +38,14 @@ impl ReceiverWorker {
 				2 => ("IO_URING", format!("Opcode: {}", evt.meta)),
 				3 => {
 					let ip_bytes = evt.meta.to_be_bytes();
+					let ipaddr = Ipv4Addr::from(ip_bytes);
+					let ipaddr = IpAddr::V4(ipaddr);
+					let host = lookup_addr(&ipaddr)?;
 					let ip_str = format!("{}.{}.{}.{}", ip_bytes[0], ip_bytes[1], ip_bytes[2], ip_bytes[3]);
-					("SOCKET_CONNECT", format!("Destination IP: {}", ip_str))
+					(
+						"SOCKET_CONNECT",
+						format!("Destination IP: {} | HOSTNAME: {}", ip_str, host),
+					)
 				}
 				4 => ("COMMIT_CREDS", format!("Meta: {}", evt.meta)),
 				_ => ("UNKNOWN", format!("meta: {}", evt.meta)),

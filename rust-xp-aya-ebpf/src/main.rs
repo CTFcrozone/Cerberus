@@ -47,14 +47,14 @@ async fn main() -> Result<()> {
 	}
 
 	// Now do all program_mut calls BEFORE wrapping in AsyncFd
-	let program: &mut TracePoint = ebpf
+	let btf = Btf::from_sys_fs()?;
+	let program: &mut Lsm = ebpf
 		.program_mut("trace_sys_enter_kill")
 		.ok_or(Error::EbpfProgNotFound)?
 		.try_into()?;
-	program.load()?;
-	program.attach("syscalls", "sys_enter_kill")?;
+	program.load("task_kill", &btf)?;
+	program.attach()?;
 
-	let btf = Btf::from_sys_fs()?;
 	let lsm_socket_connect: &mut Lsm = ebpf
 		.program_mut("trace_socket_connect")
 		.ok_or(Error::EbpfProgNotFound)?

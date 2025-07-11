@@ -13,7 +13,7 @@ use aya_ebpf::{
 use aya_log_ebpf::{error, info};
 use rust_xp_aya_ebpf_common::Event;
 mod vmlinux;
-use vmlinux::{sock, sockaddr, sockaddr_in};
+use vmlinux::{sock, sockaddr, sockaddr_in, task_struct};
 
 #[repr(C)]
 struct IoUringSubmitReq {
@@ -54,8 +54,8 @@ pub fn trace_socket_connect(ctx: LsmContext) -> i32 {
 	}
 }
 
-#[tracepoint]
-pub fn trace_sys_enter_kill(ctx: TracePointContext) -> u32 {
+#[lsm(hook = "task_kill")]
+pub fn trace_sys_enter_kill(ctx: LsmContext) -> i32 {
 	match try_sys_enter_kill(ctx) {
 		Ok(ret) => ret,
 		Err(ret) => ret,
@@ -195,6 +195,10 @@ fn try_socket_connect(ctx: LsmContext) -> Result<i32, i32> {
 
 	let addr_in = addr as *const sockaddr_in;
 	let dest_ip = unsafe { (*addr_in).sin_addr.s_addr };
+	// Filter out tokio-runtime-w → 127.0.0.53 and systemd-resolve → 192.168.0.1
+	if dest_ip == 0x3500007f || dest_ip == 0x0100a8c0 {
+		return Ok(0);
+	}
 
 	let uid = bpf_get_current_uid_gid() as u32;
 	let pid = bpf_get_current_pid_tgid() as u32;
@@ -209,35 +213,35 @@ fn try_socket_connect(ctx: LsmContext) -> Result<i32, i32> {
 		event_type: 3,
 		meta: dest_ip,
 	};
+
 	match EVT_MAP.output(&event, 0) {
 		Ok(_) => (),
-		Err(e) => error!(&ctx, "Couldn't write to the ring buffer ->> ERROR: {}", e), //  prints the error instead of returning, so the syscall is not blocked
+		Err(e) => error!(&ctx, "Couldn't write to the ring buffer ->> ERROR: {}", e),
 	}
 	Ok(0)
 }
 
-fn try_sys_enter_kill(ctx: TracePointContext) -> Result<u32, u32> {
-	let tp_ctx = match unsafe { ctx.read_at::<SysEnterKillCtx>(8) } {
-		Ok(val) => val,
-		Err(_) => return Err(1),
-	};
+fn try_sys_enter_kill(ctx: LsmContext) -> Result<i32, i32> {
+	let task: *const task_struct = unsafe { ctx.arg(0) };
+	let sig: u32 = unsafe { ctx.arg(2) };
+	let pid = unsafe { (*task).pid };
 
 	let tgid = (bpf_get_current_pid_tgid() >> 32) as u32;
 	let comm_raw = bpf_get_current_comm().unwrap_or([0u8; 16]);
 	let uid = bpf_get_current_uid_gid() as u32;
 
 	let event = Event {
-		pid: tp_ctx.pid as u32,
+		pid: pid as u32,
 		uid,
 		tgid,
 		comm: comm_raw,
 		event_type: 1,
-		meta: tp_ctx.sig as u32,
+		meta: sig,
 	};
 
 	match EVT_MAP.output(&event, 0) {
 		Ok(_) => (),
-		Err(e) => return Err(e as u32),
+		Err(e) => error!(&ctx, "Couldn't write to the ring buffer ->> ERROR: {}", e), //  prints the error instead of returning, so the syscall is not blocked
 	}
 
 	Ok(0)
