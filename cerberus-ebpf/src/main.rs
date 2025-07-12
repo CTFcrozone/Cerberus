@@ -32,8 +32,16 @@ struct IoUringSubmitReq {
 
 #[map]
 static EVT_MAP: RingBuf = RingBuf::with_byte_size(64 * 1024, 0);
+const SYSTEMD_RESOLVE: &[u8; 16] = b"systemd-resolve\0";
+const TOKIO_RUNTIME: &[u8; 16] = b"tokio-runtime-w\0";
 
 const AF_INET: u16 = 2;
+
+macro_rules! match_comm {
+    ($comm:expr, [$( $name:expr ),*]) => {
+        false $(|| &$comm[..] == $name )*
+    };
+}
 
 #[lsm(hook = "socket_connect")]
 pub fn trace_socket_connect(ctx: LsmContext) -> i32 {
@@ -184,15 +192,15 @@ fn try_socket_connect(ctx: LsmContext) -> Result<i32, i32> {
 
 	let addr_in = addr as *const sockaddr_in;
 	let dest_ip = unsafe { (*addr_in).sin_addr.s_addr };
-	// Filter out tokio-runtime-w → 127.0.0.53 and systemd-resolve → 192.168.0.1
-	if dest_ip == 0x3500007f || dest_ip == 0x0100a8c0 {
-		return Ok(0);
-	}
 
 	let uid = bpf_get_current_uid_gid() as u32;
 	let pid = bpf_get_current_pid_tgid() as u32;
 	let tgid = (bpf_get_current_pid_tgid() >> 32) as u32;
 	let comm_raw = bpf_get_current_comm().unwrap_or([0u8; 16]);
+
+	if match_comm!(comm_raw, [TOKIO_RUNTIME, SYSTEMD_RESOLVE]) {
+		return Ok(0);
+	}
 
 	let event = Event {
 		pid,
