@@ -4,7 +4,7 @@ mod worker;
 pub use self::error::{Error, Result};
 use aya::{
 	maps::RingBuf,
-	programs::{KProbe, Lsm, TracePoint},
+	programs::{loaded_programs, KProbe, Lsm, ProgramFd, ProgramType, TracePoint},
 	Btf,
 };
 #[rustfmt::skip]
@@ -82,6 +82,14 @@ async fn main() -> Result<()> {
 	let fd = AsyncFd::new(ring_buf)?;
 	RingBufWorker::start(fd, trx.0).await?;
 	ReceiverWorker::start(trx.1).await?;
+
+	let program_names: Vec<String> = loaded_programs()
+		.filter_map(|res| res.ok())
+		.filter_map(|p| p.name_as_str().map(|s| s.to_string()))
+		.filter(|name| !name.is_empty())
+		.collect();
+
+	println!("{:?}", program_names);
 
 	let ctrl_c = signal::ctrl_c();
 	ctrl_c.await?;
