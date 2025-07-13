@@ -21,6 +21,7 @@ pub enum ActionEvent {
 pub struct RingBufEvent {
 	pub name: String,
 	pub uid: u32,
+	pub pid: u32,
 	pub tgid: u32,
 	pub comm: String,
 	pub meta: u32,

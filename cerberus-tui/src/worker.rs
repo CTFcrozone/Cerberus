@@ -68,6 +68,7 @@ impl ReceiverWorker {
 
 			let app_evt = AppEvent::Cerberus(RingBufEvent {
 				name,
+				pid: evt.pid,
 				uid: evt.uid,
 				tgid: evt.tgid,
 				comm,

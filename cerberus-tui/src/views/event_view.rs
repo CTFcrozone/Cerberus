@@ -30,11 +30,10 @@ fn render_events(area: Rect, buf: &mut Buffer, state: &mut AppState, block: Bloc
 	let items: Vec<ListItem> = evts
 		.iter()
 		.rev()
-		.take(20)
 		.map(|evt| {
 			let line = format!(
-				"[{}] UID: {} TGID: {} CMD: {} META: {}",
-				evt.name, evt.uid, evt.tgid, evt.comm, evt.meta
+				"[{}] UID: {} PID: {} TGID: {} CMD: {} META: {}",
+				evt.name, evt.uid, evt.pid, evt.tgid, evt.comm, evt.meta
 			);
 			ListItem::new(line)
 		})
