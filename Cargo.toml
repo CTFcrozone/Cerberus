@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["cerberus", "cerberus-common", "cerberus-ebpf"]
+members = ["cerberus", "cerberus-common", "cerberus-ebpf", "cerberus-tui"]
 default-members = ["cerberus", "cerberus-common"]
 
 [workspace.package]

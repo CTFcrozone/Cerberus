@@ -44,7 +44,7 @@ macro_rules! match_comm {
 }
 
 #[lsm(hook = "socket_connect")]
-pub fn trace_socket_connect(ctx: LsmContext) -> i32 {
+pub fn socket_connect(ctx: LsmContext) -> i32 {
 	match try_socket_connect(ctx) {
 		Ok(ret) => ret,
 		Err(ret) => ret,
@@ -52,7 +52,7 @@ pub fn trace_socket_connect(ctx: LsmContext) -> i32 {
 }
 
 #[lsm(hook = "task_kill")]
-pub fn trace_sys_enter_kill(ctx: LsmContext) -> i32 {
+pub fn sys_enter_kill(ctx: LsmContext) -> i32 {
 	match try_sys_enter_kill(ctx) {
 		Ok(ret) => ret,
 		Err(ret) => ret,
@@ -60,7 +60,7 @@ pub fn trace_sys_enter_kill(ctx: LsmContext) -> i32 {
 }
 
 #[tracepoint]
-pub fn trace_io_uring_submit(ctx: TracePointContext) -> u32 {
+pub fn io_uring_submit(ctx: TracePointContext) -> u32 {
 	match try_io_uring_submit(ctx) {
 		Ok(ret) => ret,
 		Err(ret) => ret,
@@ -76,7 +76,7 @@ pub fn trace_io_uring_submit(ctx: TracePointContext) -> u32 {
 // }
 
 #[kprobe]
-pub fn trace_commit_creds(ctx: ProbeContext) -> u32 {
+pub fn commit_creds(ctx: ProbeContext) -> u32 {
 	match try_commit_creds(ctx) {
 		Ok(ret) => ret,
 		Err(ret) => ret,
