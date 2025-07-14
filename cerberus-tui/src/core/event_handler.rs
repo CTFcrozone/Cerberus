@@ -33,7 +33,8 @@ pub async fn handle_app_event(
 fn handle_cerberus_event(event: &RingBufEvent, app_state: &mut AppState) {
 	app_state.cerberus_evts.push(event.clone());
 	if app_state.cerberus_evts.len() > 1000 {
-		app_state.cerberus_evts.remove(0);
+		let excess = app_state.cerberus_evts.len() - 100;
+		app_state.cerberus_evts.drain(0..excess);
 	}
 }
 

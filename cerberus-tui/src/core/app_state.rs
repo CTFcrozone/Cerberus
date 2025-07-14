@@ -51,6 +51,13 @@ impl AppState {
 	pub fn cerberus_evts(&self) -> &[RingBufEvent] {
 		&self.cerberus_evts
 	}
+	pub fn event_scroll(&self) -> u16 {
+		self.event_scroll
+	}
+
+	pub fn set_event_scroll(&mut self, scroll: u16) {
+		self.event_scroll = scroll;
+	}
 }
 
 impl AppState {
