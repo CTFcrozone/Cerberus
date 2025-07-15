@@ -14,15 +14,15 @@ pub fn process_app_state(state: &mut AppState) {
 
 	state.loaded_hooks = hooks;
 
+	let current_event_scroll = state.event_scroll();
 	if let Some(mouse_evt) = state.last_app_event().as_mouse_event() {
-		match mouse_evt.kind {
-			MouseEventKind::ScrollUp => {
-				state.event_scroll = state.event_scroll.saturating_sub(3);
-			}
-			MouseEventKind::ScrollDown => {
-				state.event_scroll = state.event_scroll.saturating_add(3);
-			}
-			_ => (),
+		let event_scroll = match mouse_evt.kind {
+			MouseEventKind::ScrollUp => Some(current_event_scroll.saturating_sub(3)),
+			MouseEventKind::ScrollDown => Some(current_event_scroll.saturating_add(3)),
+			_ => None,
+		};
+		if let Some(event_scroll) = event_scroll {
+			state.set_event_scroll(event_scroll);
 		}
 	}
 }

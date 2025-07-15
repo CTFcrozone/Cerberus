@@ -55,15 +55,15 @@ fn render_events(area: Rect, buf: &mut Buffer, state: &mut AppState, block: Bloc
 	let line_count = lines.len();
 
 	let max_scroll = line_count.saturating_sub(area.height as usize) as u16;
-	if state.event_scroll > max_scroll {
-		state.event_scroll = max_scroll;
+	if state.event_scroll() > max_scroll {
+		state.set_event_scroll(max_scroll);
 	}
 
-	let paragraph = Paragraph::new(lines).block(block).scroll((state.event_scroll, 0));
+	let paragraph = Paragraph::new(lines).block(block).scroll((state.event_scroll(), 0));
 	paragraph.render(area, buf);
 
 	if line_count as u16 > area.height {
-		let mut scrollbar_state = ScrollbarState::new(line_count as usize).position(state.event_scroll as usize);
+		let mut scrollbar_state = ScrollbarState::new(line_count as usize).position(state.event_scroll() as usize);
 		let scrollbar = Scrollbar::default()
 			.orientation(ScrollbarOrientation::VerticalRight)
 			.begin_symbol(Some("▲"))

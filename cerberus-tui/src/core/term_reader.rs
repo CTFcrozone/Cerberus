@@ -13,7 +13,7 @@ pub fn run_term_read(app_tx: AppTx) -> Result<JoinHandle<()>> {
 		let mut reader = EventStream::new();
 
 		loop {
-			let delay = Delay::new(Duration::from_millis(200)).fuse();
+			let delay = Delay::new(Duration::from_millis(100)).fuse();
 			let event = reader.next().fuse();
 
 			select! {
