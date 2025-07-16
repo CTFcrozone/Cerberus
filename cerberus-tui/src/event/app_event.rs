@@ -1,12 +1,17 @@
+use std::sync::Arc;
+
 use derive_more::From;
 
-#[derive(From, Debug)]
+#[derive(From)]
 pub enum AppEvent {
 	#[from]
 	Term(crossterm::event::Event),
 
 	#[from]
 	Cerberus(RingBufEvent),
+
+	#[from]
+	LoadedHooks,
 
 	#[from]
 	Action(ActionEvent),
@@ -19,10 +24,10 @@ pub enum ActionEvent {
 
 #[derive(Debug, Clone)]
 pub struct RingBufEvent {
-	pub name: String,
+	pub name: &'static str,
 	pub uid: u32,
 	pub pid: u32,
 	pub tgid: u32,
-	pub comm: String,
+	pub comm: Arc<str>,
 	pub meta: u32,
 }

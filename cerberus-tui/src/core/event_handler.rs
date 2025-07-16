@@ -1,10 +1,13 @@
 use super::{AppState, AppTx, ExitTx};
 use crate::{
 	event::{ActionEvent, AppEvent, RingBufEvent},
+	worker::RingBufWorker,
 	Result,
 };
 use crossterm::event::{Event, KeyCode, KeyEventKind, KeyModifiers};
 use ratatui::DefaultTerminal;
+
+const MAX_EVENTS: usize = 500; // Reduced from 1000
 
 pub async fn handle_app_event(
 	terminal: &mut DefaultTerminal,
@@ -13,29 +16,39 @@ pub async fn handle_app_event(
 	app_event: &AppEvent,
 	app_state: &mut AppState,
 ) -> Result<()> {
-	// println!("APP EVENT HANDLER - {app_event:?}");
-
 	match app_event {
 		AppEvent::Term(term_event) => {
-			handle_term_event(term_event, app_tx).await?;
+			handle_term_event(&term_event, app_tx).await?;
 		}
 		AppEvent::Action(action_event) => {
-			handle_action_event(action_event, terminal, exit_tx).await?;
+			handle_action_event(&action_event, terminal, exit_tx).await?;
 		}
 		AppEvent::Cerberus(cerberus_evt) => {
-			handle_cerberus_event(cerberus_evt, app_state);
+			handle_cerberus_event(&cerberus_evt, app_state);
+		}
+		AppEvent::LoadedHooks => {
+			handle_hooks_loaded(app_state, app_tx).await?;
 		}
 	};
 
 	Ok(())
 }
 
-fn handle_cerberus_event(event: &RingBufEvent, app_state: &mut AppState) {
-	app_state.cerberus_evts.push(event.clone());
-	if app_state.cerberus_evts.len() > 1000 {
-		let excess = app_state.cerberus_evts.len() - 100;
-		app_state.cerberus_evts.drain(0..excess);
+async fn handle_hooks_loaded(app_state: &mut AppState, app_tx: &AppTx) -> Result<()> {
+	if let Some(fd) = app_state.ringbuf_fd() {
+		RingBufWorker::start(fd, app_tx.clone()).await?;
+		app_state.worker_up = true;
+		app_state.set_view(crate::core::View::Main);
 	}
+
+	Ok(())
+}
+
+fn handle_cerberus_event(event: &RingBufEvent, app_state: &mut AppState) {
+	if app_state.cerberus_evts.len() >= MAX_EVENTS {
+		app_state.cerberus_evts.remove(0);
+	}
+	app_state.cerberus_evts.push(event.clone());
 }
 
 async fn handle_term_event(term_event: &Event, app_tx: &AppTx) -> Result<()> {

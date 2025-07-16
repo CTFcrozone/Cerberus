@@ -19,7 +19,7 @@ pub fn run_ui_loop(
 
 	let handle = tokio::spawn(async move {
 		loop {
-			process_app_state(&mut appstate);
+			process_app_state(&mut appstate, &app_tx);
 			let _ = terminal_draw(&mut term, &mut appstate);
 
 			let app_event = match app_rx.recv().await {

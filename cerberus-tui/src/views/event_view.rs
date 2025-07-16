@@ -2,10 +2,7 @@ use ratatui::{
 	buffer::Buffer,
 	layout::Rect,
 	text::{Line, Span},
-	widgets::{
-		Block, List, ListItem, ListState, Padding, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState,
-		StatefulWidget, Widget,
-	},
+	widgets::{Block, Padding, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState, StatefulWidget, Widget},
 };
 
 use crate::{core::AppState, styles};
@@ -31,43 +28,23 @@ impl StatefulWidget for EventView {
 fn render_events(area: Rect, buf: &mut Buffer, state: &mut AppState, block: Block) {
 	let events = state.cerberus_evts();
 
-	// Build lines for each event (no ListItems)
 	let lines: Vec<Line> = events
 		.iter()
 		.map(|evt| {
-			let spans = vec![
-				Span::styled(format!("[{}]", evt.name), styles::STL_TXT_ACTION),
-				Span::raw(" | "),
-				Span::styled(format!("UID: {}", evt.uid), styles::STL_TXT_LBL_DARK),
-				Span::raw(" | "),
-				Span::styled(format!("PID: {}", evt.pid), styles::STL_TXT_VAL),
-				Span::raw(" | "),
-				Span::styled(format!("TGID: {}", evt.tgid), styles::STL_TXT_VAL_DARK),
-				Span::raw(" | "),
-				Span::styled(format!("CMD: {}", evt.comm), styles::STL_TXT_ACT),
-				Span::raw(" | "),
-				Span::styled(format!("META: {}", evt.meta), styles::STL_TXT_SEL),
-			];
-			Line::from(spans)
+			Line::raw(format!(
+				"[{}] UID:{} | PID:{} | TGID:{} | CMD:{} | META:{}",
+				evt.name, evt.uid, evt.pid, evt.tgid, evt.comm, evt.meta
+			))
 		})
 		.collect();
 
 	let line_count = lines.len();
-
 	let max_scroll = line_count.saturating_sub(area.height as usize) as u16;
+
 	if state.event_scroll() > max_scroll {
 		state.set_event_scroll(max_scroll);
 	}
 
 	let paragraph = Paragraph::new(lines).block(block).scroll((state.event_scroll(), 0));
 	paragraph.render(area, buf);
-
-	if line_count as u16 > area.height {
-		let mut scrollbar_state = ScrollbarState::new(line_count as usize).position(state.event_scroll() as usize);
-		let scrollbar = Scrollbar::default()
-			.orientation(ScrollbarOrientation::VerticalRight)
-			.begin_symbol(Some("▲"))
-			.end_symbol(Some("▼"));
-		scrollbar.render(area, buf, &mut scrollbar_state);
-	}
 }

@@ -2,6 +2,7 @@ mod action_view;
 mod event_view;
 mod loaded_hooks_view;
 mod main_view;
+mod splash_view;
 
 pub use action_view::*;
 pub use event_view::*;

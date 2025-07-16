@@ -53,15 +53,16 @@ pub const STL_TXT_VAL_DARK: Style = Style::new().fg(CLR_TXT_LBL);
 pub const STL_TXT_ACT: Style = Style::new().fg(Color::White);
 pub const STL_TXT_SEL: Style = Style::new().fg(Color::Blue);
 pub const STL_TXT_ACTION: Style = Style::new().fg(Color::Blue);
+pub const STL_TXT_ACTION_SELECTED: Style = Style::new().fg(Color::LightGreen);
 
 pub const STL_NAV_ITEM_HIGHLIGHT: Style = Style::new().bg(CLR_BKG_SEL).fg(CLR_TXT_SEL);
 
 // -- TABS
 pub const CLR_BKG_TAB_ACT: Color = CLR_BKG_GRAY_DARK;
 pub fn stl_tab_dft() -> Style {
-    Style::new().bg(CLR_BKG_GRAY_DARKER).fg(CLR_TXT_300)
+	Style::new().bg(CLR_BKG_GRAY_DARKER).fg(CLR_TXT_300)
 }
 
 pub fn stl_tab_act() -> Style {
-    Style::new().bg(CLR_BKG_TAB_ACT).fg(CLR_TXT_WHITE).bold()
+	Style::new().bg(CLR_BKG_TAB_ACT).fg(CLR_TXT_WHITE).bold()
 }

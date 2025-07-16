@@ -24,7 +24,7 @@ impl StatefulWidget for ActionView {
 			Span::styled("CTRL+C", styles::STL_TXT_ACTION),
 			Span::raw("] Quit  "),
 			Span::raw("["),
-			Span::styled("C", styles::STL_TXT_ACTION),
+			Span::styled("X", styles::STL_TXT_ACTION),
 			Span::raw("] Clear events  "),
 		]);
 

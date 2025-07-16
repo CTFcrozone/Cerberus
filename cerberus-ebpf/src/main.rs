@@ -12,26 +12,8 @@ use cerberus_common::Event;
 mod vmlinux;
 use vmlinux::{sockaddr, sockaddr_in, task_struct};
 
-#[repr(C)]
-struct IoUringSubmitReq {
-	common_type: u16,
-	common_flags: u8,
-	common_preempt_count: u8,
-	common_pid: i32,
-
-	ctx: u64,
-	req: u64,
-	user_data: u64,
-	opcode: u8,
-	_pad1: [u8; 7],
-	flags: u64,
-	sq_thread: u8,
-	_pad2: [u8; 3],
-	op_str: u32,
-}
-
 #[map]
-static EVT_MAP: RingBuf = RingBuf::with_byte_size(64 * 1024, 0);
+static EVT_MAP: RingBuf = RingBuf::with_byte_size(32 * 1024, 0);
 const SYSTEMD_RESOLVE: &[u8; 16] = b"systemd-resolve\0";
 const TOKIO_RUNTIME: &[u8; 16] = b"tokio-runtime-w\0";
 
@@ -59,22 +41,6 @@ pub fn sys_enter_kill(ctx: LsmContext) -> i32 {
 	}
 }
 
-#[tracepoint]
-pub fn io_uring_submit(ctx: TracePointContext) -> u32 {
-	match try_io_uring_submit(ctx) {
-		Ok(ret) => ret,
-		Err(ret) => ret,
-	}
-}
-
-// #[kprobe]
-// pub fn trace_mprotect(ctx: ProbeContext) -> u32 {
-// 	match try_mprotect(ctx) {
-// 		Ok(ret) => ret,
-// 		Err(ret) => ret,
-// 	}
-// }
-
 #[kprobe]
 pub fn commit_creds(ctx: ProbeContext) -> u32 {
 	match try_commit_creds(ctx) {
@@ -82,73 +48,6 @@ pub fn commit_creds(ctx: ProbeContext) -> u32 {
 		Err(ret) => ret,
 	}
 }
-
-fn try_io_uring_submit(ctx: TracePointContext) -> Result<u32, u32> {
-	let uid = bpf_get_current_uid_gid() as u32;
-	let pid = bpf_get_current_pid_tgid() as u32;
-	let tgid = (bpf_get_current_pid_tgid() >> 32) as u32;
-	let comm_raw = bpf_get_current_comm().unwrap_or([0u8; 16]);
-
-	let req = match unsafe { ctx.read_at::<IoUringSubmitReq>(0) } {
-		Ok(r) => r,
-		Err(_) => return Err(1),
-	};
-
-	let event = Event {
-		pid,
-		uid,
-		tgid,
-		comm: comm_raw,
-		event_type: 2,
-		meta: req.opcode as u32,
-	};
-
-	match EVT_MAP.output(&event, 0) {
-		Ok(_) => (),
-		Err(e) => return Err(e as u32),
-	}
-
-	Ok(0)
-}
-
-// fn try_mprotect(ctx: ProbeContext) -> Result<u32, u32> {
-// 	let uid = bpf_get_current_uid_gid() as u32;
-// 	let pid = bpf_get_current_pid_tgid() as u32;
-// 	let tgid = (bpf_get_current_pid_tgid() >> 32) as u32;
-// 	let comm_raw = bpf_get_current_comm().unwrap_or([0u8; 16]);
-
-// 	// mprotect_fixup(struct vm_area_struct *vma, struct vm_area_struct **pprev,
-// 	//               unsigned long start, unsigned long end, unsigned long newflags)
-// 	let newflags = match ctx.arg::<u64>(4) {
-// 		Some(val) => val,
-// 		None => 0,
-// 	};
-
-// 	let is_rwx = (newflags & 0x7) == 0x7;
-// 	let is_wx = (newflags & 0x6) == 0x6;
-
-// 	let event = Event {
-// 		pid,
-// 		uid,
-// 		tgid,
-// 		comm: comm_raw,
-// 		event_type: 3,
-// 		meta: if is_rwx {
-// 			0x01
-// 		} else if is_wx {
-// 			0x02
-// 		} else {
-// 			0x00
-// 		},
-// 	};
-
-// 	match EVT_MAP.output(&event, 0) {
-// 		Ok(_) => (),
-// 		Err(e) => return Err(e as u32),
-// 	}
-
-// 	Ok(0)
-// }
 
 fn try_commit_creds(ctx: ProbeContext) -> Result<u32, u32> {
 	let old_uid = bpf_get_current_uid_gid() as u32;

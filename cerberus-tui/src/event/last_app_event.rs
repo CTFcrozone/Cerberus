@@ -2,7 +2,7 @@ use super::AppEvent;
 use derive_more::From;
 use std::sync::Arc;
 
-#[derive(Clone, Debug, Default, From)]
+#[derive(Clone, Default, From)]
 pub struct LastAppEvent {
 	last_event: Option<Arc<AppEvent>>,
 }
