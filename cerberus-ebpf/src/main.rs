@@ -1,16 +1,21 @@
 #![no_std]
 #![no_main]
 
+use core::mem::transmute;
+
 use aya_ebpf::{
-	helpers::{bpf_get_current_comm, bpf_get_current_pid_tgid, bpf_get_current_uid_gid},
+	helpers::{
+		bpf_get_current_comm, bpf_get_current_pid_tgid, bpf_get_current_uid_gid, bpf_probe_read, bpf_probe_read_kernel,
+		bpf_probe_read_kernel_str,
+	},
 	macros::{kprobe, lsm, map, tracepoint},
 	maps::RingBuf,
 	programs::{LsmContext, ProbeContext, TracePointContext},
 };
-use aya_log_ebpf::error;
+use aya_log_ebpf::{error, warn};
 use cerberus_common::Event;
 mod vmlinux;
-use vmlinux::{sockaddr, sockaddr_in, task_struct};
+use vmlinux::{module, sockaddr, sockaddr_in, task_struct};
 
 #[map]
 static EVT_MAP: RingBuf = RingBuf::with_byte_size(32 * 1024, 0);
@@ -49,6 +54,14 @@ pub fn commit_creds(ctx: ProbeContext) -> u32 {
 	}
 }
 
+#[kprobe]
+pub fn do_init_module(ctx: ProbeContext) -> u32 {
+	match try_do_init_module(ctx) {
+		Ok(ret) => ret,
+		Err(ret) => ret,
+	}
+}
+
 fn try_commit_creds(ctx: ProbeContext) -> Result<u32, u32> {
 	let old_uid = bpf_get_current_uid_gid() as u32;
 	let pid = bpf_get_current_pid_tgid() as u32;
@@ -71,6 +84,40 @@ fn try_commit_creds(ctx: ProbeContext) -> Result<u32, u32> {
 			Ok(_) => (),
 			Err(e) => return Err(e as u32),
 		}
+	}
+
+	Ok(0)
+}
+
+fn try_do_init_module(ctx: ProbeContext) -> Result<u32, u32> {
+	let uid = bpf_get_current_uid_gid() as u32;
+	let pid = bpf_get_current_pid_tgid() as u32;
+	let tgid = (bpf_get_current_pid_tgid() >> 32) as u32;
+	let comm_raw = bpf_get_current_comm().unwrap_or([0u8; 16]);
+	let module: *const module = ctx.arg(0).ok_or(1u32)?;
+
+	let name_i8 = unsafe { bpf_probe_read_kernel(&(*module).name).map_err(|_| 2u32)? };
+
+	let name: [u8; 56] = unsafe { core::mem::transmute(name_i8) };
+
+	let len = name.iter().position(|&b| b == 0).unwrap_or(56);
+
+	let name_str = unsafe { core::str::from_utf8_unchecked(&name[..len]) };
+
+	warn!(&ctx, "LKM name: {}", name_str);
+
+	let event = Event {
+		pid,
+		uid,
+		tgid,
+		comm: comm_raw,
+		event_type: 5,
+		meta: 0,
+	};
+
+	match EVT_MAP.output(&event, 0) {
+		Ok(_) => (),
+		Err(e) => return Err(e as u32),
 	}
 
 	Ok(0)

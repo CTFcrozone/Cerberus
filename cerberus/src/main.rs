@@ -44,52 +44,28 @@ async fn main() -> Result<()> {
 	}
 
 	// Now do all program_mut calls BEFORE wrapping in AsyncFd
-	let btf = Btf::from_sys_fs()?;
-	let program: &mut Lsm = ebpf
-		.program_mut("trace_sys_enter_kill")
-		.ok_or(Error::EbpfProgNotFound)?
-		.try_into()?;
-	program.load("task_kill", &btf)?;
-	program.attach()?;
+	// let btf = Btf::from_sys_fs()?;
+	// let program: &mut Lsm = ebpf.program_mut("sys_enter_kill").ok_or(Error::EbpfProgNotFound)?.try_into()?;
+	// program.load("task_kill", &btf)?;
+	// program.attach()?;
 
-	let lsm_socket_connect: &mut Lsm = ebpf
-		.program_mut("trace_socket_connect")
-		.ok_or(Error::EbpfProgNotFound)?
-		.try_into()?;
-	lsm_socket_connect.load("socket_connect", &btf)?;
-	lsm_socket_connect.attach()?;
+	// let lsm_socket_connect: &mut Lsm = ebpf.program_mut("socket_connect").ok_or(Error::EbpfProgNotFound)?.try_into()?;
+	// lsm_socket_connect.load("socket_connect", &btf)?;
+	// lsm_socket_connect.attach()?;
 
-	let tp_io_uring: &mut TracePoint = ebpf
-		.program_mut("trace_io_uring_submit")
-		.ok_or(Error::EbpfProgNotFound)?
-		.try_into()?;
-	tp_io_uring.load()?;
-	tp_io_uring.attach("io_uring", "io_uring_submit_req")?;
+	// let kp_commit_creds: &mut KProbe = ebpf.program_mut("commit_creds").ok_or(Error::EbpfProgNotFound)?.try_into()?;
+	// kp_commit_creds.load()?;
+	// kp_commit_creds.attach("commit_creds", 0)?;
 
-	// let kp_mprotect: &mut KProbe = ebpf.program_mut("trace_mprotect").ok_or(Error::EbpfProgNotFound)?.try_into()?;
-	// kp_mprotect.load()?;
-	// kp_mprotect.attach("mprotect_fixup", 0)?;
-
-	let kp_commit_creds: &mut KProbe = ebpf
-		.program_mut("trace_commit_creds")
-		.ok_or(Error::EbpfProgNotFound)?
-		.try_into()?;
-	kp_commit_creds.load()?;
-	kp_commit_creds.attach("commit_creds", 0)?;
+	let kp_module_init: &mut KProbe = ebpf.program_mut("do_init_module").ok_or(Error::EbpfProgNotFound)?.try_into()?;
+	kp_module_init.load()?;
+	kp_module_init.attach("do_init_module", 0)?;
 
 	let ring_buf = RingBuf::try_from(ebpf.take_map("EVT_MAP").ok_or(Error::EbpfProgNotFound)?)?;
 	let trx = new_trx_pair();
 	let fd = AsyncFd::new(ring_buf)?;
 	RingBufWorker::start(fd, trx.0).await?;
 	ReceiverWorker::start(trx.1).await?;
-
-	let program_names: Vec<String> = loaded_programs()
-		.filter_map(|res| res.ok())
-		.filter_map(|p| p.name_as_str().map(|s| s.to_string()))
-		.filter(|name| !name.is_empty())
-		.collect();
-
-	println!("{:?}", program_names);
 
 	let ctrl_c = signal::ctrl_c();
 	ctrl_c.await?;
