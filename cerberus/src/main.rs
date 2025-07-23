@@ -44,18 +44,25 @@ async fn main() -> Result<()> {
 	}
 
 	// Now do all program_mut calls BEFORE wrapping in AsyncFd
-	// let btf = Btf::from_sys_fs()?;
-	// let program: &mut Lsm = ebpf.program_mut("sys_enter_kill").ok_or(Error::EbpfProgNotFound)?.try_into()?;
-	// program.load("task_kill", &btf)?;
-	// program.attach()?;
+	let btf = Btf::from_sys_fs()?;
+	let program: &mut Lsm = ebpf.program_mut("sys_enter_kill").ok_or(Error::EbpfProgNotFound)?.try_into()?;
+	program.load("task_kill", &btf)?;
+	program.attach()?;
 
 	// let lsm_socket_connect: &mut Lsm = ebpf.program_mut("socket_connect").ok_or(Error::EbpfProgNotFound)?.try_into()?;
 	// lsm_socket_connect.load("socket_connect", &btf)?;
 	// lsm_socket_connect.attach()?;
 
-	// let kp_commit_creds: &mut KProbe = ebpf.program_mut("commit_creds").ok_or(Error::EbpfProgNotFound)?.try_into()?;
-	// kp_commit_creds.load()?;
-	// kp_commit_creds.attach("commit_creds", 0)?;
+	let kp_commit_creds: &mut KProbe = ebpf.program_mut("commit_creds").ok_or(Error::EbpfProgNotFound)?.try_into()?;
+	kp_commit_creds.load()?;
+	kp_commit_creds.attach("commit_creds", 0)?;
+
+	let tp_inet_sock_set_state: &mut TracePoint = ebpf
+		.program_mut("inet_sock_set_state")
+		.ok_or(Error::EbpfProgNotFound)?
+		.try_into()?;
+	tp_inet_sock_set_state.load()?;
+	tp_inet_sock_set_state.attach("sock", "inet_sock_set_state")?;
 
 	let kp_module_init: &mut KProbe = ebpf.program_mut("do_init_module").ok_or(Error::EbpfProgNotFound)?.try_into()?;
 	kp_module_init.load()?;

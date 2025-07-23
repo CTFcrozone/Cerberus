@@ -1,17 +1,16 @@
-use std::net::{IpAddr, Ipv4Addr};
-
 use crate::{
 	error::{Error, Result},
 	trx::EventRx,
 };
 use aya::maps::{MapData, RingBuf};
 use cerberus_common::GenericEvent;
-use dns_lookup::lookup_addr;
 use tokio::io::unix::AsyncFd;
 use tracing::info;
 use zerocopy::FromBytes;
 
 use crate::trx::EventTx;
+
+use cerberus_common::{EbpfEvent, InetSockSetStateEvent};
 
 pub struct ReceiverWorker {
 	pub rx: EventRx,
@@ -29,31 +28,34 @@ impl ReceiverWorker {
 
 	pub async fn start_worker(&self) -> Result<()> {
 		while let Ok(evt) = self.rx.recv().await {
-			let comm = String::from_utf8_lossy(&evt.comm);
-			let comm = comm.trim_end_matches('\0');
+			match evt {
+				EbpfEvent::Generic(g) => {
+					let comm_lossy = String::from_utf8_lossy(&g.comm);
+					let comm = comm_lossy.trim_end_matches('\0');
 
-			let (event_name, detail) = match evt.header.event_type {
-				1 => ("KILL", format!("Signal: {}", evt.meta)),
-				2 => ("IO_URING", format!("Opcode: {}", evt.meta)),
-				3 => {
-					let ip_bytes = evt.meta.to_be_bytes();
-					let ipaddr = Ipv4Addr::from(ip_bytes);
-					let ipaddr = IpAddr::V4(ipaddr);
-					let host = lookup_addr(&ipaddr)?;
-					let ip_str = format!("{}.{}.{}.{}", ip_bytes[0], ip_bytes[1], ip_bytes[2], ip_bytes[3]);
-					(
-						"SOCKET_CONNECT",
-						format!("Destination IP: {} | HOSTNAME: {}", ip_str, host),
-					)
+					info!(
+						"[{}] UID:{} | PID:{} | TGID:{} | CMD:{} | META:{}",
+						match_evt_type(g.header.event_type),
+						g.uid,
+						g.pid,
+						g.tgid,
+						comm,
+						g.meta
+					);
 				}
-				4 => ("COMMIT_CREDS", format!("Meta: {}", evt.meta)),
-				_ => ("UNKNOWN", format!("meta: {}", evt.meta)),
-			};
-
-			info!(
-				"EVT RECEIVED ->> {} | PID: {} | UID: {} | CMD: {} | {}",
-				event_name, evt.pid, evt.uid, comm, detail
-			);
+				EbpfEvent::InetSock(n) => {
+					info!(
+						"[INET_SOCK] {}:{} → {}:{} | Proto: {} | {} → {}",
+						ip_to_string(n.saddr),
+						n.sport,
+						ip_to_string(n.daddr),
+						n.dport,
+						protocol_to_str(n.protocol),
+						state_to_str(n.oldstate),
+						state_to_str(n.newstate)
+					);
+				}
+			}
 		}
 		Ok(())
 	}
@@ -96,7 +98,63 @@ impl RingBufWorker {
 	}
 }
 
-fn parse_event_from_bytes(data: &[u8]) -> Result<GenericEvent> {
-	let evt = GenericEvent::ref_from_prefix(data).map_err(|_| Error::InvalidEventSize)?.0;
-	Ok(*evt)
+fn parse_event_from_bytes(data: &[u8]) -> Result<EbpfEvent> {
+	let header = cerberus_common::EventHeader::ref_from_prefix(data)
+		.map_err(|_| Error::InvalidEventSize)?
+		.0;
+
+	match header.event_type {
+		1 | 2 | 3 | 4 | 5 => {
+			let evt = GenericEvent::ref_from_prefix(data).map_err(|_| Error::InvalidEventSize)?.0;
+			Ok(EbpfEvent::Generic(*evt))
+		}
+		6 => {
+			let evt = InetSockSetStateEvent::ref_from_prefix(data)
+				.map_err(|_| Error::InvalidEventSize)?
+				.0;
+			Ok(EbpfEvent::InetSock(*evt))
+		}
+		_ => Err(Error::UnknownEventType(header.event_type)),
+	}
+}
+fn ip_to_string(ip: u32) -> String {
+	let octets = ip.to_be_bytes();
+	format!("{}.{}.{}.{}", octets[0], octets[1], octets[2], octets[3])
+}
+
+fn protocol_to_str(proto: u16) -> &'static str {
+	match proto {
+		6 => "TCP",
+		17 => "UDP",
+		_ => "UNKNOWN",
+	}
+}
+
+fn state_to_str(state: i32) -> &'static str {
+	match state {
+		1 => "TCP_ESTABLISHED",
+		2 => "TCP_SYN_SENT",
+		3 => "TCP_SYN_RECV",
+		4 => "TCP_FIN_WAIT1",
+		5 => "TCP_FIN_WAIT2",
+		6 => "TCP_TIME_WAIT",
+		7 => "TCP_CLOSE",
+		8 => "TCP_CLOSE_WAIT",
+		9 => "TCP_LAST_ACK",
+		10 => "TCP_LISTEN",
+		11 => "TCP_CLOSING",
+		_ => "UNKNOWN",
+	}
+}
+
+fn match_evt_type(event_type: u8) -> &'static str {
+	match event_type {
+		1 => "KILL",
+		2 => "IO_URING",
+		3 => "SOCKET_CONNECT",
+		4 => "COMMIT_CREDS",
+		5 => "MODULE_INIT",
+		6 => "INET_SOCK_SET_STATE",
+		_ => "UNKNOWN",
+	}
 }
