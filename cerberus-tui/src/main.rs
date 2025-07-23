@@ -92,13 +92,20 @@ pub fn load_hooks(ebpf: &mut Ebpf) -> Result<AsyncFd<RingBuf<MapData>>> {
 	program.load("task_kill", &btf)?;
 	program.attach()?;
 
-	let lsm_socket_connect: &mut Lsm = ebpf.program_mut("socket_connect").ok_or(Error::EbpfProgNotFound)?.try_into()?;
-	lsm_socket_connect.load("socket_connect", &btf)?;
-	lsm_socket_connect.attach()?;
+	// let lsm_socket_connect: &mut Lsm = ebpf.program_mut("socket_connect").ok_or(Error::EbpfProgNotFound)?.try_into()?;
+	// lsm_socket_connect.load("socket_connect", &btf)?;
+	// lsm_socket_connect.attach()?;
 
 	let kp_commit_creds: &mut KProbe = ebpf.program_mut("commit_creds").ok_or(Error::EbpfProgNotFound)?.try_into()?;
 	kp_commit_creds.load()?;
 	kp_commit_creds.attach("commit_creds", 0)?;
+
+	let tp_inet_sock_set_state: &mut TracePoint = ebpf
+		.program_mut("inet_sock_set_state")
+		.ok_or(Error::EbpfProgNotFound)?
+		.try_into()?;
+	tp_inet_sock_set_state.load()?;
+	tp_inet_sock_set_state.attach("sock", "inet_sock_set_state")?;
 
 	let ring_buf = RingBuf::try_from(ebpf.take_map("EVT_MAP").ok_or(Error::EbpfProgNotFound)?)?;
 	let fd = AsyncFd::new(ring_buf)?;

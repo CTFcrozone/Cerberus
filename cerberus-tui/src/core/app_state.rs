@@ -3,7 +3,7 @@ use aya::Ebpf;
 use tokio::io::unix::AsyncFd;
 
 use crate::core::sys_state::SysState;
-use crate::event::{LastAppEvent, RingBufEvent};
+use crate::event::{CerberusEvent, LastAppEvent};
 use crate::Result;
 
 use super::format_size_xfixed;
@@ -19,7 +19,7 @@ pub struct AppState {
 	pub(in crate::core) memory: u64,
 	pub(in crate::core) loaded_hooks: Vec<String>,
 	pub(in crate::core) last_app_event: LastAppEvent,
-	pub(in crate::core) cerberus_evts: Vec<RingBufEvent>,
+	pub(in crate::core) cerberus_evts: Vec<CerberusEvent>,
 	pub(in crate::core) hooks_loaded: bool,
 	pub current_view: View,
 	pub event_scroll: u16,
@@ -63,7 +63,7 @@ impl AppState {
 	pub fn last_app_event(&self) -> &LastAppEvent {
 		&self.last_app_event
 	}
-	pub fn cerberus_evts(&self) -> &[RingBufEvent] {
+	pub fn cerberus_evts(&self) -> &[CerberusEvent] {
 		&self.cerberus_evts
 	}
 	pub fn event_scroll(&self) -> u16 {
@@ -72,10 +72,6 @@ impl AppState {
 
 	pub fn set_event_scroll(&mut self, scroll: u16) {
 		self.event_scroll = scroll;
-	}
-
-	pub fn hooks_loaded(&self) -> bool {
-		self.hooks_loaded
 	}
 
 	pub fn worker_up(&self) -> bool {

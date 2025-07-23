@@ -13,7 +13,7 @@ use aya_ebpf::{
 	programs::{LsmContext, ProbeContext, TracePointContext},
 };
 use aya_log_ebpf::{error, warn};
-use cerberus_common::Event;
+use cerberus_common::{EventHeader, GenericEvent, InetSockSetStateEvent};
 mod vmlinux;
 use vmlinux::{module, sockaddr, sockaddr_in, task_struct};
 
@@ -30,9 +30,26 @@ macro_rules! match_comm {
     };
 }
 
-#[lsm(hook = "socket_connect")]
-pub fn socket_connect(ctx: LsmContext) -> i32 {
-	match try_socket_connect(ctx) {
+macro_rules! try_read {
+	($ctx:expr, $offset:expr) => {
+		match $ctx.read_at($offset) {
+			Ok(val) => val,
+			Err(_) => return Err(1),
+		}
+	};
+}
+
+// #[lsm(hook = "socket_connect")]
+// pub fn socket_connect(ctx: LsmContext) -> i32 {
+// 	match try_socket_connect(ctx) {
+// 		Ok(ret) => ret,
+// 		Err(ret) => ret,
+// 	}
+// }
+
+#[tracepoint]
+pub fn inet_sock_set_state(ctx: TracePointContext) -> u32 {
+	match try_inet_sock_set_state(ctx) {
 		Ok(ret) => ret,
 		Err(ret) => ret,
 	}
@@ -71,12 +88,15 @@ fn try_commit_creds(ctx: ProbeContext) -> Result<u32, u32> {
 	let new_uid = ctx.arg(1).unwrap_or(0) as u32;
 
 	if old_uid != 0 && new_uid == 0 {
-		let event = Event {
+		let event = GenericEvent {
+			header: EventHeader {
+				event_type: 4,
+				_padding: [0u8; 3],
+			},
 			pid,
 			uid: old_uid,
 			tgid,
 			comm: comm_raw,
-			event_type: 4,
 			meta: 0x00,
 		};
 
@@ -106,12 +126,15 @@ fn try_do_init_module(ctx: ProbeContext) -> Result<u32, u32> {
 
 	warn!(&ctx, "LKM name: {}", name_str);
 
-	let event = Event {
+	let event = GenericEvent {
+		header: EventHeader {
+			event_type: 5,
+			_padding: [0u8; 3],
+		},
 		pid,
 		uid,
 		tgid,
 		comm: comm_raw,
-		event_type: 5,
 		meta: 0,
 	};
 
@@ -148,12 +171,15 @@ fn try_socket_connect(ctx: LsmContext) -> Result<i32, i32> {
 		return Ok(0);
 	}
 
-	let event = Event {
+	let event = GenericEvent {
+		header: EventHeader {
+			event_type: 3,
+			_padding: [0u8; 3],
+		},
 		pid,
 		uid,
 		tgid,
 		comm: comm_raw,
-		event_type: 3,
 		meta: dest_ip,
 	};
 
@@ -161,6 +187,42 @@ fn try_socket_connect(ctx: LsmContext) -> Result<i32, i32> {
 		Ok(_) => (),
 		Err(e) => error!(&ctx, "Couldn't write to the ring buffer ->> ERROR: {}", e),
 	}
+	Ok(0)
+}
+
+fn try_inet_sock_set_state(ctx: TracePointContext) -> Result<u32, u32> {
+	let common_pid: i32 = unsafe { try_read!(ctx, 4) };
+	let oldstate: i32 = unsafe { try_read!(ctx, 16) };
+	let newstate: i32 = unsafe { try_read!(ctx, 20) };
+	let sport: u16 = unsafe { try_read!(ctx, 24) };
+	let dport: u16 = unsafe { try_read!(ctx, 26) };
+	let protocol: u16 = unsafe { try_read!(ctx, 30) };
+	let saddr: u32 = unsafe { try_read!(ctx, 32) };
+	let daddr: u32 = unsafe { try_read!(ctx, 36) };
+
+	if protocol != 6 {
+		return Ok(0);
+	}
+
+	let event = InetSockSetStateEvent {
+		header: EventHeader {
+			event_type: 6,
+			_padding: [0u8; 3],
+		},
+		oldstate,
+		newstate,
+		sport,
+		dport,
+		protocol,
+		saddr,
+		daddr,
+	};
+
+	match EVT_MAP.output(&event, 0) {
+		Ok(_) => (),
+		Err(e) => error!(&ctx, "Couldn't write to the ring buffer ->> ERROR: {}", e),
+	}
+
 	Ok(0)
 }
 
@@ -173,12 +235,15 @@ fn try_sys_enter_kill(ctx: LsmContext) -> Result<i32, i32> {
 	let comm_raw = bpf_get_current_comm().unwrap_or([0u8; 16]);
 	let uid = bpf_get_current_uid_gid() as u32;
 
-	let event = Event {
+	let event = GenericEvent {
+		header: EventHeader {
+			event_type: 1,
+			_padding: [0u8; 3],
+		},
 		pid: pid as u32,
 		uid,
 		tgid,
 		comm: comm_raw,
-		event_type: 1,
 		meta: sig,
 	};
 

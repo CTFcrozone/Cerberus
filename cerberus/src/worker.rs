@@ -5,7 +5,7 @@ use crate::{
 	trx::EventRx,
 };
 use aya::maps::{MapData, RingBuf};
-use cerberus_common::Event;
+use cerberus_common::GenericEvent;
 use dns_lookup::lookup_addr;
 use tokio::io::unix::AsyncFd;
 use tracing::info;
@@ -32,7 +32,7 @@ impl ReceiverWorker {
 			let comm = String::from_utf8_lossy(&evt.comm);
 			let comm = comm.trim_end_matches('\0');
 
-			let (event_name, detail) = match evt.event_type {
+			let (event_name, detail) = match evt.header.event_type {
 				1 => ("KILL", format!("Signal: {}", evt.meta)),
 				2 => ("IO_URING", format!("Opcode: {}", evt.meta)),
 				3 => {
@@ -96,7 +96,7 @@ impl RingBufWorker {
 	}
 }
 
-fn parse_event_from_bytes(data: &[u8]) -> Result<Event> {
-	let evt = Event::ref_from_prefix(data).map_err(|_| Error::InvalidEventSize)?.0;
+fn parse_event_from_bytes(data: &[u8]) -> Result<GenericEvent> {
+	let evt = GenericEvent::ref_from_prefix(data).map_err(|_| Error::InvalidEventSize)?.0;
 	Ok(*evt)
 }

@@ -14,7 +14,7 @@
 Use `cargo build`, `cargo check`, etc. as normal. Run your program with:
 
 ```shell
-cargo run --release --config 'target."cfg(all())".runner="sudo -E"'
+cargo run --release --config 'target."cfg(all())".runner="sudo -E"' --release
 ```
 
 Cargo build scripts are used to automatically build the eBPF correctly and include it in the
@@ -29,6 +29,7 @@ CC=${ARCH}-linux-musl-gcc cargo build --package rust-aya-ebpf-xp --release \
   --target=${ARCH}-unknown-linux-musl \
   --config=target.${ARCH}-unknown-linux-musl.linker=\"${ARCH}-linux-musl-gcc\"
 ```
+
 The cross-compiled program `target/${ARCH}-unknown-linux-musl/release/rust-aya-ebpf-xp` can be
 copied to a Linux server or VM and run there.
 

@@ -1,11 +1,11 @@
 use ratatui::{
 	buffer::Buffer,
 	layout::Rect,
-	text::{Line, Span},
-	widgets::{Block, Padding, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState, StatefulWidget, Widget},
+	text::Line,
+	widgets::{Block, Padding, Paragraph, StatefulWidget, Widget},
 };
 
-use crate::{core::AppState, styles};
+use crate::{core::AppState, event::CerberusEvent};
 
 pub struct EventView;
 
@@ -27,14 +27,23 @@ impl StatefulWidget for EventView {
 
 fn render_events(area: Rect, buf: &mut Buffer, state: &mut AppState, block: Block) {
 	let events = state.cerberus_evts();
-
 	let lines: Vec<Line> = events
 		.iter()
-		.map(|evt| {
-			Line::raw(format!(
+		.map(|evt| match evt {
+			CerberusEvent::Generic(g) => Line::raw(format!(
 				"[{}] UID:{} | PID:{} | TGID:{} | CMD:{} | META:{}",
-				evt.name, evt.uid, evt.pid, evt.tgid, evt.comm, evt.meta
-			))
+				g.name, g.uid, g.pid, g.tgid, g.comm, g.meta
+			)),
+			CerberusEvent::InetSock(n) => Line::raw(format!(
+				"[INET_SOCK] {}:{} → {}:{} | Proto: {} | {} → {}",
+				ip_to_string(n.saddr),
+				n.sport,
+				ip_to_string(n.daddr),
+				n.dport,
+				n.protocol,
+				n.old_state,
+				n.new_state
+			)),
 		})
 		.collect();
 
@@ -47,4 +56,9 @@ fn render_events(area: Rect, buf: &mut Buffer, state: &mut AppState, block: Bloc
 
 	let paragraph = Paragraph::new(lines).block(block).scroll((state.event_scroll(), 0));
 	paragraph.render(area, buf);
+}
+
+fn ip_to_string(ip: u32) -> String {
+	let octets = ip.to_be_bytes();
+	format!("{}.{}.{}.{}", octets[0], octets[1], octets[2], octets[3])
 }

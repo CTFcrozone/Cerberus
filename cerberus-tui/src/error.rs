@@ -16,6 +16,7 @@ pub enum Error {
 	EbpfProgNotFound,
 	InvalidEventAlign,
 	InvalidEventSize,
+	UnknownEventType(u8),
 	// -- Externals
 	//
 	#[from]

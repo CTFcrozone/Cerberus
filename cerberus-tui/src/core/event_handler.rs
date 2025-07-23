@@ -1,6 +1,7 @@
 use super::{AppState, AppTx, ExitTx};
+use crate::event::CerberusEvent;
 use crate::{
-	event::{ActionEvent, AppEvent, RingBufEvent},
+	event::{ActionEvent, AppEvent},
 	worker::RingBufWorker,
 	Result,
 };
@@ -24,7 +25,7 @@ pub async fn handle_app_event(
 			handle_action_event(&action_event, terminal, exit_tx).await?;
 		}
 		AppEvent::Cerberus(cerberus_evt) => {
-			handle_cerberus_event(&cerberus_evt, app_state);
+			handle_cerberus_event(cerberus_evt, app_state);
 		}
 		AppEvent::LoadedHooks => {
 			handle_hooks_loaded(app_state, app_tx).await?;
@@ -44,7 +45,7 @@ async fn handle_hooks_loaded(app_state: &mut AppState, app_tx: &AppTx) -> Result
 	Ok(())
 }
 
-fn handle_cerberus_event(event: &RingBufEvent, app_state: &mut AppState) {
+fn handle_cerberus_event(event: &CerberusEvent, app_state: &mut AppState) {
 	if app_state.cerberus_evts.len() >= MAX_EVENTS {
 		app_state.cerberus_evts.remove(0);
 	}
