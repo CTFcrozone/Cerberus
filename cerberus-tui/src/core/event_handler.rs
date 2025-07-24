@@ -1,3 +1,4 @@
+use super::app_state::Tab;
 use super::{AppState, AppTx, ExitTx};
 use crate::event::CerberusEvent;
 use crate::{
@@ -46,10 +47,20 @@ async fn handle_hooks_loaded(app_state: &mut AppState, app_tx: &AppTx) -> Result
 }
 
 fn handle_cerberus_event(event: &CerberusEvent, app_state: &mut AppState) {
-	if app_state.cerberus_evts.len() >= MAX_EVENTS {
-		app_state.cerberus_evts.remove(0);
+	match app_state.current_tab() {
+		Tab::General => {
+			if app_state.cerberus_evts_general.len() >= MAX_EVENTS {
+				app_state.cerberus_evts_general.remove(0);
+			}
+			app_state.cerberus_evts_general.push(event.clone());
+		}
+		Tab::Network => {
+			if app_state.cerberus_evts_network.len() >= MAX_EVENTS {
+				app_state.cerberus_evts_network.remove(0);
+			}
+			app_state.cerberus_evts_network.push(event.clone());
+		}
 	}
-	app_state.cerberus_evts.push(event.clone());
 }
 
 async fn handle_term_event(term_event: &Event, app_tx: &AppTx) -> Result<()> {

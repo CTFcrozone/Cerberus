@@ -8,48 +8,64 @@ use super::{app_state::View, AppState};
 
 pub fn process_app_state(state: &mut AppState, app_tx: &AppTx) {
 	match state.current_view() {
-		View::Main => {
-			state.refresh_sys_state();
+		View::Main => handle_main_view(state),
+		View::Splash => handle_splash_view(state, app_tx),
+	}
+}
 
-			if let Some(KeyCode::Char('x')) = state.last_app_event().as_key_code() {
-				state.cerberus_evts.clear();
-				state.event_scroll = 0;
+fn handle_main_view(state: &mut AppState) {
+	state.refresh_sys_state();
+	handle_main_input(state);
+	update_loaded_hooks(state);
+	handle_scroll(state);
+}
+
+fn handle_main_input(state: &mut AppState) {
+	if let Some(key) = state.last_app_event().as_key_code() {
+		match key {
+			KeyCode::Char('x') => {
+				state.cerberus_evts_general.clear();
+				state.set_event_scroll(0);
+			}
+			KeyCode::Tab => {
+				state.set_tab(state.current_tab().next());
 			}
 
-			let hooks: Vec<String> = state.ebpf.programs().map(|(name, _)| name.to_string()).collect();
-
-			state.loaded_hooks = hooks;
-
-			let current_event_scroll = state.event_scroll();
-			if let Some(mouse_evt) = state.last_app_event().as_mouse_event() {
-				let event_scroll = match mouse_evt.kind {
-					MouseEventKind::ScrollUp => Some(current_event_scroll.saturating_sub(3)),
-					MouseEventKind::ScrollDown => Some(current_event_scroll.saturating_add(3)),
-					_ => None,
-				};
-				if let Some(event_scroll) = event_scroll {
-					state.set_event_scroll(event_scroll);
-				}
-			}
+			_ => {}
 		}
-		View::Splash => {
-			if let Some(code) = state.last_app_event().as_key_code() {
-				match code {
-					KeyCode::Enter => {
-						let res = load_hooks(&mut state.ebpf);
-						match res {
-							Ok(fd) => {
-								state.hooks_loaded = true;
+	}
+}
 
-								state.ringbuf_fd = Some(fd);
-								let _ = app_tx.send_sync(AppEvent::LoadedHooks);
-							}
-							Err(ex) => println!("Error while loading hooks: {ex}"),
-						}
-					}
+fn update_loaded_hooks(state: &mut AppState) {
+	let hooks: Vec<String> = state.ebpf.programs().map(|(name, _)| name.to_string()).collect();
 
-					_ => {}
-				}
+	state.loaded_hooks = hooks;
+}
+
+fn handle_scroll(state: &mut AppState) {
+	if let Some(mouse_evt) = state.last_app_event().as_mouse_event() {
+		let new_scroll = match mouse_evt.kind {
+			MouseEventKind::ScrollUp => Some(state.event_scroll().saturating_sub(3)),
+			MouseEventKind::ScrollDown => Some(state.event_scroll().saturating_add(3)),
+			_ => None,
+		};
+
+		if let Some(scroll) = new_scroll {
+			state.set_event_scroll(scroll);
+		}
+	}
+}
+
+fn handle_splash_view(state: &mut AppState, app_tx: &AppTx) {
+	if let Some(KeyCode::Enter) = state.last_app_event().as_key_code() {
+		match load_hooks(&mut state.ebpf) {
+			Ok(fd) => {
+				state.hooks_loaded = true;
+				state.ringbuf_fd = Some(fd);
+				let _ = app_tx.send_sync(AppEvent::LoadedHooks);
+			}
+			Err(err) => {
+				eprintln!("Error while loading hooks: {err}");
 			}
 		}
 	}

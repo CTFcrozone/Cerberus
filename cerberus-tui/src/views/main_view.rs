@@ -23,21 +23,10 @@ impl StatefulWidget for MainView {
 			splash.render(area, buf, state);
 			return;
 		}
-		let [header, main, sys_info] = Layout::default()
+		let [main, sys_info] = Layout::default()
 			.direction(Direction::Vertical)
-			.constraints([Constraint::Length(3), Constraint::Min(10), Constraint::Length(1)])
+			.constraints([Constraint::Min(10), Constraint::Length(1)])
 			.areas(area);
-
-		let title_block = Block::bordered()
-			.style(Style::default().fg(Color::Reset))
-			.title_alignment(ratatui::layout::Alignment::Center);
-
-		let title = Paragraph::new("[Cerberus]")
-			.style(Style::default().fg(Color::LightGreen))
-			.alignment(ratatui::layout::Alignment::Center)
-			.block(title_block);
-
-		title.render(header, buf);
 
 		let [events_tbl, meta] = Layout::default()
 			.direction(Direction::Horizontal)

@@ -13,15 +13,40 @@ pub enum View {
 	Main,
 }
 
+#[derive(Clone, Copy, Debug)]
+pub enum Tab {
+	Network,
+	General,
+}
+
+impl Tab {
+	pub fn next(self) -> Self {
+		match self {
+			Tab::General => Tab::Network,
+			Tab::Network => Tab::General,
+		}
+	}
+
+	pub fn as_index(self) -> i32 {
+		match self {
+			Tab::General => 0,
+			Tab::Network => 1,
+		}
+	}
+}
+
 pub struct AppState {
 	pub(in crate::core) ebpf: Ebpf,
 	pub(in crate::core) sys_state: SysState,
 	pub(in crate::core) memory: u64,
 	pub(in crate::core) loaded_hooks: Vec<String>,
 	pub(in crate::core) last_app_event: LastAppEvent,
-	pub(in crate::core) cerberus_evts: Vec<CerberusEvent>,
+	pub(in crate::core) cerberus_evts_general: Vec<CerberusEvent>,
+	pub(in crate::core) cerberus_evts_network: Vec<CerberusEvent>,
+
 	pub(in crate::core) hooks_loaded: bool,
 	pub current_view: View,
+	pub tab: Tab,
 	pub event_scroll: u16,
 	pub ringbuf_fd: Option<AsyncFd<RingBuf<MapData>>>,
 	pub worker_up: bool,
@@ -37,9 +62,12 @@ impl AppState {
 			loaded_hooks: Vec::new(),
 			event_scroll: 0,
 			last_app_event,
-			cerberus_evts: Vec::with_capacity(500),
+			cerberus_evts_general: Vec::with_capacity(500),
+			cerberus_evts_network: Vec::with_capacity(500),
+
 			hooks_loaded: false,
 			current_view: View::Splash,
+			tab: Tab::General,
 			ringbuf_fd: None,
 			worker_up: false,
 		})
@@ -57,14 +85,28 @@ impl AppState {
 }
 
 impl AppState {
+	pub fn current_tab(&self) -> &Tab {
+		&self.tab
+	}
+
+	pub fn set_tab(&mut self, tab: Tab) {
+		self.tab = tab;
+	}
+}
+
+impl AppState {
 	pub fn loaded_hooks(&self) -> &[String] {
 		&self.loaded_hooks
 	}
 	pub fn last_app_event(&self) -> &LastAppEvent {
 		&self.last_app_event
 	}
-	pub fn cerberus_evts(&self) -> &[CerberusEvent] {
-		&self.cerberus_evts
+	pub fn cerberus_evts_general(&self) -> &[CerberusEvent] {
+		&self.cerberus_evts_general
+	}
+
+	pub fn cerberus_evts_network(&self) -> &[CerberusEvent] {
+		&self.cerberus_evts_network
 	}
 	pub fn event_scroll(&self) -> u16 {
 		self.event_scroll

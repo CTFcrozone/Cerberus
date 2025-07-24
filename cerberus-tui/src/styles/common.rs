@@ -18,7 +18,7 @@ pub const CLR_BKG_PRIME: Color = Color::Indexed(12);
 
 pub const CLR_BKG_LBL: Color = CLR_BKG_GRAY_DARK;
 pub const CLR_BKG_LBL_DARK: Color = CLR_BKG_BLACK;
-
+pub const CLR_TXT_600: Color = Color::Indexed(250);
 pub const CLR_BKG_ACT: Color = Color::Indexed(236);
 pub const CLR_BKG_SEL: Color = Color::Indexed(15);
 
@@ -55,10 +55,14 @@ pub const STL_TXT_SEL: Style = Style::new().fg(Color::Blue);
 pub const STL_TXT_ACTION: Style = Style::new().fg(Color::Blue);
 pub const STL_TXT_ACTION_SELECTED: Style = Style::new().fg(Color::LightGreen);
 
+pub const CLR_BKG_TAB_ACT: Color = CLR_BKG_GRAY_DARK;
+
+pub const STL_TAB_DEFAULT: Style = Style::new().bg(CLR_BKG_GRAY_DARKER).fg(CLR_TXT_600);
+pub const STL_TAB_ACTIVE: Style = Style::new().bg(CLR_BKG_TAB_ACT).fg(CLR_TXT_400);
+
 pub const STL_NAV_ITEM_HIGHLIGHT: Style = Style::new().bg(CLR_BKG_SEL).fg(CLR_TXT_SEL);
 
 // -- TABS
-pub const CLR_BKG_TAB_ACT: Color = CLR_BKG_GRAY_DARK;
 pub fn stl_tab_dft() -> Style {
 	Style::new().bg(CLR_BKG_GRAY_DARKER).fg(CLR_TXT_300)
 }

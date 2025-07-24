@@ -1,32 +1,77 @@
 use ratatui::{
 	buffer::Buffer,
-	layout::Rect,
-	text::Line,
-	widgets::{Block, Padding, Paragraph, StatefulWidget, Widget},
+	layout::{Constraint, Direction, Layout, Rect},
+	style::{Color, Style, Stylize},
+	symbols::border::PROPORTIONAL_WIDE,
+	text::{Line, Span},
+	widgets::{Block, Padding, Paragraph, StatefulWidget, Tabs, Widget},
 };
 
-use crate::{core::AppState, event::CerberusEvent};
+use crate::{core::AppState, event::CerberusEvent, styles};
 
 pub struct EventView;
 
 impl StatefulWidget for EventView {
 	type State = AppState;
 	fn render(self, area: ratatui::prelude::Rect, buf: &mut ratatui::prelude::Buffer, state: &mut Self::State) {
-		let show_hooks = !state.cerberus_evts().is_empty();
+		let show_hooks = !state.cerberus_evts_general().is_empty();
 
-		let block = Block::bordered().title("Events").padding(Padding::left(1));
+		let [_space_1, tabs_a, content_a] = Layout::default()
+			.direction(Direction::Vertical)
+			.constraints([Constraint::Max(1), Constraint::Length(1), Constraint::Fill(1)])
+			.areas(area);
+
+		let [_, tab_general_a, _, tab_network_a] = Layout::default()
+			.direction(Direction::Horizontal)
+			.constraints([
+				Constraint::Length(1),  // gap
+				Constraint::Length(11), // "General"
+				Constraint::Length(2),  // gap
+				Constraint::Length(11), // "Network"
+			])
+			.areas(tabs_a);
+
+		let current_tab = state.current_tab();
+
+		let tab_general_style = if current_tab.as_index() == 0 {
+			styles::STL_TAB_ACTIVE
+		} else {
+			styles::STL_TAB_DEFAULT
+		};
+
+		let tab_network_style = if current_tab.as_index() == 1 {
+			styles::STL_TAB_ACTIVE
+		} else {
+			styles::STL_TAB_DEFAULT
+		};
+
+		Paragraph::new("General")
+			.centered()
+			.style(tab_general_style)
+			.render(tab_general_a, buf);
+
+		Paragraph::new("Network")
+			.centered()
+			.style(tab_network_style)
+			.render(tab_network_a, buf);
+
+		// let repeated = "▔".repeat(tabs_line.width as usize);
+		// let line = Line::default().spans(vec![Span::raw(repeated)]).fg(styles::CLR_BKG_TAB_ACT);
+		// line.render(tabs_line, buf);
+
+		let block = Block::bordered().padding(Padding::left(1));
 
 		if !show_hooks {
 			let p = Paragraph::new("No events yet").block(block.clone());
-			p.render(area, buf);
+			p.render(content_a, buf);
 		} else {
-			render_events(area, buf, state, block);
+			render_events(content_a, buf, state, block);
 		}
 	}
 }
 
 fn render_events(area: Rect, buf: &mut Buffer, state: &mut AppState, block: Block) {
-	let events = state.cerberus_evts();
+	let events = state.cerberus_evts_general();
 	let lines: Vec<Line> = events
 		.iter()
 		.map(|evt| match evt {
