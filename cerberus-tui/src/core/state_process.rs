@@ -3,8 +3,8 @@ use crate::load_hooks;
 
 use crossterm::event::{KeyCode, MouseEventKind};
 
-use super::AppTx;
 use super::{app_state::View, AppState};
+use super::{AppTx, Tab};
 
 pub fn process_app_state(state: &mut AppState, app_tx: &AppTx) {
 	match state.current_view() {
@@ -23,10 +23,16 @@ fn handle_main_view(state: &mut AppState) {
 fn handle_main_input(state: &mut AppState) {
 	if let Some(key) = state.last_app_event().as_key_code() {
 		match key {
-			KeyCode::Char('x') => {
-				state.cerberus_evts_general.clear();
-				state.set_event_scroll(0);
-			}
+			KeyCode::Char('x') => match state.current_tab() {
+				Tab::General => {
+					state.cerberus_evts_general.clear();
+					state.set_event_scroll(0);
+				}
+				Tab::Network => {
+					state.cerberus_evts_network.clear();
+					state.set_event_scroll(0);
+				}
+			},
 			KeyCode::Tab => {
 				state.set_tab(state.current_tab().next());
 			}
