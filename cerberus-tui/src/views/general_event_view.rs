@@ -11,7 +11,7 @@ pub struct GeneralEventView;
 impl StatefulWidget for GeneralEventView {
 	type State = AppState;
 	fn render(self, area: ratatui::prelude::Rect, buf: &mut ratatui::prelude::Buffer, state: &mut Self::State) {
-		let show_hooks = !state.cerberus_evts_general().is_empty();
+		let show_hooks = state.cerberus_evts_general().next().is_some();
 
 		let block = Block::bordered().padding(Padding::left(1));
 
@@ -25,10 +25,8 @@ impl StatefulWidget for GeneralEventView {
 }
 
 fn render_events(area: Rect, buf: &mut Buffer, state: &mut AppState, block: Block) {
-	let events = state.cerberus_evts_general();
-
-	let lines: Vec<Line> = events
-		.iter()
+	let lines: Vec<Line> = state
+		.cerberus_evts_general()
 		.filter_map(|evt| match evt {
 			CerberusEvent::Generic(g) => Some(Line::raw(format!(
 				"[{}] UID:{} | PID:{} | TGID:{} | CMD:{} | META:{}",

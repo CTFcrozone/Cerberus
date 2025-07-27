@@ -1,3 +1,5 @@
+use std::collections::VecDeque;
+
 use aya::maps::{MapData, RingBuf};
 use aya::Ebpf;
 use tokio::io::unix::AsyncFd;
@@ -41,9 +43,8 @@ pub struct AppState {
 	pub(in crate::core) memory: u64,
 	pub(in crate::core) loaded_hooks: Vec<String>,
 	pub(in crate::core) last_app_event: LastAppEvent,
-	pub(in crate::core) cerberus_evts_general: Vec<CerberusEvent>,
-	pub(in crate::core) cerberus_evts_network: Vec<CerberusEvent>,
-
+	pub(in crate::core) cerberus_evts_general: VecDeque<CerberusEvent>,
+	pub(in crate::core) cerberus_evts_network: VecDeque<CerberusEvent>,
 	pub(in crate::core) hooks_loaded: bool,
 	pub current_view: View,
 	pub tab: Tab,
@@ -62,9 +63,8 @@ impl AppState {
 			loaded_hooks: Vec::new(),
 			event_scroll: 0,
 			last_app_event,
-			cerberus_evts_general: Vec::with_capacity(500),
-			cerberus_evts_network: Vec::with_capacity(500),
-
+			cerberus_evts_general: VecDeque::with_capacity(250),
+			cerberus_evts_network: VecDeque::with_capacity(250),
 			hooks_loaded: false,
 			current_view: View::Splash,
 			tab: Tab::General,
@@ -95,19 +95,6 @@ impl AppState {
 }
 
 impl AppState {
-	pub fn loaded_hooks(&self) -> &[String] {
-		&self.loaded_hooks
-	}
-	pub fn last_app_event(&self) -> &LastAppEvent {
-		&self.last_app_event
-	}
-	pub fn cerberus_evts_general(&self) -> &[CerberusEvent] {
-		&self.cerberus_evts_general
-	}
-
-	pub fn cerberus_evts_network(&self) -> &[CerberusEvent] {
-		&self.cerberus_evts_network
-	}
 	pub fn event_scroll(&self) -> u16 {
 		self.event_scroll
 	}
@@ -115,17 +102,47 @@ impl AppState {
 	pub fn set_event_scroll(&mut self, scroll: u16) {
 		self.event_scroll = scroll;
 	}
+}
+
+impl AppState {
+	// pub fn cerberus_evts_general(&self) -> &[CerberusEvent] {
+	// 	&self.cerberus_evts_general
+	// }
+
+	pub fn cerberus_evts_general(&self) -> impl Iterator<Item = &CerberusEvent> {
+		self.cerberus_evts_general.iter()
+	}
+
+	// Similarly for network events:
+	pub fn cerberus_evts_network(&self) -> impl Iterator<Item = &CerberusEvent> {
+		self.cerberus_evts_network.iter()
+	}
+
+	// pub fn cerberus_evts_network(&self) -> &[CerberusEvent] {
+	// 	&self.cerberus_evts_network
+	// }
+}
+
+impl AppState {
+	pub fn loaded_hooks(&self) -> &[String] {
+		&self.loaded_hooks
+	}
+	pub fn last_app_event(&self) -> &LastAppEvent {
+		&self.last_app_event
+	}
 
 	pub fn worker_up(&self) -> bool {
 		self.worker_up
 	}
 
-	pub fn current_view(&self) -> &View {
-		&self.current_view
-	}
-
 	pub fn ringbuf_fd(&mut self) -> Option<AsyncFd<RingBuf<MapData>>> {
 		self.ringbuf_fd.take()
+	}
+}
+
+impl AppState {
+	pub fn current_view(&self) -> &View {
+		&self.current_view
 	}
 
 	pub fn set_view(&mut self, view: View) {

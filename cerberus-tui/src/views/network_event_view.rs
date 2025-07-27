@@ -11,7 +11,7 @@ pub struct NetworkEventView;
 impl StatefulWidget for NetworkEventView {
 	type State = AppState;
 	fn render(self, area: ratatui::prelude::Rect, buf: &mut ratatui::prelude::Buffer, state: &mut Self::State) {
-		let show_hooks = !state.cerberus_evts_network().is_empty();
+		let show_hooks = state.cerberus_evts_network().next().is_some();
 
 		let block = Block::bordered().padding(Padding::left(1));
 
@@ -25,10 +25,8 @@ impl StatefulWidget for NetworkEventView {
 }
 
 fn render_events(area: Rect, buf: &mut Buffer, state: &mut AppState, block: Block) {
-	let events = state.cerberus_evts_network();
-
-	let lines: Vec<Line> = events
-		.iter()
+	let lines: Vec<Line> = state
+		.cerberus_evts_network()
 		.filter_map(|evt| match evt {
 			CerberusEvent::InetSock(n) => Some(Line::raw(format!(
 				"[INET_SOCK] {}:{} → {}:{} | Proto: {} | {} → {}",

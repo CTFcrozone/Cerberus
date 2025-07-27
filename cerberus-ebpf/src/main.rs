@@ -1,13 +1,8 @@
 #![no_std]
 #![no_main]
 
-use core::mem::transmute;
-
 use aya_ebpf::{
-	helpers::{
-		bpf_get_current_comm, bpf_get_current_pid_tgid, bpf_get_current_uid_gid, bpf_probe_read, bpf_probe_read_kernel,
-		bpf_probe_read_kernel_str,
-	},
+	helpers::{bpf_get_current_comm, bpf_get_current_pid_tgid, bpf_get_current_uid_gid, bpf_probe_read_kernel},
 	macros::{kprobe, lsm, map, tracepoint},
 	maps::RingBuf,
 	programs::{LsmContext, ProbeContext, TracePointContext},

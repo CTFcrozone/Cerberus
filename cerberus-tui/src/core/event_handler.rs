@@ -9,7 +9,7 @@ use crate::{
 use crossterm::event::{Event, KeyCode, KeyEventKind, KeyModifiers};
 use ratatui::DefaultTerminal;
 
-const MAX_EVENTS: usize = 500; // Reduced from 1000
+const MAX_EVENTS: usize = 250; // Reduced from 1000
 
 pub async fn handle_app_event(
 	terminal: &mut DefaultTerminal,
@@ -46,21 +46,33 @@ async fn handle_hooks_loaded(app_state: &mut AppState, app_tx: &AppTx) -> Result
 	Ok(())
 }
 
+// fn handle_cerberus_event(event: &CerberusEvent, app_state: &mut AppState) {
+// 	match app_state.current_tab() {
+// 		Tab::General => {
+// 			if app_state.cerberus_evts_general.len() >= MAX_EVENTS {
+// 				app_state.cerberus_evts_general.remove(0);
+// 			}
+// 			app_state.cerberus_evts_general.push(event.clone());
+// 		}
+// 		Tab::Network => {
+// 			if app_state.cerberus_evts_network.len() >= MAX_EVENTS {
+// 				app_state.cerberus_evts_network.remove(0);
+// 			}
+// 			app_state.cerberus_evts_network.push(event.clone());
+// 		}
+// 	}
+// }
+//
 fn handle_cerberus_event(event: &CerberusEvent, app_state: &mut AppState) {
-	match app_state.current_tab() {
-		Tab::General => {
-			if app_state.cerberus_evts_general.len() >= MAX_EVENTS {
-				app_state.cerberus_evts_general.remove(0);
-			}
-			app_state.cerberus_evts_general.push(event.clone());
-		}
-		Tab::Network => {
-			if app_state.cerberus_evts_network.len() >= MAX_EVENTS {
-				app_state.cerberus_evts_network.remove(0);
-			}
-			app_state.cerberus_evts_network.push(event.clone());
-		}
+	let events = match app_state.current_tab() {
+		Tab::General => &mut app_state.cerberus_evts_general,
+		Tab::Network => &mut app_state.cerberus_evts_network,
+	};
+
+	if events.len() >= MAX_EVENTS {
+		events.pop_front();
 	}
+	events.push_back(event.clone());
 }
 
 async fn handle_term_event(term_event: &Event, app_tx: &AppTx) -> Result<()> {

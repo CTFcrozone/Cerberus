@@ -20,6 +20,8 @@ pub enum Error {
 	// -- Externals
 	//
 	#[from]
+	Oneshot(tokio::sync::oneshot::error::RecvError),
+	#[from]
 	JoinError(JoinError),
 	#[from]
 	Utf8(Utf8Error),

@@ -1,4 +1,8 @@
-# rust-aya-ebpf-xp
+# Cerberus
+
+![Cerberus TUI Splash](images/splash.png)
+![Cerberus TUI General](images/general.png)
+![Cerberus TUI Network](images/network.png)
 
 ## Prerequisites
 
@@ -13,8 +17,16 @@
 
 Use `cargo build`, `cargo check`, etc. as normal. Run your program with:
 
+TUI version:
+
 ```shell
-cargo run --release --config 'target."cfg(all())".runner="sudo -E"' --release
+cargo run -p cerberus-tui --release --config 'target."cfg(all())".runner="sudo -E"'
+```
+
+No TUI:
+
+```shell
+cargo run -p cerberus --release --config 'target."cfg(all())".runner="sudo -E"'
 ```
 
 Cargo build scripts are used to automatically build the eBPF correctly and include it in the
@@ -30,7 +42,7 @@ CC=${ARCH}-linux-musl-gcc cargo build --package rust-aya-ebpf-xp --release \
   --config=target.${ARCH}-unknown-linux-musl.linker=\"${ARCH}-linux-musl-gcc\"
 ```
 
-The cross-compiled program `target/${ARCH}-unknown-linux-musl/release/rust-aya-ebpf-xp` can be
+The cross-compiled program `target/${ARCH}-unknown-linux-musl/release/cerberus` can be
 copied to a Linux server or VM and run there.
 
 ## License

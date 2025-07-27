@@ -33,6 +33,7 @@ tracing-subscriber = { workspace = true }
 tokio = { workspace = true, features = [
     "macros",
     "rt",
+    "sync",
     "rt-multi-thread",
     "net",
     "signal",

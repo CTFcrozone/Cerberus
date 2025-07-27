@@ -1,5 +1,5 @@
 use crate::Result;
-use cerberus_common::{EbpfEvent, GenericEvent};
+use cerberus_common::EbpfEvent;
 use flume::{Receiver, Sender};
 
 #[derive(Clone)]

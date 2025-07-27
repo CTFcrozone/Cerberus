@@ -4,7 +4,7 @@ mod worker;
 pub use self::error::{Error, Result};
 use aya::{
 	maps::RingBuf,
-	programs::{loaded_programs, KProbe, Lsm, ProgramFd, ProgramType, TracePoint},
+	programs::{KProbe, Lsm, TracePoint},
 	Btf,
 };
 #[rustfmt::skip]

@@ -6,7 +6,7 @@ use crossterm::{
 	cursor,
 	event::{DisableMouseCapture, EnableMouseCapture},
 	execute,
-	terminal::{EnterAlternateScreen, LeaveAlternateScreen},
+	terminal::{DisableLineWrap, EnterAlternateScreen, LeaveAlternateScreen},
 };
 use derive_more::{Deref, From};
 use ratatui::DefaultTerminal;
@@ -24,7 +24,13 @@ pub struct AppTx(Tx<AppEvent>);
 pub async fn start_tui(ebpf: Ebpf, app_tx: AppTx, app_rx: Rx<AppEvent>, exit_tx: ExitTx) -> Result<()> {
 	let terminal = ratatui::init();
 
-	execute!(stdout(), EnterAlternateScreen, EnableMouseCapture, cursor::Hide)?;
+	execute!(
+		stdout(),
+		EnterAlternateScreen,
+		EnableMouseCapture,
+		cursor::Hide,
+		DisableLineWrap
+	)?;
 
 	let _ = exec_app(terminal, ebpf, app_tx, app_rx, exit_tx).await;
 
