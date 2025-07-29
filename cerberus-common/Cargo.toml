@@ -10,6 +10,7 @@ default = []
 user = ["aya"]
 
 [dependencies]
+
 aya = { workspace = true, optional = true }
 zerocopy = { workspace = true }
 zerocopy-derive = { workspace = true }

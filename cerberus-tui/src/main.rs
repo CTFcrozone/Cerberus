@@ -1,4 +1,5 @@
 mod core;
+mod db;
 mod error;
 mod event;
 mod styles;

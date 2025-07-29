@@ -186,7 +186,6 @@ fn try_socket_connect(ctx: LsmContext) -> Result<i32, i32> {
 }
 
 fn try_inet_sock_set_state(ctx: TracePointContext) -> Result<u32, u32> {
-	let common_pid: i32 = unsafe { try_read!(ctx, 4) };
 	let oldstate: i32 = unsafe { try_read!(ctx, 16) };
 	let newstate: i32 = unsafe { try_read!(ctx, 20) };
 	let sport: u16 = unsafe { try_read!(ctx, 24) };

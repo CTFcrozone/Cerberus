@@ -17,6 +17,9 @@ pub enum Error {
 	InvalidEventAlign,
 	InvalidEventSize,
 	UnknownEventType(u8),
+	MutexPoison,
+	#[from]
+	Rusqlite(rusqlite::Error),
 	// -- Externals
 	//
 	#[from]
