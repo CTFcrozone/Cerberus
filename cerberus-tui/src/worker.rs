@@ -90,6 +90,7 @@ impl RingBufWorker {
 								4 => "COMMIT_CREDS",
 								5 => "MODULE_INIT",
 								6 => "INET_SOCK_SET_STATE",
+								7 => "ENTER_PTRACE",
 								_ => "UNKNOWN",
 							};
 

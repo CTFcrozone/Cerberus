@@ -108,6 +108,13 @@ pub fn load_hooks(ebpf: &mut Ebpf) -> Result<AsyncFd<RingBuf<MapData>>> {
 	tp_inet_sock_set_state.load()?;
 	tp_inet_sock_set_state.attach("sock", "inet_sock_set_state")?;
 
+	let sys_enter_ptrace: &mut TracePoint = ebpf
+		.program_mut("sys_enter_ptrace")
+		.ok_or(Error::EbpfProgNotFound)?
+		.try_into()?;
+	sys_enter_ptrace.load()?;
+	sys_enter_ptrace.attach("syscalls", "sys_enter_ptrace")?;
+
 	let ring_buf = RingBuf::try_from(ebpf.take_map("EVT_MAP").ok_or(Error::EbpfProgNotFound)?)?;
 	let fd = AsyncFd::new(ring_buf)?;
 	Ok(fd)

@@ -2,7 +2,10 @@
 #![no_main]
 
 use aya_ebpf::{
-	helpers::{bpf_get_current_comm, bpf_get_current_pid_tgid, bpf_get_current_uid_gid, bpf_probe_read_kernel},
+	helpers::{
+		bpf_get_current_comm, bpf_get_current_pid_tgid, bpf_get_current_uid_gid, bpf_probe_read_kernel,
+		r#gen::{bpf_ktime_get_ns, bpf_send_signal},
+	},
 	macros::{kprobe, lsm, map, tracepoint},
 	maps::RingBuf,
 	programs::{LsmContext, ProbeContext, TracePointContext},
@@ -45,6 +48,14 @@ macro_rules! try_read {
 #[tracepoint]
 pub fn inet_sock_set_state(ctx: TracePointContext) -> u32 {
 	match try_inet_sock_set_state(ctx) {
+		Ok(ret) => ret,
+		Err(ret) => ret,
+	}
+}
+
+#[tracepoint]
+pub fn sys_enter_ptrace(ctx: TracePointContext) -> u32 {
+	match try_sys_enter_ptrace(ctx) {
 		Ok(ret) => ret,
 		Err(ret) => ret,
 	}
@@ -99,6 +110,34 @@ fn try_commit_creds(ctx: ProbeContext) -> Result<u32, u32> {
 			Ok(_) => (),
 			Err(e) => return Err(e as u32),
 		}
+	}
+
+	Ok(0)
+}
+
+fn try_sys_enter_ptrace(ctx: TracePointContext) -> Result<u32, u32> {
+	let uid = bpf_get_current_uid_gid() as u32;
+	let pid = bpf_get_current_pid_tgid() as u32;
+	let tgid = (bpf_get_current_pid_tgid() >> 32) as u32;
+	let comm_raw = bpf_get_current_comm().unwrap_or([0u8; 16]);
+
+	let ret = unsafe { bpf_send_signal(9) };
+
+	let event = GenericEvent {
+		header: EventHeader {
+			event_type: 7,
+			_padding: [0u8; 3],
+		},
+		pid,
+		uid,
+		tgid,
+		comm: comm_raw,
+		meta: if ret == 0 { 1 } else { 0 }, // success flag
+	};
+
+	match EVT_MAP.output(&event, 0) {
+		Ok(_) => (),
+		Err(e) => error!(&ctx, "Failed to log ptrace event: {}", e),
 	}
 
 	Ok(0)
@@ -208,6 +247,7 @@ fn try_inet_sock_set_state(ctx: TracePointContext) -> Result<u32, u32> {
 		sport,
 		dport,
 		protocol,
+		_padding: 0,
 		saddr,
 		daddr,
 	};
@@ -228,6 +268,7 @@ fn try_sys_enter_kill(ctx: LsmContext) -> Result<i32, i32> {
 	let tgid = (bpf_get_current_pid_tgid() >> 32) as u32;
 	let comm_raw = bpf_get_current_comm().unwrap_or([0u8; 16]);
 	let uid = bpf_get_current_uid_gid() as u32;
+	let ts = unsafe { bpf_ktime_get_ns() };
 
 	let event = GenericEvent {
 		header: EventHeader {

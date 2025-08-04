@@ -1,9 +1,16 @@
 use zerocopy_derive::{FromBytes, Immutable, KnownLayout};
 
+// 1 => "KILL",
+// 2 => "IO_URING",
+// 3 => "SOCKET_CONNECT",
+// 4 => "COMMIT_CREDS",
+// 5 => "MODULE_INIT",
+// 6 => "INET_SOCK_SET_STATE",
+// 7 => "ENTER_PTRACE",
 #[repr(C)]
 #[derive(Clone, Copy, Debug, FromBytes, Immutable, KnownLayout)]
 pub struct EventHeader {
-	pub event_type: u8, // 1 => kill, 2 => IO_URING, 3 => SOCKET_CONNECT, 4 => COMMIT_CREDS
+	pub event_type: u8,
 	pub _padding: [u8; 3],
 }
 
@@ -27,6 +34,7 @@ pub struct InetSockSetStateEvent {
 	pub sport: u16,
 	pub dport: u16,
 	pub protocol: u16,
+	pub _padding: u16,
 	pub saddr: u32,
 	pub daddr: u32,
 }
