@@ -2,18 +2,19 @@ mod core;
 mod db;
 mod error;
 mod event;
+mod rules;
 mod styles;
 mod trx;
 mod views;
 mod worker;
-use core::{start_tui, AppTx, ExitTx};
-
 pub use self::error::{Error, Result};
 use aya::{
 	maps::{MapData, RingBuf},
 	programs::{KProbe, Lsm, TracePoint},
 	Btf, Ebpf,
 };
+use cerberus_rules;
+use core::{start_tui, AppTx, ExitTx};
 use event::{new_channel, AppEvent};
 #[rustfmt::skip]
 use tracing::{debug, warn};

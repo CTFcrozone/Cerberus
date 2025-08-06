@@ -1,0 +1,43 @@
+[package]
+name = "cerberus-rules"
+version = "0.1.0"
+edition = "2021"
+
+license.workspace = true
+
+[dependencies]
+cerberus-common = { path = "../cerberus-common", features = ["user"] }
+derive_more = { version = "2.0.0", features = [
+    "from",
+    "display",
+    "debug",
+    "into",
+    "deref",
+] }
+aya = { workspace = true }
+aya-log = { workspace = true }
+libc = { workspace = true }
+flume = { workspace = true }
+tracing = { workspace = true }
+futures-timer = "3.0.3"
+futures = "0.3.31"
+modql = { version = "0.5.0-alpha.5", features = ["with-rusqlite"] }
+rusqlite = { version = "0.37.0", features = [
+    "bundled",
+    "uuid",
+    "serde_json",
+    "serialize",
+] }
+tracing-subscriber = { workspace = true }
+# tokio = { workspace = true, features = [
+#     "macros",
+#     "rt",
+#     "sync",
+#     "rt-multi-thread",
+#     "net",
+#     "signal",
+# ] }
+toml = "0.9.5"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+glob = "0.3.2"

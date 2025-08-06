@@ -1,0 +1,21 @@
+[rule]
+id = "test-rule"
+description = "Suspicious action in /tmp"
+type = "file_event"
+category = "test"
+severity = "very-low"
+
+
+[[rule.prefilter]]
+uid_exclude = [0]
+path_prefix = ["/tmp"]
+
+[[rule.conditions]]
+field = "path"
+op = "starts_with"
+value = "/tmp"
+
+[[rule.conditions]]
+field = "uid"
+op = "not_in"
+value = [0]

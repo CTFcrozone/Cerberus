@@ -7,6 +7,8 @@ license.workspace = true
 
 [dependencies]
 cerberus-common = { path = "../cerberus-common", features = ["user"] }
+cerberus-rules = { path = "../cerberus-rules" }
+
 derive_more = { version = "2.0.0", features = [
     "from",
     "display",
