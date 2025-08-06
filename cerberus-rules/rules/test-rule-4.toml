@@ -1,0 +1,27 @@
+[rule]
+id = "linux-suspicious-external-connection"
+description = "Detect outbound network connections to rare external IPs"
+type = "network_event"
+category = "network"
+severity = "medium"
+
+[[rule.conditions]]
+field = "destination_ip"
+op = "not_in_cidr"
+value = [
+    "10.0.0.0/8",
+    "172.16.0.0/12",
+    "192.168.0.0/16",
+    "127.0.0.0/8",
+    "::1/128",
+]
+
+[[rule.conditions]]
+field = "destination_port"
+op = "in"
+value = [80, 443, 8080]
+
+[[rule.conditions]]
+field = "process_name"
+op = "not_in"
+value = ["curl", "wget", "ssh", "systemd", "nginx"]

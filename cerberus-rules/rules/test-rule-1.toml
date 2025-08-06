@@ -5,7 +5,6 @@ type = "file_event"
 category = "test"
 severity = "very-low"
 
-
 [[rule.prefilter]]
 uid_exclude = [0]
 path_prefix = ["/tmp"]

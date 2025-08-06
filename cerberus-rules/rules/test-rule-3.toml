@@ -1,0 +1,15 @@
+[rule]
+id = "linux-known-malicious-hash"
+description = "Execution of binaries with known malicious hashes"
+type = "process_event"
+category = "threat-intel"
+severity = "critical"
+
+[[rule.conditions]]
+field = "file_hash"
+op = "in"
+value = [
+    "d41d8cd98f00b204e9800998ecf8427e",
+    "098f6bcd4621d373cade4e832627b4f6",
+    "5d41402abc4b2a76b9719d911017c592",
+]

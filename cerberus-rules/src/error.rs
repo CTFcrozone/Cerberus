@@ -10,7 +10,13 @@ pub enum Error {
 	#[from]
 	Glob(glob::GlobError),
 	#[from]
+	GlobPattern(glob::PatternError),
+	#[from]
 	TomlDe(toml::de::Error),
+	#[display("No rule file found at '{_0}'")]
+	RulePathNotFound(String),
+	#[from]
+	SimpleFs(simple_fs::Error),
 	// -- Externals
 	#[from]
 	Io(std::io::Error), // as example

@@ -1,0 +1,40 @@
+[rule]
+id = "linux-reverse-shell-detection"
+description = "Detect possible reverse shell activity based on network connection by shell processes"
+type = "process_event"
+category = "execution"
+severity = "critical"
+
+[[rule.prefilter]]
+path_prefix = ["/bin/", "/usr/bin/"]
+
+[[rule.conditions]]
+field = "process_name"
+op = "in"
+value = ["bash", "sh", "nc", "netcat", "python", "perl", "ruby"]
+
+[[rule.conditions]]
+field = "command_line"
+op = "matches_regex"
+value = "(bash|sh|nc|netcat|python|perl|ruby).*(\\/dev\\/tcp\\/|socket|exec|connect|/bin/bash -i|/bin/sh -i)"
+
+[[rule.conditions]]
+field = "outbound_connection"
+op = "equals"
+value = true
+
+[[rule.conditions]]
+field = "uid"
+op = "not_in"
+value = [0]
+
+[[rule.conditions]]
+field = "destination_ip"
+op = "not_in_cidr"
+value = [
+    "10.0.0.0/8",
+    "172.16.0.0/12",
+    "192.168.0.0/16",
+    "127.0.0.0/8",
+    "::1/128",
+]

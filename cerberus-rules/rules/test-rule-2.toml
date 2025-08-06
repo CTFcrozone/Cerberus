@@ -1,0 +1,24 @@
+[rule]
+id = "linux-sensitive-file-modification"
+description = "Detect write access to critical system files"
+type = "file_event"
+category = "filesystem"
+severity = "critical"
+
+[[rule.prefilter]]
+path_prefix = ["/etc/", "/usr/local/etc/"]
+
+[[rule.conditions]]
+field = "path"
+op = "in"
+value = ["/etc/passwd", "/etc/shadow", "/etc/sudoers", "/etc/ssh/sshd_config"]
+
+[[rule.conditions]]
+field = "operation"
+op = "equals"
+value = "write"
+
+[[rule.conditions]]
+field = "uid"
+op = "not_in"
+value = [0]
