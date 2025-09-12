@@ -1,5 +1,5 @@
-use crate::event::AppEvent;
 use crate::load_hooks;
+use lib_event::app_evt_types::AppEvent;
 
 use crossterm::event::{KeyCode, MouseEventKind};
 

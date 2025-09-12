@@ -1,4 +1,5 @@
-use crate::{core::AppState, event::CerberusEvent};
+use crate::core::AppState;
+use lib_event::app_evt_types::CerberusEvent;
 use ratatui::{
 	buffer::Buffer,
 	layout::Rect,

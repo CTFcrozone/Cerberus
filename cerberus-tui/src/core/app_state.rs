@@ -5,8 +5,9 @@ use aya::Ebpf;
 use tokio::io::unix::AsyncFd;
 
 use crate::core::sys_state::SysState;
-use crate::event::{CerberusEvent, LastAppEvent};
+use crate::event::LastAppEvent;
 use crate::Result;
+use lib_event::app_evt_types::CerberusEvent;
 
 use super::format_size_xfixed;
 

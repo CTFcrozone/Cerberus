@@ -300,59 +300,18 @@ dependencies = [
  "aya",
  "aya-build",
  "aya-log",
- "cerberus-common",
- "cerberus-ebpf",
  "derive_more",
  "dns-lookup",
  "flume",
+ "lib-common",
+ "lib-ebpf",
+ "lib-event",
  "libc",
  "tokio",
  "tracing",
  "tracing-subscriber",
  "zerocopy",
  "zerocopy-derive",
-]
-
-[[package]]
-name = "cerberus-common"
-version = "0.1.0"
-dependencies = [
- "aya",
- "zerocopy",
- "zerocopy-derive",
-]
-
-[[package]]
-name = "cerberus-ebpf"
-version = "0.1.0"
-dependencies = [
- "aya-ebpf",
- "aya-log-ebpf",
- "cerberus-common",
- "which",
-]
-
-[[package]]
-name = "cerberus-rules"
-version = "0.1.0"
-dependencies = [
- "aya",
- "aya-log",
- "cerberus-common",
- "derive_more",
- "flume",
- "futures",
- "futures-timer",
- "glob",
- "libc",
- "modql",
- "rusqlite",
- "serde",
- "serde_json",
- "simple-fs",
- "toml",
- "tracing",
- "tracing-subscriber",
 ]
 
 [[package]]
@@ -363,9 +322,6 @@ dependencies = [
  "aya",
  "aya-build",
  "aya-log",
- "cerberus-common",
- "cerberus-ebpf",
- "cerberus-rules",
  "color-eyre",
  "crossterm",
  "derive_more",
@@ -373,6 +329,10 @@ dependencies = [
  "flume",
  "futures",
  "futures-timer",
+ "lib-common",
+ "lib-ebpf",
+ "lib-event",
+ "lib-rules",
  "libc",
  "modql",
  "ratatui",
@@ -909,6 +869,66 @@ name = "lazy_static"
 version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bbd2bcb4c963f2ddae06a2efc7e9f3591312473c50c6685e1f298068316e66fe"
+
+[[package]]
+name = "lib-common"
+version = "0.1.0"
+dependencies = [
+ "aya",
+ "zerocopy",
+ "zerocopy-derive",
+]
+
+[[package]]
+name = "lib-ebpf"
+version = "0.1.0"
+dependencies = [
+ "aya-ebpf",
+ "aya-log-ebpf",
+ "lib-common",
+ "which",
+ "zerocopy",
+ "zerocopy-derive",
+]
+
+[[package]]
+name = "lib-event"
+version = "0.1.0"
+dependencies = [
+ "crossterm",
+ "derive_more",
+ "flume",
+ "serde",
+ "serde_json",
+ "tracing",
+ "tracing-subscriber",
+ "zerocopy",
+ "zerocopy-derive",
+]
+
+[[package]]
+name = "lib-rules"
+version = "0.1.0"
+dependencies = [
+ "aya",
+ "aya-log",
+ "derive_more",
+ "flume",
+ "futures",
+ "futures-timer",
+ "glob",
+ "lib-common",
+ "lib-event",
+ "libc",
+ "modql",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "simple-fs",
+ "toml",
+ "tracing",
+ "tracing-subscriber",
+]
 
 [[package]]
 name = "libc"

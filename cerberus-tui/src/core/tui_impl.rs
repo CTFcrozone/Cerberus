@@ -1,6 +1,6 @@
 use std::io::stdout;
 
-use crate::{event::Rx, Result};
+use crate::Result;
 use aya::Ebpf;
 use crossterm::{
 	cursor,
@@ -11,7 +11,8 @@ use crossterm::{
 use derive_more::{Deref, From};
 use ratatui::DefaultTerminal;
 
-use crate::event::{AppEvent, Tx};
+use lib_event::app_evt_types::AppEvent;
+use lib_event::trx::{Rx, Tx};
 
 use super::{term_reader::run_term_read, tui_loop::run_ui_loop};
 

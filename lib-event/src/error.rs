@@ -1,8 +1,5 @@
-use std::str::Utf8Error;
-
 use derive_more::{Display, From};
 use flume::{RecvError, SendError};
-use tokio::task::JoinError;
 
 pub type Result<T> = core::result::Result<T, Error>;
 
@@ -18,26 +15,7 @@ pub enum Error {
 	InvalidEventSize,
 	UnknownEventType(u8),
 	MutexPoison,
-	#[from]
-	Rusqlite(rusqlite::Error),
-	// -- Externals
-	//
-	#[from]
-	Oneshot(tokio::sync::oneshot::error::RecvError),
-	#[from]
-	JoinError(JoinError),
-	#[from]
-	Utf8(Utf8Error),
-	#[from]
-	AyaEbpf(aya::EbpfError),
-	#[from]
-	AyaBtf(aya::BtfError),
-	#[from]
-	AyaMaps(aya::maps::MapError),
-	#[from]
-	AyaProgram(aya::programs::ProgramError),
-	#[from]
-	Event(lib_event::error::Error),
+
 	#[from]
 	Io(std::io::Error), // as example
 }

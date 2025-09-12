@@ -1,5 +1,5 @@
-use super::AppEvent;
 use derive_more::From;
+use lib_event::app_evt_types::AppEvent;
 use std::sync::Arc;
 
 #[derive(Clone, Default, From)]

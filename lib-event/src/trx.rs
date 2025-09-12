@@ -1,4 +1,4 @@
-use crate::Result;
+use crate::error::Result;
 
 pub fn new_channel<T>(name: &'static str) -> (Tx<T>, Rx<T>) {
 	let (tx, rx) = flume::unbounded();

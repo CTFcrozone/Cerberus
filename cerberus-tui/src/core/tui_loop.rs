@@ -1,7 +1,9 @@
-use crate::event::{ActionEvent, AppEvent, LastAppEvent};
+use crate::event::LastAppEvent;
 use crate::views::MainView;
-use crate::{event::Rx, Result};
+use crate::Result;
 use aya::Ebpf;
+use lib_event::app_evt_types::{ActionEvent, AppEvent};
+use lib_event::trx::Rx;
 use ratatui::DefaultTerminal;
 use tokio::task::JoinHandle;
 

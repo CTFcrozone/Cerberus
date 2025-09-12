@@ -11,7 +11,7 @@ use aya_ebpf::{
 	programs::{LsmContext, ProbeContext, TracePointContext},
 };
 use aya_log_ebpf::{error, warn};
-use cerberus_common::{EventHeader, GenericEvent, InetSockSetStateEvent};
+use lib_common::{EventHeader, GenericEvent, InetSockSetStateEvent};
 mod vmlinux;
 use vmlinux::{module, sockaddr, sockaddr_in, task_struct};
 

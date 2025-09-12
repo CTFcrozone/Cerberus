@@ -18,7 +18,6 @@ pub struct RuleInner {
 	pub r#type: String,
 	pub severity: Option<String>,
 	pub category: Option<String>,
-	pub prefilter: Option<Vec<Prefilter>>,
 	pub conditions: Vec<Condition>,
 }
 
@@ -82,11 +81,7 @@ mod tests {
 			r#type: "file_event".to_string(),
 			severity: Some("very-low".to_string()),
 			category: Some("test".to_string()),
-			prefilter: Some(vec![Prefilter {
-				uid_include: None,
-				uid_exclude: Some(vec![0]),
-				path_prefix: Some(vec!["/tmp".to_string()]),
-			}]),
+
 			conditions: vec![
 				Condition {
 					field: "path".to_string(),

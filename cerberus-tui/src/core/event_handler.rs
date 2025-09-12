@@ -1,12 +1,8 @@
 use super::app_state::Tab;
 use super::{AppState, AppTx, ExitTx};
-use crate::event::CerberusEvent;
-use crate::{
-	event::{ActionEvent, AppEvent},
-	worker::RingBufWorker,
-	Result,
-};
+use crate::{worker::RingBufWorker, Result};
 use crossterm::event::{Event, KeyCode, KeyEventKind, KeyModifiers};
+use lib_event::app_evt_types::{ActionEvent, AppEvent, CerberusEvent};
 use ratatui::DefaultTerminal;
 
 const MAX_EVENTS: usize = 250; // Reduced from 1000

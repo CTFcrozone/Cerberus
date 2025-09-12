@@ -3,7 +3,7 @@ use toml::Value;
 pub struct Evaluator;
 
 impl Evaluator {
-	fn equals(a: &Value, b: &Value) -> bool {
+	pub fn equals(a: &Value, b: &Value) -> bool {
 		if let (Some(ai), Some(bi)) = (a.as_integer(), b.as_integer()) {
 			return ai == bi;
 		}
@@ -25,14 +25,14 @@ impl Evaluator {
 		a == b
 	}
 
-	fn in_array(val: &Value, target: &Value) -> bool {
+	pub fn in_array(val: &Value, target: &Value) -> bool {
 		target
 			.as_array()
 			.map(|arr| arr.iter().any(|el| Self::equals(val, el)))
 			.unwrap_or(false)
 	}
 
-	fn numeric_cmp<F>(a: &Value, b: &Value, cmp: F) -> bool
+	pub fn numeric_cmp<F>(a: &Value, b: &Value, cmp: F) -> bool
 	where
 		F: Fn(f64, f64) -> bool,
 	{

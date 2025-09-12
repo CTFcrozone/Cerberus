@@ -1,12 +1,14 @@
 [package]
-name = "cerberus-rules"
+name = "lib-rules"
 version = "0.1.0"
 edition = "2021"
 
 license.workspace = true
 
 [dependencies]
-cerberus-common = { path = "../cerberus-common", features = ["user"] }
+lib-common = { path = "../lib-common", features = ["user"] }
+lib-event = { path = "../lib-event" }
+
 derive_more = { version = "2.0.0", features = [
     "from",
     "display",

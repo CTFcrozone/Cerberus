@@ -6,13 +6,10 @@ use derive_more::From;
 pub enum AppEvent {
 	#[from]
 	Term(crossterm::event::Event),
-
 	#[from]
 	Cerberus(CerberusEvent),
-
 	#[from]
 	LoadedHooks,
-
 	#[from]
 	Action(ActionEvent),
 }

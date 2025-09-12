@@ -3,10 +3,11 @@ use std::sync::Arc;
 use crate::{
 	core::AppTx,
 	error::{Error, Result},
-	event::{AppEvent, CerberusEvent, InetSockEvent, RingBufEvent},
 };
+
 use aya::maps::{MapData, RingBuf};
-use cerberus_common::{EbpfEvent, EventHeader, GenericEvent, InetSockSetStateEvent};
+use lib_common::{EbpfEvent, EventHeader, GenericEvent, InetSockSetStateEvent};
+use lib_event::app_evt_types::{AppEvent, CerberusEvent, InetSockEvent, RingBufEvent};
 use tokio::io::unix::AsyncFd;
 use tracing::info;
 use zerocopy::FromBytes;

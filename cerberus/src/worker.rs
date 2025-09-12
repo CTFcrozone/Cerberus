@@ -3,14 +3,14 @@ use crate::{
 	trx::EventRx,
 };
 use aya::maps::{MapData, RingBuf};
-use cerberus_common::GenericEvent;
+use lib_common::GenericEvent;
 use tokio::io::unix::AsyncFd;
 use tracing::info;
 use zerocopy::FromBytes;
 
 use crate::trx::EventTx;
 
-use cerberus_common::{EbpfEvent, InetSockSetStateEvent};
+use lib_common::{EbpfEvent, InetSockSetStateEvent};
 
 pub struct ReceiverWorker {
 	pub rx: EventRx,
@@ -99,7 +99,7 @@ impl RingBufWorker {
 }
 
 fn parse_event_from_bytes(data: &[u8]) -> Result<EbpfEvent> {
-	let header = cerberus_common::EventHeader::ref_from_prefix(data)
+	let header = lib_common::EventHeader::ref_from_prefix(data)
 		.map_err(|_| Error::InvalidEventSize)?
 		.0;
 

@@ -6,8 +6,9 @@ edition = "2021"
 license.workspace = true
 
 [dependencies]
-cerberus-common = { path = "../cerberus-common", features = ["user"] }
-cerberus-rules = { path = "../cerberus-rules" }
+lib-common = { path = "../lib-common", features = ["user"] }
+lib-rules = { path = "../lib-rules" }
+lib-event = { path="../lib-event" }
 
 derive_more = { version = "2.0.0", features = [
     "from",
@@ -70,7 +71,7 @@ aya-build = { workspace = true }
 # Finally note that *any* usage of `artifact = ...` in *any* Cargo.toml in the workspace breaks
 # workflows with stable cargo; stable cargo outright refuses to load manifests that use unstable
 # features.
-cerberus-ebpf = { path = "../cerberus-ebpf" }
+lib-ebpf = { path = "../lib-ebpf" }
 
 [[bin]]
 name = "cerberus-tui"

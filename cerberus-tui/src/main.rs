@@ -13,9 +13,8 @@ use aya::{
 	programs::{KProbe, Lsm, TracePoint},
 	Btf, Ebpf,
 };
-use cerberus_rules;
 use core::{start_tui, AppTx, ExitTx};
-use event::{new_channel, AppEvent};
+use lib_event::{app_evt_types::AppEvent, trx::new_channel};
 #[rustfmt::skip]
 use tracing::{debug, warn};
 use tokio::io::unix::AsyncFd;
