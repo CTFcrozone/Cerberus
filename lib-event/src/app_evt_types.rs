@@ -19,12 +19,34 @@ pub enum ActionEvent {
 	Quit,
 }
 
+#[derive(Debug)]
+pub enum RuleType {
+	Fs,
+	Network,
+	Exec,
+}
+
 #[derive(From, Clone, Debug)]
 pub enum CerberusEvent {
 	#[from]
 	Generic(RingBufEvent),
 	#[from]
 	InetSock(InetSockEvent),
+}
+
+#[derive(Debug)]
+pub struct EvaluatedEvent {
+	pub rule_id: String,
+	pub severity: String,
+	pub rule_type: RuleType,
+	pub event_meta: EventMeta,
+}
+
+#[derive(Debug)]
+pub struct EventMeta {
+	pub uid: u32,
+	pub pid: u32,
+	pub comm: Arc<str>,
 }
 
 #[derive(Debug, Clone)]
