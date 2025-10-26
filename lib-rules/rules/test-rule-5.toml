@@ -5,9 +5,6 @@ type = "process_event"
 category = "execution"
 severity = "critical"
 
-[[rule.prefilter]]
-path_prefix = ["/bin/", "/usr/bin/"]
-
 [[rule.conditions]]
 field = "process_name"
 op = "in"

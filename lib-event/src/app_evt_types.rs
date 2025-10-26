@@ -9,6 +9,8 @@ pub enum AppEvent {
 	#[from]
 	Cerberus(CerberusEvent),
 	#[from]
+	CerberusEvaluated(EvaluatedEvent),
+	#[from]
 	LoadedHooks,
 	#[from]
 	Action(ActionEvent),
@@ -19,7 +21,7 @@ pub enum ActionEvent {
 	Quit,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RuleType {
 	Fs,
 	Network,
@@ -34,7 +36,7 @@ pub enum CerberusEvent {
 	InetSock(InetSockEvent),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct EvaluatedEvent {
 	pub rule_id: String,
 	pub severity: String,
@@ -42,7 +44,7 @@ pub struct EvaluatedEvent {
 	pub event_meta: EventMeta,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct EventMeta {
 	pub uid: u32,
 	pub pid: u32,

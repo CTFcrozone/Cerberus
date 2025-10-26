@@ -32,6 +32,10 @@ fn handle_main_input(state: &mut AppState) {
 					state.cerberus_evts_network.clear();
 					state.set_event_scroll(0);
 				}
+				Tab::MatchedRules => {
+					state.cerberus_evts_matched.clear();
+					state.set_event_scroll(0);
+				}
 			},
 			KeyCode::Tab => {
 				state.set_tab(state.current_tab().next());

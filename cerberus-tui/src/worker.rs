@@ -8,6 +8,7 @@ use crate::{
 use aya::maps::{MapData, RingBuf};
 use lib_common::{EbpfEvent, EventHeader, GenericEvent, InetSockSetStateEvent};
 use lib_event::app_evt_types::{AppEvent, CerberusEvent, InetSockEvent, RingBufEvent};
+use lib_rules::engine::RuleEngine;
 use tokio::io::unix::AsyncFd;
 use tracing::info;
 use zerocopy::FromBytes;
@@ -59,11 +60,16 @@ use zerocopy::FromBytes;
 pub struct RingBufWorker {
 	pub ringbuf_fd: AsyncFd<RingBuf<MapData>>,
 	pub tx: AppTx,
+	pub rule_engine: Arc<RuleEngine>,
 }
 
 impl RingBufWorker {
-	pub async fn start(ringbuf_fd: AsyncFd<RingBuf<MapData>>, tx: AppTx) -> Result<()> {
-		let mut worker = RingBufWorker { ringbuf_fd, tx };
+	pub async fn start(ringbuf_fd: AsyncFd<RingBuf<MapData>>, rule_engine: Arc<RuleEngine>, tx: AppTx) -> Result<()> {
+		let mut worker = RingBufWorker {
+			ringbuf_fd,
+			tx,
+			rule_engine,
+		};
 		tokio::spawn(async move {
 			let res = worker.start_worker().await;
 			res
@@ -80,50 +86,43 @@ impl RingBufWorker {
 				let data = item.as_ref();
 
 				match parse_event_from_bytes(data) {
-					Ok(evt) => match evt {
-						EbpfEvent::Generic(evt) => {
-							let comm = Arc::from(String::from_utf8_lossy(&evt.comm).trim_end_matches('\0').as_ref());
+					Ok(evt) => {
+						let cerberus_evt = match evt {
+							EbpfEvent::Generic(ref e) => CerberusEvent::Generic(RingBufEvent {
+								name: match e.header.event_type {
+									1 => "KILL",
+									2 => "IO_URING",
+									3 => "SOCKET_CONNECT",
+									4 => "COMMIT_CREDS",
+									5 => "MODULE_INIT",
+									6 => "INET_SOCK_SET_STATE",
+									7 => "ENTER_PTRACE",
+									_ => "UNKNOWN",
+								},
+								pid: e.pid,
+								uid: e.uid,
+								tgid: e.tgid,
+								comm: Arc::from(String::from_utf8_lossy(&e.comm).trim_end_matches('\0').to_string()),
+								meta: e.meta,
+							}),
+							EbpfEvent::InetSock(ref e) => CerberusEvent::InetSock(InetSockEvent {
+								old_state: Arc::from(state_to_str(e.oldstate)),
+								new_state: Arc::from(state_to_str(e.newstate)),
+								sport: e.sport,
+								dport: e.dport,
+								protocol: Arc::from(protocol_to_str(e.protocol)),
+								saddr: e.saddr,
+								daddr: e.daddr,
+							}),
+						};
 
-							let name: &'static str = match evt.header.event_type {
-								1 => "KILL",
-								2 => "IO_URING",
-								3 => "SOCKET_CONNECT",
-								4 => "COMMIT_CREDS",
-								5 => "MODULE_INIT",
-								6 => "INET_SOCK_SET_STATE",
-								7 => "ENTER_PTRACE",
-								_ => "UNKNOWN",
-							};
-
-							let app_evt = AppEvent::Cerberus(CerberusEvent::Generic(RingBufEvent {
-								name,
-								pid: evt.pid,
-								uid: evt.uid,
-								tgid: evt.tgid,
-								comm,
-								meta: evt.meta,
-							}));
-
-							self.tx.send(app_evt).await?;
+						if let Some(decorated) = self.rule_engine.process_event(&cerberus_evt) {
+							self.tx.send(AppEvent::CerberusEvaluated(decorated)).await?;
+							println!("ESSS333");
+						} else {
+							self.tx.send(AppEvent::Cerberus(cerberus_evt)).await?;
 						}
-						EbpfEvent::InetSock(evt) => {
-							let old_state = Arc::from(state_to_str(evt.oldstate));
-							let new_state = Arc::from(state_to_str(evt.newstate));
-							let protocol = Arc::from(protocol_to_str(evt.protocol));
-
-							let app_evt = AppEvent::Cerberus(CerberusEvent::InetSock(InetSockEvent {
-								old_state,
-								new_state,
-								sport: evt.sport,
-								dport: evt.dport,
-								protocol,
-								saddr: evt.saddr,
-								daddr: evt.daddr,
-							}));
-
-							self.tx.send(app_evt).await?;
-						}
-					},
+					}
 					Err(e) => info!("Failed to parse event: {:?}", e),
 				}
 			}

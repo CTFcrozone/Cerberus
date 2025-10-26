@@ -85,8 +85,8 @@ mod tests {
 			conditions: vec![
 				Condition {
 					field: "path".to_string(),
-					op: "starts_with".to_string(),
-					value: toml::Value::String("/tmp".to_string()),
+					op: "regex".to_string(),
+					value: toml::Value::String("^/tmp".to_string()),
 				},
 				Condition {
 					field: "uid".to_string(),

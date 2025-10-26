@@ -13,4 +13,8 @@ impl EvalCtx {
 	pub fn get(&self, key: &str) -> Option<&TomlValue> {
 		self.fields.get(key)
 	}
+
+	pub fn insert(&mut self, key: String, value: TomlValue) -> Option<TomlValue> {
+		self.fields.insert(key, value)
+	}
 }

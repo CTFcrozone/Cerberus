@@ -1,8 +1,7 @@
-use super::app_state::Tab;
 use super::{AppState, AppTx, ExitTx};
 use crate::{worker::RingBufWorker, Result};
 use crossterm::event::{Event, KeyCode, KeyEventKind, KeyModifiers};
-use lib_event::app_evt_types::{ActionEvent, AppEvent, CerberusEvent};
+use lib_event::app_evt_types::{ActionEvent, AppEvent, CerberusEvent, EvaluatedEvent};
 use ratatui::DefaultTerminal;
 
 const MAX_EVENTS: usize = 250; // Reduced from 1000
@@ -24,6 +23,10 @@ pub async fn handle_app_event(
 		AppEvent::Cerberus(cerberus_evt) => {
 			handle_cerberus_event(cerberus_evt, app_state);
 		}
+		AppEvent::CerberusEvaluated(evt) => {
+			println!("GOT IT");
+			handle_cerberus_eval_event(evt, app_state)
+		}
 		AppEvent::LoadedHooks => {
 			handle_hooks_loaded(app_state, app_tx).await?;
 		}
@@ -34,9 +37,11 @@ pub async fn handle_app_event(
 
 async fn handle_hooks_loaded(app_state: &mut AppState, app_tx: &AppTx) -> Result<()> {
 	if let Some(fd) = app_state.ringbuf_fd() {
-		RingBufWorker::start(fd, app_tx.clone()).await?;
-		app_state.worker_up = true;
-		app_state.set_view(crate::core::View::Main);
+		if let Some(engine) = &app_state.rule_engine {
+			RingBufWorker::start(fd, engine.clone(), app_tx.clone()).await?;
+			app_state.worker_up = true;
+			app_state.set_view(crate::core::View::Main);
+		}
 	}
 
 	Ok(())
@@ -60,15 +65,22 @@ async fn handle_hooks_loaded(app_state: &mut AppState, app_tx: &AppTx) -> Result
 // }
 //
 fn handle_cerberus_event(event: &CerberusEvent, app_state: &mut AppState) {
-	let events = match app_state.current_tab() {
-		Tab::General => &mut app_state.cerberus_evts_general,
-		Tab::Network => &mut app_state.cerberus_evts_network,
+	let events = match event {
+		CerberusEvent::Generic(_) => &mut app_state.cerberus_evts_general,
+		CerberusEvent::InetSock(_) => &mut app_state.cerberus_evts_network,
 	};
 
 	if events.len() >= MAX_EVENTS {
 		events.pop_front();
 	}
 	events.push_back(event.clone());
+}
+
+fn handle_cerberus_eval_event(event: &EvaluatedEvent, app_state: &mut AppState) {
+	if app_state.cerberus_evts_matched.len() >= MAX_EVENTS {
+		app_state.cerberus_evts_matched.pop_front();
+	}
+	app_state.cerberus_evts_matched.push_back(event.clone());
 }
 
 async fn handle_term_event(term_event: &Event, app_tx: &AppTx) -> Result<()> {

@@ -16,7 +16,7 @@ impl RuleSet {
 		let mut rules = Vec::new();
 
 		// Make sure the path is like: `rules/` or `some/stuff/rules/` and not `rules`
-		let pattern = format!("{}*.toml", dir.as_ref().display());
+		let pattern = format!("{}/**/*.toml", dir.as_ref().display());
 
 		for glob in glob(&pattern)? {
 			match glob {

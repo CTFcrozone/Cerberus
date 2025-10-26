@@ -39,6 +39,8 @@ pub enum Error {
 	#[from]
 	Event(lib_event::error::Error),
 	#[from]
+	RuleEngine(lib_rules::error::Error),
+	#[from]
 	Io(std::io::Error), // as example
 }
 

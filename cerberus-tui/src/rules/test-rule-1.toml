@@ -1,0 +1,10 @@
+[rule]
+id = "always-trigger"
+description = "Triggers on any event"
+type = "generic_event"
+category = "test"
+severity = "low"
+
+[[rule.conditions]]
+field = "pid"
+op = "exists"

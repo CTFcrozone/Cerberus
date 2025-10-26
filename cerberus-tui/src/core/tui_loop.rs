@@ -4,11 +4,14 @@ use crate::Result;
 use aya::Ebpf;
 use lib_event::app_evt_types::{ActionEvent, AppEvent};
 use lib_event::trx::Rx;
+use lib_rules::engine::RuleEngine;
 use ratatui::DefaultTerminal;
 use tokio::task::JoinHandle;
 
 use super::event_handler::handle_app_event;
 use super::{process_app_state, AppState, AppTx, ExitTx};
+
+const RULES_DIR: &str = "./rules";
 
 pub fn run_ui_loop(
 	mut term: DefaultTerminal,
@@ -18,6 +21,11 @@ pub fn run_ui_loop(
 	exit_tx: ExitTx,
 ) -> Result<JoinHandle<()>> {
 	let mut appstate = AppState::new(ebpf, LastAppEvent::default())?;
+	println!("GIT GUD1");
+
+	let rule_engine = RuleEngine::new(RULES_DIR)?;
+
+	appstate.rule_engine = Some(std::sync::Arc::new(rule_engine));
 
 	let handle = tokio::spawn(async move {
 		loop {
