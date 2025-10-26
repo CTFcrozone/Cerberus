@@ -118,10 +118,9 @@ impl RingBufWorker {
 
 						if let Some(decorated) = self.rule_engine.process_event(&cerberus_evt) {
 							self.tx.send(AppEvent::CerberusEvaluated(decorated)).await?;
-							println!("ESSS333");
-						} else {
-							self.tx.send(AppEvent::Cerberus(cerberus_evt)).await?;
 						}
+
+						self.tx.send(AppEvent::Cerberus(cerberus_evt)).await?;
 					}
 					Err(e) => info!("Failed to parse event: {:?}", e),
 				}

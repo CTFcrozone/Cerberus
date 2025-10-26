@@ -1,0 +1,2514 @@
+use aya_build::cargo_metadata;
+use derive_more::{Display, From};
+
+pub type Result<T> = core::result::Result<T, Error>;
+
+#[derive(Debug, Display, From)]
+#[display("{self:?}")]
+pub enum Error {
+	#[from(String, &String, &str)]
+	Custom(String),
+	ExecFail,
+	BuildFail,
+}
+
+fn main() -> Result<()> {
+	let cargo_metadata::Metadata { packages, .. } = cargo_metadata::MetadataCommand::new()
+		.no_deps()
+		.exec()
+		.map_err(|_| Error::ExecFail)?;
+	let ebpf_package = packages
+		.into_iter()
+		.find(|cargo_metadata::Package { name, .. }| name == "lib-ebpf")
+		.ok_or_else(|| Error::Custom("cerberus-ebpf package not found".to_string()))?;
+	aya_build::build_ebpf([ebpf_package]).map_err(|_| Error::BuildFail)?;
+	Ok(())
+}
+use std::collections::VecDeque;
+use std::sync::Arc;
+
+use aya::maps::{MapData, RingBuf};
+use aya::Ebpf;
+use lib_rules::engine::RuleEngine;
+use tokio::io::unix::AsyncFd;
+
+use crate::core::sys_state::SysState;
+use crate::event::LastAppEvent;
+use crate::Result;
+use lib_event::app_evt_types::{CerberusEvent, EvaluatedEvent};
+
+use super::format_size_xfixed;
+
+pub enum View {
+	Splash,
+	Main,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub enum Tab {
+	Network,
+	General,
+	MatchedRules,
+}
+
+impl Tab {
+	pub fn next(self) -> Self {
+		match self {
+			Tab::General => Tab::Network,
+			Tab::Network => Tab::MatchedRules,
+			Tab::MatchedRules => Tab::General,
+		}
+	}
+
+	pub fn as_index(self) -> i32 {
+		match self {
+			Tab::General => 0,
+			Tab::Network => 1,
+			Tab::MatchedRules => 2,
+		}
+	}
+}
+
+pub struct AppState {
+	pub(in crate::core) ebpf: Ebpf,
+	pub(in crate::core) sys_state: SysState,
+	pub(in crate::core) memory: u64,
+	pub(in crate::core) loaded_hooks: Vec<String>,
+	pub(in crate::core) last_app_event: LastAppEvent,
+	pub(in crate::core) cerberus_evts_general: VecDeque<CerberusEvent>,
+	pub(in crate::core) cerberus_evts_network: VecDeque<CerberusEvent>,
+	pub(in crate::core) cerberus_evts_matched: VecDeque<EvaluatedEvent>,
+
+	pub(in crate::core) hooks_loaded: bool,
+	pub current_view: View,
+	pub tab: Tab,
+	pub event_scroll: u16,
+	pub rule_engine: Option<Arc<RuleEngine>>,
+	pub ringbuf_fd: Option<AsyncFd<RingBuf<MapData>>>,
+	pub worker_up: bool,
+}
+
+impl AppState {
+	pub fn new(ebpf: Ebpf, last_app_event: LastAppEvent) -> Result<Self> {
+		let sys_state = SysState::new()?;
+		Ok(Self {
+			ebpf,
+			sys_state,
+			memory: 0,
+			loaded_hooks: Vec::new(),
+			event_scroll: 0,
+			last_app_event,
+			cerberus_evts_general: VecDeque::with_capacity(250),
+			cerberus_evts_network: VecDeque::with_capacity(250),
+			cerberus_evts_matched: VecDeque::with_capacity(250),
+
+			hooks_loaded: false,
+			current_view: View::Splash,
+			rule_engine: None,
+			tab: Tab::General,
+			ringbuf_fd: None,
+			worker_up: false,
+		})
+	}
+
+	pub(in crate::core) fn refresh_sys_state(&mut self) {
+		if self.memory != self.sys_state.memory() {
+			self.memory = self.sys_state.memory();
+		}
+	}
+
+	pub fn memory(&self) -> u64 {
+		self.memory
+	}
+}
+
+impl AppState {
+	pub fn current_tab(&self) -> &Tab {
+		&self.tab
+	}
+
+	pub fn set_tab(&mut self, tab: Tab) {
+		self.tab = tab;
+	}
+}
+
+impl AppState {
+	pub fn event_scroll(&self) -> u16 {
+		self.event_scroll
+	}
+
+	pub fn set_event_scroll(&mut self, scroll: u16) {
+		self.event_scroll = scroll;
+	}
+}
+
+impl AppState {
+	// pub fn cerberus_evts_general(&self) -> &[CerberusEvent] {
+	// 	&self.cerberus_evts_general
+	// }
+
+	pub fn cerberus_evts_general(&self) -> impl Iterator<Item = &CerberusEvent> {
+		self.cerberus_evts_general.iter()
+	}
+
+	// Similarly for network events:
+	pub fn cerberus_evts_network(&self) -> impl Iterator<Item = &CerberusEvent> {
+		self.cerberus_evts_network.iter()
+	}
+
+	pub fn cerberus_evts_matched(&self) -> impl Iterator<Item = &EvaluatedEvent> {
+		self.cerberus_evts_matched.iter()
+	}
+
+	// pub fn cerberus_evts_network(&self) -> &[CerberusEvent] {
+	// 	&self.cerberus_evts_network
+	// }
+}
+
+impl AppState {
+	pub fn loaded_hooks(&self) -> &[String] {
+		&self.loaded_hooks
+	}
+	pub fn last_app_event(&self) -> &LastAppEvent {
+		&self.last_app_event
+	}
+
+	pub fn worker_up(&self) -> bool {
+		self.worker_up
+	}
+
+	pub fn ringbuf_fd(&mut self) -> Option<AsyncFd<RingBuf<MapData>>> {
+		self.ringbuf_fd.take()
+	}
+}
+
+impl AppState {
+	pub fn current_view(&self) -> &View {
+		&self.current_view
+	}
+
+	pub fn set_view(&mut self, view: View) {
+		self.current_view = view;
+	}
+}
+
+impl AppState {
+	pub fn memory_fmt(&self) -> String {
+		let mem = self.memory();
+		format_size_xfixed(mem)
+	}
+}
+use super::{AppState, AppTx, ExitTx};
+use crate::{worker::RingBufWorker, Result};
+use crossterm::event::{Event, KeyCode, KeyEventKind, KeyModifiers};
+use lib_event::app_evt_types::{ActionEvent, AppEvent, CerberusEvent, EvaluatedEvent};
+use ratatui::DefaultTerminal;
+
+const MAX_EVENTS: usize = 250; // Reduced from 1000
+
+pub async fn handle_app_event(
+	terminal: &mut DefaultTerminal,
+	app_tx: &AppTx,
+	exit_tx: &ExitTx,
+	app_event: &AppEvent,
+	app_state: &mut AppState,
+) -> Result<()> {
+	match app_event {
+		AppEvent::Term(term_event) => {
+			handle_term_event(&term_event, app_tx).await?;
+		}
+		AppEvent::Action(action_event) => {
+			handle_action_event(&action_event, terminal, exit_tx).await?;
+		}
+		AppEvent::Cerberus(cerberus_evt) => {
+			handle_cerberus_event(cerberus_evt, app_state);
+		}
+		AppEvent::CerberusEvaluated(evt) => {
+			println!("GOT IT");
+			handle_cerberus_eval_event(evt, app_state)
+		}
+		AppEvent::LoadedHooks => {
+			handle_hooks_loaded(app_state, app_tx).await?;
+		}
+	};
+
+	Ok(())
+}
+
+async fn handle_hooks_loaded(app_state: &mut AppState, app_tx: &AppTx) -> Result<()> {
+	if let Some(fd) = app_state.ringbuf_fd() {
+		if let Some(engine) = &app_state.rule_engine {
+			RingBufWorker::start(fd, engine.clone(), app_tx.clone()).await?;
+			app_state.worker_up = true;
+			app_state.set_view(crate::core::View::Main);
+		}
+	}
+
+	Ok(())
+}
+
+// fn handle_cerberus_event(event: &CerberusEvent, app_state: &mut AppState) {
+// 	match app_state.current_tab() {
+// 		Tab::General => {
+// 			if app_state.cerberus_evts_general.len() >= MAX_EVENTS {
+// 				app_state.cerberus_evts_general.remove(0);
+// 			}
+// 			app_state.cerberus_evts_general.push(event.clone());
+// 		}
+// 		Tab::Network => {
+// 			if app_state.cerberus_evts_network.len() >= MAX_EVENTS {
+// 				app_state.cerberus_evts_network.remove(0);
+// 			}
+// 			app_state.cerberus_evts_network.push(event.clone());
+// 		}
+// 	}
+// }
+//
+fn handle_cerberus_event(event: &CerberusEvent, app_state: &mut AppState) {
+	let events = match event {
+		CerberusEvent::Generic(_) => &mut app_state.cerberus_evts_general,
+		CerberusEvent::InetSock(_) => &mut app_state.cerberus_evts_network,
+	};
+
+	if events.len() >= MAX_EVENTS {
+		events.pop_front();
+	}
+	events.push_back(event.clone());
+}
+
+fn handle_cerberus_eval_event(event: &EvaluatedEvent, app_state: &mut AppState) {
+	println!("ESSSS");
+	if app_state.cerberus_evts_matched.len() >= MAX_EVENTS {
+		app_state.cerberus_evts_matched.pop_front();
+	}
+	app_state.cerberus_evts_matched.push_back(event.clone());
+}
+
+async fn handle_term_event(term_event: &Event, app_tx: &AppTx) -> Result<()> {
+	if let Event::Key(key) = term_event {
+		if let KeyEventKind::Press = key.kind {
+			let mod_ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
+			match (key.code, mod_ctrl) {
+				(KeyCode::Char('c'), true) => app_tx.send(ActionEvent::Quit).await?,
+				_ => (),
+			}
+		}
+	}
+	Ok(())
+}
+
+async fn handle_action_event(
+	action_event: &ActionEvent,
+	_terminal: &mut DefaultTerminal,
+	_exit_tx: &ExitTx,
+) -> Result<()> {
+	match action_event {
+		ActionEvent::Quit => {
+			// Handled at the main loop
+		}
+	}
+	Ok(())
+}
+mod app_state;
+mod event_handler;
+mod state_process;
+mod sys_state;
+mod term_reader;
+mod tui_impl;
+mod tui_loop;
+
+pub use app_state::{AppState, Tab, View};
+pub use state_process::*;
+pub use tui_impl::*;
+
+pub fn format_size_xfixed(size_in_bytes: u64) -> String {
+	const UNITS: [&str; 6] = ["B", "KB", "MB", "GB", "TB", "PB"];
+	let mut size = size_in_bytes as f64;
+	let mut unit = 0;
+
+	while size >= 1000.0 && unit < UNITS.len() - 1 {
+		size /= 1000.0;
+		unit += 1;
+	}
+
+	let unit_str = UNITS[unit];
+
+	if unit == 0 {
+		let number_str = format!("{size_in_bytes:>6}");
+		format!("{number_str} {unit_str} ")
+	} else {
+		let width = if unit <= 2 { 6 } else { 5 };
+		let number_str = format!("{size:>width$.2}");
+		format!("{number_str} {unit_str}")
+	}
+}
+use crate::load_hooks;
+use lib_event::app_evt_types::AppEvent;
+
+use crossterm::event::{KeyCode, MouseEventKind};
+
+use super::{app_state::View, AppState};
+use super::{AppTx, Tab};
+
+pub fn process_app_state(state: &mut AppState, app_tx: &AppTx) {
+	match state.current_view() {
+		View::Main => handle_main_view(state),
+		View::Splash => handle_splash_view(state, app_tx),
+	}
+}
+
+fn handle_main_view(state: &mut AppState) {
+	state.refresh_sys_state();
+	handle_main_input(state);
+	update_loaded_hooks(state);
+	handle_scroll(state);
+}
+
+fn handle_main_input(state: &mut AppState) {
+	if let Some(key) = state.last_app_event().as_key_code() {
+		match key {
+			KeyCode::Char('x') => match state.current_tab() {
+				Tab::General => {
+					state.cerberus_evts_general.clear();
+					state.set_event_scroll(0);
+				}
+				Tab::Network => {
+					state.cerberus_evts_network.clear();
+					state.set_event_scroll(0);
+				}
+				Tab::MatchedRules => {
+					state.cerberus_evts_matched.clear();
+					state.set_event_scroll(0);
+				}
+			},
+			KeyCode::Tab => {
+				state.set_tab(state.current_tab().next());
+			}
+
+			_ => {}
+		}
+	}
+}
+
+fn update_loaded_hooks(state: &mut AppState) {
+	let hooks: Vec<String> = state.ebpf.programs().map(|(name, _)| name.to_string()).collect();
+
+	state.loaded_hooks = hooks;
+}
+
+fn handle_scroll(state: &mut AppState) {
+	if let Some(mouse_evt) = state.last_app_event().as_mouse_event() {
+		let new_scroll = match mouse_evt.kind {
+			MouseEventKind::ScrollUp => Some(state.event_scroll().saturating_sub(3)),
+			MouseEventKind::ScrollDown => Some(state.event_scroll().saturating_add(3)),
+			_ => None,
+		};
+
+		if let Some(scroll) = new_scroll {
+			state.set_event_scroll(scroll);
+		}
+	}
+}
+
+fn handle_splash_view(state: &mut AppState, app_tx: &AppTx) {
+	if let Some(KeyCode::Enter) = state.last_app_event().as_key_code() {
+		match load_hooks(&mut state.ebpf) {
+			Ok(fd) => {
+				state.hooks_loaded = true;
+				state.ringbuf_fd = Some(fd);
+				let _ = app_tx.send_sync(AppEvent::LoadedHooks);
+			}
+			Err(err) => {
+				eprintln!("Error while loading hooks: {err}");
+			}
+		}
+	}
+}
+use crate::Result;
+use sysinfo::{Pid, ProcessRefreshKind, ProcessesToUpdate, System, UpdateKind, get_current_pid};
+
+pub struct SysState {
+    pub pid: Pid,
+    pub sys: System,
+}
+
+impl SysState {
+    pub fn new() -> Result<Self> {
+        let pid = get_current_pid()
+            .map_err(|err| format!("Failed to get current pid: Cause: {}", err))?;
+        let sys = System::new();
+        Ok(SysState { pid, sys })
+    }
+
+    fn refresh(&mut self) {
+        self.sys.refresh_processes_specifics(
+            ProcessesToUpdate::Some(&[self.pid]),
+            true,
+            ProcessRefreshKind::nothing()
+                .with_memory()
+                .with_disk_usage()
+                .with_exe(UpdateKind::OnlyIfNotSet)
+                .with_tasks(),
+        );
+    }
+}
+
+impl SysState {
+    pub fn memory(&mut self) -> u64 {
+        self.refresh();
+        if let Some(proc) = self.sys.process(self.pid) {
+            proc.memory()
+        } else {
+            0
+        }
+    }
+}
+use std::time::Duration;
+
+use crate::Result;
+use crossterm::event::EventStream;
+use futures::{FutureExt, StreamExt};
+use futures_timer::Delay;
+use tokio::{select, task::JoinHandle};
+
+use super::AppTx;
+
+pub fn run_term_read(app_tx: AppTx) -> Result<JoinHandle<()>> {
+	let handle = tokio::spawn(async move {
+		let mut reader = EventStream::new();
+
+		loop {
+			let delay = Delay::new(Duration::from_millis(100)).fuse();
+			let event = reader.next().fuse();
+
+			select! {
+				_ = delay => {  },
+				maybe_event = event => {
+					match maybe_event {
+						Some(Ok(event)) => {
+							if let Err(err) = app_tx.send(event).await {
+								println!("run_term_read - Cannot send app_txt.send. Cause: {err}");
+								break;
+							}
+						}
+						Some(Err(e)) => println!("Error: {e:?}\r"),
+						None => break,
+					}
+				}
+			};
+		}
+	});
+	Ok(handle)
+}
+use std::io::stdout;
+
+use crate::Result;
+use aya::Ebpf;
+use crossterm::{
+	cursor,
+	event::{DisableMouseCapture, EnableMouseCapture},
+	execute,
+	terminal::{DisableLineWrap, EnterAlternateScreen, LeaveAlternateScreen},
+};
+use derive_more::{Deref, From};
+use ratatui::DefaultTerminal;
+
+use lib_event::app_evt_types::AppEvent;
+use lib_event::trx::{Rx, Tx};
+
+use super::{term_reader::run_term_read, tui_loop::run_ui_loop};
+
+#[derive(Clone, From, Deref)]
+pub struct ExitTx(Tx<()>);
+
+#[derive(Clone, From, Deref)]
+pub struct AppTx(Tx<AppEvent>);
+
+pub async fn start_tui(ebpf: Ebpf, app_tx: AppTx, app_rx: Rx<AppEvent>, exit_tx: ExitTx) -> Result<()> {
+	let terminal = ratatui::init();
+
+	execute!(
+		stdout(),
+		EnterAlternateScreen,
+		EnableMouseCapture,
+		cursor::Hide,
+		DisableLineWrap
+	)?;
+
+	let _ = exec_app(terminal, ebpf, app_tx, app_rx, exit_tx).await;
+
+	ratatui::restore();
+	execute!(stdout(), LeaveAlternateScreen, DisableMouseCapture, cursor::Show)?;
+	Ok(())
+}
+
+async fn exec_app(
+	mut terminal: DefaultTerminal,
+	ebpf: Ebpf,
+	app_tx: AppTx,
+	app_rx: Rx<AppEvent>,
+	exit_tx: ExitTx,
+) -> Result<()> {
+	terminal.clear()?;
+
+	let _tin_read_handle = run_term_read(app_tx.clone())?;
+	let _tui_handle = run_ui_loop(terminal, ebpf, app_tx, app_rx, exit_tx)?;
+
+	_tui_handle.await?;
+
+	Ok(())
+}
+use crate::event::LastAppEvent;
+use crate::views::MainView;
+use crate::Result;
+use aya::Ebpf;
+use lib_event::app_evt_types::{ActionEvent, AppEvent};
+use lib_event::trx::Rx;
+use lib_rules::engine::RuleEngine;
+use ratatui::DefaultTerminal;
+use tokio::task::JoinHandle;
+
+use super::event_handler::handle_app_event;
+use super::{process_app_state, AppState, AppTx, ExitTx};
+
+const RULES_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/rules/");
+
+pub fn run_ui_loop(
+	mut term: DefaultTerminal,
+	ebpf: Ebpf,
+	app_tx: AppTx,
+	app_rx: Rx<AppEvent>,
+	exit_tx: ExitTx,
+) -> Result<JoinHandle<()>> {
+	let mut appstate = AppState::new(ebpf, LastAppEvent::default())?;
+
+	let rule_engine = RuleEngine::new(RULES_DIR)?;
+
+	appstate.rule_engine = Some(std::sync::Arc::new(rule_engine));
+
+	let handle = tokio::spawn(async move {
+		loop {
+			process_app_state(&mut appstate, &app_tx);
+			let _ = terminal_draw(&mut term, &mut appstate);
+
+			let app_event = match app_rx.recv().await {
+				Ok(r) => r,
+				Err(err) => {
+					println!("UI LOOP ERROR. Cause: {err}");
+					continue;
+				}
+			};
+
+			if let AppEvent::Action(ActionEvent::Quit) = &app_event {
+				let _ = term.clear();
+				let _ = exit_tx.send(()).await;
+				break;
+			}
+
+			let _ = handle_app_event(&mut term, &app_tx, &exit_tx, &app_event, &mut appstate).await;
+
+			appstate.last_app_event = app_event.into();
+		}
+	});
+
+	Ok(handle)
+}
+
+fn terminal_draw(terminal: &mut DefaultTerminal, app_state: &mut AppState) -> Result<()> {
+	terminal.draw(|frame| {
+		let area = frame.area();
+
+		let main_view = MainView {};
+		frame.render_stateful_widget(main_view, area, app_state);
+	})?;
+
+	Ok(())
+}
+pub trait DbBmc: Sized {
+	const TABLE: &'static str;
+
+	fn table_ref() -> &'static str {
+		Self::TABLE
+	}
+}
+use crate::error::{Error, Result};
+use modql::SqliteFromRow;
+use rusqlite::types::FromSql;
+use rusqlite::{Connection, OptionalExtension, Params};
+use std::path::PathBuf;
+use std::sync::{Arc, Mutex};
+
+#[derive(Debug, Clone)]
+pub struct Db {
+	conn: Arc<Mutex<Connection>>,
+}
+
+impl Db {
+	pub fn new() -> Result<Self> {
+		let db_path = db_path()?;
+		let conn = Connection::open(db_path)?;
+
+		let conn = Arc::new(Mutex::new(conn));
+
+		Ok(Self { conn })
+	}
+}
+
+fn db_path() -> Result<PathBuf> {
+	let home_dir = std::env::home_dir().ok_or_else(|| Error::custom("Could not determine home directory"))?;
+
+	let cerberus_dir = home_dir.join(".cerberus");
+
+	if !cerberus_dir.exists() {
+		std::fs::create_dir(&cerberus_dir)
+			.map_err(|e| Error::custom(format!("Failed to create .cerberus directory: {}", e)))?;
+	}
+
+	Ok(cerberus_dir.join("cerberus.db"))
+}
+pub mod db_bmc;
+pub mod db_impl;
+use std::str::Utf8Error;
+
+use derive_more::{Display, From};
+use flume::{RecvError, SendError};
+use tokio::task::JoinError;
+
+pub type Result<T> = core::result::Result<T, Error>;
+
+#[derive(Debug, Display, From)]
+#[display("{self:?}")]
+pub enum Error {
+	#[from(String, &String, &str)]
+	Custom(String),
+	EventSend(String),
+	EventRecv(RecvError),
+	EbpfProgNotFound,
+	InvalidEventAlign,
+	InvalidEventSize,
+	UnknownEventType(u8),
+	MutexPoison,
+	#[from]
+	Rusqlite(rusqlite::Error),
+	// -- Externals
+	//
+	#[from]
+	Oneshot(tokio::sync::oneshot::error::RecvError),
+	#[from]
+	JoinError(JoinError),
+	#[from]
+	Utf8(Utf8Error),
+	#[from]
+	AyaEbpf(aya::EbpfError),
+	#[from]
+	AyaBtf(aya::BtfError),
+	#[from]
+	AyaMaps(aya::maps::MapError),
+	#[from]
+	AyaProgram(aya::programs::ProgramError),
+	#[from]
+	Event(lib_event::error::Error),
+	#[from]
+	RuleEngine(lib_rules::error::Error),
+	#[from]
+	Io(std::io::Error), // as example
+}
+
+impl<T> From<SendError<T>> for Error {
+	fn from(value: SendError<T>) -> Self {
+		Self::EventSend(value.to_string())
+	}
+}
+
+impl From<RecvError> for Error {
+	fn from(err: RecvError) -> Self {
+		Self::EventRecv(err)
+	}
+}
+
+// region:    --- Custom
+
+impl Error {
+	pub fn custom_from_err(err: impl std::error::Error) -> Self {
+		Self::Custom(err.to_string())
+	}
+
+	pub fn custom(val: impl Into<String>) -> Self {
+		Self::Custom(val.into())
+	}
+}
+
+// endregion: --- Custom
+
+// region:    --- Error Boilerplate
+
+impl std::error::Error for Error {}
+
+// endregion: --- Error Boilerplate
+use derive_more::From;
+use lib_event::app_evt_types::AppEvent;
+use std::sync::Arc;
+
+#[derive(Clone, Default, From)]
+pub struct LastAppEvent {
+	last_event: Option<Arc<AppEvent>>,
+}
+
+#[allow(unused)]
+impl LastAppEvent {
+	pub fn get(&self) -> Option<Arc<AppEvent>> {
+		self.last_event.clone()
+	}
+
+	pub fn take(&mut self) -> LastAppEvent {
+		match self.last_event.take() {
+			Some(e) => LastAppEvent { last_event: Some(e) },
+			None => LastAppEvent::default(),
+		}
+	}
+
+	pub fn as_term_event(&self) -> Option<&crossterm::event::Event> {
+		self.last_event.as_ref().and_then(|e| match e.as_ref() {
+			AppEvent::Term(event) => Some(event),
+			_ => None,
+		})
+	}
+
+	pub fn as_key_event(&self) -> Option<&crossterm::event::KeyEvent> {
+		self.last_event.as_ref().and_then(|e| match e.as_ref() {
+			AppEvent::Term(crossterm::event::Event::Key(event)) => Some(event),
+			_ => None,
+		})
+	}
+
+	pub fn as_key_code(&self) -> Option<&crossterm::event::KeyCode> {
+		self.last_event.as_ref().and_then(|e| match e.as_ref() {
+			AppEvent::Term(crossterm::event::Event::Key(event)) => Some(&event.code),
+			_ => None,
+		})
+	}
+
+	pub fn as_mouse_event(&self) -> Option<&crossterm::event::MouseEvent> {
+		self.last_event.as_ref().and_then(|e| match e.as_ref() {
+			AppEvent::Term(crossterm::event::Event::Mouse(event)) => Some(event),
+			_ => None,
+		})
+	}
+}
+
+impl From<AppEvent> for LastAppEvent {
+	fn from(event: AppEvent) -> Self {
+		Self {
+			last_event: Some(Arc::new(event)),
+		}
+	}
+}
+
+impl From<Option<AppEvent>> for LastAppEvent {
+	fn from(event: Option<AppEvent>) -> Self {
+		Self {
+			last_event: event.map(Arc::new),
+		}
+	}
+}
+mod last_app_event;
+
+pub use last_app_event::*;
+mod core;
+mod db;
+mod error;
+mod event;
+mod styles;
+mod trx;
+mod views;
+mod worker;
+pub use self::error::{Error, Result};
+use aya::{
+	maps::{MapData, RingBuf},
+	programs::{KProbe, Lsm, TracePoint},
+	Btf, Ebpf,
+};
+use core::{start_tui, AppTx, ExitTx};
+use lib_event::{app_evt_types::AppEvent, trx::new_channel};
+#[rustfmt::skip]
+use tracing::{debug, warn};
+use tokio::io::unix::AsyncFd;
+use tracing_subscriber::EnvFilter;
+
+#[tokio::main]
+async fn main() -> Result<()> {
+	tracing_subscriber::fmt()
+		.with_target(false)
+		.with_env_filter(EnvFilter::from_default_env())
+		.init();
+
+	// Bump the memlock rlimit. This is needed for older kernels that don't use the
+	// new memcg based accounting, see https://lwn.net/Articles/837122/
+	let rlim = libc::rlimit {
+		rlim_cur: libc::RLIM_INFINITY,
+		rlim_max: libc::RLIM_INFINITY,
+	};
+	let ret = unsafe { libc::setrlimit(libc::RLIMIT_MEMLOCK, &rlim) };
+	if ret != 0 {
+		debug!("remove limit on locked memory failed, ret is: {ret}");
+	}
+
+	let mut ebpf = aya::Ebpf::load(aya::include_bytes_aligned!(concat!(env!("OUT_DIR"), "/cerberus")))?;
+	if let Err(e) = aya_log::EbpfLogger::init(&mut ebpf) {
+		// This can happen if you remove all log statements from your eBPF program.
+		warn!("failed to initialize eBPF logger: {e}");
+	}
+
+	let (app_tx, app_rx) = new_channel::<AppEvent>("app_event");
+	let app_tx = AppTx::from(app_tx);
+
+	let (exit_tx, exit_rx) = new_channel::<()>("exit");
+	let exit_tx = ExitTx::from(exit_tx);
+
+	// let res = load_hooks(ebpf)?;
+
+	// let ring_buf = RingBuf::try_from(ebpf.take_map("EVT_MAP").ok_or(Error::EbpfProgNotFound)?)?;
+
+	let tui_handle = tokio::spawn(async move { start_tui(ebpf, app_tx, app_rx, exit_tx).await });
+
+	let _ = exit_rx.recv().await;
+	if let Err(err) = tui_handle.await {
+		eprintln!("TUI task panicked or failed: {err}");
+	}
+
+	Ok(())
+}
+
+pub fn load_hooks(ebpf: &mut Ebpf) -> Result<AsyncFd<RingBuf<MapData>>> {
+	let btf = Btf::from_sys_fs()?;
+	let program: &mut Lsm = ebpf.program_mut("sys_enter_kill").ok_or(Error::EbpfProgNotFound)?.try_into()?;
+	program.load("task_kill", &btf)?;
+	program.attach()?;
+
+	// let lsm_socket_connect: &mut Lsm = ebpf.program_mut("socket_connect").ok_or(Error::EbpfProgNotFound)?.try_into()?;
+	// lsm_socket_connect.load("socket_connect", &btf)?;
+	// lsm_socket_connect.attach()?;
+
+	let kp_commit_creds: &mut KProbe = ebpf.program_mut("commit_creds").ok_or(Error::EbpfProgNotFound)?.try_into()?;
+	kp_commit_creds.load()?;
+	kp_commit_creds.attach("commit_creds", 0)?;
+
+	let tp_inet_sock_set_state: &mut TracePoint = ebpf
+		.program_mut("inet_sock_set_state")
+		.ok_or(Error::EbpfProgNotFound)?
+		.try_into()?;
+	tp_inet_sock_set_state.load()?;
+	tp_inet_sock_set_state.attach("sock", "inet_sock_set_state")?;
+
+	let sys_enter_ptrace: &mut TracePoint = ebpf
+		.program_mut("sys_enter_ptrace")
+		.ok_or(Error::EbpfProgNotFound)?
+		.try_into()?;
+	sys_enter_ptrace.load()?;
+	sys_enter_ptrace.attach("syscalls", "sys_enter_ptrace")?;
+
+	let ring_buf = RingBuf::try_from(ebpf.take_map("EVT_MAP").ok_or(Error::EbpfProgNotFound)?)?;
+	let fd = AsyncFd::new(ring_buf)?;
+	Ok(fd)
+}
+#![allow(unused)]
+use ratatui::style::{Color, Style, Stylize};
+
+// - Ratatui site: https://ratatui.rs/
+//     - Paragraph / Text - https://ratatui.rs/recipes/widgets/paragraph/
+//     - Block - https://ratatui.rs/recipes/widgets/block/
+//
+// - Terminal colors: https://en.wikipedia.org/wiki/ANSI_escape_code#8-bit
+
+// -- Bkg Colors
+pub const CLR_BKG_LIGHT: Color = Color::Indexed(240);
+pub const CLR_BKG_GRAY: Color = Color::Indexed(238);
+pub const CLR_BKG_GRAY_DARK: Color = Color::Indexed(236);
+pub const CLR_BKG_GRAY_DARKER: Color = Color::Indexed(234);
+pub const CLR_BKG_BLACK: Color = Color::Indexed(0);
+
+pub const CLR_BKG_PRIME: Color = Color::Indexed(12);
+
+pub const CLR_BKG_LBL: Color = CLR_BKG_GRAY_DARK;
+pub const CLR_BKG_LBL_DARK: Color = CLR_BKG_BLACK;
+pub const CLR_TXT_600: Color = Color::Indexed(250);
+pub const CLR_BKG_ACT: Color = Color::Indexed(236);
+pub const CLR_BKG_SEL: Color = Color::Indexed(15);
+
+pub const CLR_BKG_WHITE: Color = Color::Indexed(255);
+
+// -- Txt Colors
+
+pub const CLR_TXT_300: Color = Color::Indexed(250);
+pub const CLR_TXT_400: Color = Color::Indexed(252);
+pub const CLR_TXT: Color = Color::Indexed(255);
+
+pub const CLR_TXT_WHITE: Color = Color::Indexed(15);
+
+pub const CLR_TXT_LBL: Color = CLR_TXT_300;
+pub const CLR_TXT_SEL: Color = Color::Black;
+
+pub const CLR_TXT_GREEN: Color = Color::Green;
+
+pub const CLR_TXT_WAITING: Color = CLR_TXT_400;
+pub const CLR_TXT_RUNNING: Color = Color::Blue;
+pub const CLR_TXT_DONE: Color = Color::Green;
+
+// -- Styles
+pub const STL_TXT: Style = Style::new();
+
+pub const STL_TXT_LBL: Style = Style::new().fg(CLR_TXT_LBL).bg(CLR_BKG_LBL);
+pub const STL_TXT_VAL: Style = Style::new().fg(CLR_TXT_WHITE);
+
+pub const STL_TXT_LBL_DARK: Style = Style::new().fg(Color::Indexed(242)).bg(CLR_BKG_LBL_DARK);
+pub const STL_TXT_VAL_DARK: Style = Style::new().fg(CLR_TXT_LBL);
+
+pub const STL_TXT_ACT: Style = Style::new().fg(Color::White);
+pub const STL_TXT_SEL: Style = Style::new().fg(Color::Blue);
+pub const STL_TXT_ACTION: Style = Style::new().fg(Color::Blue);
+pub const STL_TXT_ACTION_SELECTED: Style = Style::new().fg(Color::LightGreen);
+
+pub const CLR_BKG_TAB_ACT: Color = CLR_BKG_GRAY_DARK;
+
+pub const STL_TAB_DEFAULT: Style = Style::new().bg(CLR_BKG_GRAY_DARKER).fg(CLR_TXT_600);
+pub const STL_TAB_ACTIVE: Style = Style::new().bg(CLR_BKG_TAB_ACT).fg(CLR_TXT_400);
+
+pub const STL_NAV_ITEM_HIGHLIGHT: Style = Style::new().bg(CLR_BKG_SEL).fg(CLR_TXT_SEL);
+
+// -- TABS
+pub fn stl_tab_dft() -> Style {
+	Style::new().bg(CLR_BKG_GRAY_DARKER).fg(CLR_TXT_300)
+}
+
+pub fn stl_tab_act() -> Style {
+	Style::new().bg(CLR_BKG_TAB_ACT).fg(CLR_TXT_WHITE).bold()
+}
+// region:    --- Modules
+
+mod common;
+
+pub use common::*;
+
+// endregion: --- Modules
+// use crate::Result;
+// use cerberus_common::GenericEvent;
+// use flume::{Receiver, Sender};
+
+// #[derive(Clone)]
+// pub struct EventTx {
+// 	tx: Sender<GenericEvent>,
+// }
+
+// impl EventTx {
+// 	pub async fn send(&self, item: GenericEvent) -> Result<()> {
+// 		match self.tx.send_async(item.into()).await {
+// 			Ok(_) => Ok(()),
+// 			Err(ex) => Err(ex.into()),
+// 		}
+// 	}
+// }
+
+// pub struct EventRx {
+// 	rx: Receiver<GenericEvent>,
+// }
+
+// impl EventRx {
+// 	pub async fn recv(&self) -> Result<GenericEvent> {
+// 		let res = self.rx.recv_async().await?;
+// 		Ok(res)
+// 	}
+// }
+
+// pub fn new_trx_pair() -> (EventTx, EventRx) {
+// 	let (tx, rx) = flume::unbounded::<GenericEvent>();
+
+// 	let evt_tx = EventTx { tx };
+
+// 	let evt_rx = EventRx { rx };
+
+// 	(evt_tx, evt_rx)
+// }
+use crate::core::AppState;
+use crate::styles::{self, STL_TXT_LBL};
+use ratatui::buffer::Buffer;
+use ratatui::layout::{Constraint, Direction, Layout, Rect};
+use ratatui::style::{Color, Style};
+use ratatui::text::{Line, Span};
+use ratatui::widgets::{Block, Paragraph, StatefulWidget, Widget};
+
+pub struct ActionView;
+
+impl StatefulWidget for ActionView {
+	type State = AppState;
+
+	fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+		Block::new().style(Style::default().bg(Color::Black)).render(area, buf);
+		let [actions_a, mem_lbl_a, mem_val_a] = Layout::default()
+			.direction(Direction::Horizontal)
+			.constraints(vec![Constraint::Fill(1), Constraint::Length(5), Constraint::Length(10)])
+			.spacing(1)
+			.areas(area);
+
+		let line = Line::from(vec![
+			Span::raw("["),
+			Span::styled("CTRL+C", styles::STL_TXT_ACTION),
+			Span::raw("] Quit  "),
+			Span::raw("["),
+			Span::styled("X", styles::STL_TXT_ACTION),
+			Span::raw("] Clear events  "),
+		]);
+
+		Paragraph::new(line).render(actions_a, buf);
+
+		Paragraph::new("Mem:").right_aligned().style(STL_TXT_LBL).render(mem_lbl_a, buf);
+		Paragraph::new(state.memory_fmt())
+			.style(styles::STL_TXT_VAL)
+			.render(mem_val_a, buf);
+	}
+}
+use crate::core::AppState;
+use ratatui::{
+	buffer::Buffer,
+	layout::Rect,
+	text::Line,
+	widgets::{Block, Padding, Paragraph, StatefulWidget, Widget},
+};
+
+pub struct EvaluatedEventView;
+
+impl StatefulWidget for EvaluatedEventView {
+	type State = AppState;
+
+	fn render(self, area: ratatui::prelude::Rect, buf: &mut ratatui::prelude::Buffer, state: &mut Self::State) {
+		let show_hooks = state.cerberus_evts_matched().next().is_some();
+
+		let block = Block::bordered().padding(Padding::left(1));
+
+		if !show_hooks {
+			let p = Paragraph::new("No events yet").block(block);
+			p.render(area, buf);
+		} else {
+			render_evaluated_events(area, buf, state, block);
+		}
+	}
+}
+
+fn render_evaluated_events(area: Rect, buf: &mut Buffer, state: &mut AppState, block: Block) {
+	let lines: Vec<Line> = state
+		.cerberus_evts_matched()
+		.map(|evt| {
+			Line::raw(format!(
+				"[MATCHED] Rule: {} | SEVERITY:{} | TYPE:{:?} | META:{:?}",
+				evt.rule_id, evt.severity, evt.rule_type, evt.event_meta
+			))
+		})
+		.collect();
+
+	let line_count = lines.len();
+	let max_scroll = line_count.saturating_sub(area.height as usize) as u16;
+
+	if state.event_scroll() > max_scroll {
+		state.set_event_scroll(max_scroll);
+	}
+
+	let paragraph = Paragraph::new(lines).block(block).scroll((state.event_scroll(), 0));
+	paragraph.render(area, buf);
+}
+use crate::core::AppState;
+use lib_event::app_evt_types::CerberusEvent;
+use ratatui::{
+	buffer::Buffer,
+	layout::Rect,
+	text::Line,
+	widgets::{Block, Padding, Paragraph, StatefulWidget, Widget},
+};
+
+pub struct GeneralEventView;
+
+impl StatefulWidget for GeneralEventView {
+	type State = AppState;
+	fn render(self, area: ratatui::prelude::Rect, buf: &mut ratatui::prelude::Buffer, state: &mut Self::State) {
+		let show_hooks = state.cerberus_evts_general().next().is_some();
+
+		let block = Block::bordered().padding(Padding::left(1));
+
+		if !show_hooks {
+			let p = Paragraph::new("No events yet").block(block);
+			p.render(area, buf);
+		} else {
+			render_events(area, buf, state, block);
+		}
+	}
+}
+
+fn render_events(area: Rect, buf: &mut Buffer, state: &mut AppState, block: Block) {
+	let lines: Vec<Line> = state
+		.cerberus_evts_general()
+		.filter_map(|evt| match evt {
+			CerberusEvent::Generic(g) => Some(Line::raw(format!(
+				"[{}] UID:{} | PID:{} | TGID:{} | CMD:{} | META:{}",
+				g.name, g.uid, g.pid, g.tgid, g.comm, g.meta
+			))),
+			_ => None,
+		})
+		.collect();
+
+	let line_count = lines.len();
+	let max_scroll = line_count.saturating_sub(area.height as usize) as u16;
+
+	if state.event_scroll() > max_scroll {
+		state.set_event_scroll(max_scroll);
+	}
+
+	let paragraph = Paragraph::new(lines).block(block).scroll((state.event_scroll(), 0));
+	paragraph.render(area, buf);
+}
+use ratatui::{
+	buffer::Buffer,
+	layout::Rect,
+	widgets::{Block, List, ListItem, ListState, Padding, Paragraph, StatefulWidget, Widget},
+};
+
+use crate::{core::AppState, styles};
+
+pub struct LoadedHooksView;
+
+impl StatefulWidget for LoadedHooksView {
+	type State = AppState;
+	fn render(self, area: ratatui::prelude::Rect, buf: &mut ratatui::prelude::Buffer, state: &mut Self::State) {
+		let show_hooks = !state.loaded_hooks().is_empty();
+
+		let block = Block::bordered().title("Loaded Hooks").padding(Padding::left(1));
+
+		if !show_hooks {
+			let p = Paragraph::new("No eBPF hooks loaded").block(block.clone());
+			p.render(area, buf);
+		} else {
+			render_loaded_hooks_block(area, buf, state, block);
+		}
+	}
+}
+
+fn render_loaded_hooks_block(area: Rect, buf: &mut Buffer, state: &mut AppState, block: Block) {
+	let hooks = state.loaded_hooks();
+
+	let items: Vec<ListItem> = hooks.iter().map(|hook| ListItem::new(hook.to_string())).collect();
+
+	let list = List::new(items)
+		.block(block)
+		.highlight_style(styles::STL_NAV_ITEM_HIGHLIGHT)
+		.highlight_spacing(ratatui::widgets::HighlightSpacing::Always);
+
+	let mut list_s = ListState::default();
+
+	StatefulWidget::render(list, area, buf, &mut list_s);
+}
+use crate::views::ActionView;
+use ratatui::{
+	buffer::Buffer,
+	layout::{Constraint, Direction, Layout, Rect},
+	style::Style,
+	widgets::{Block, Paragraph, StatefulWidget, Widget},
+};
+
+use crate::{core::AppState, styles};
+
+use super::{splash_view::SplashView, EvaluatedEventView, GeneralEventView, LoadedHooksView, NetworkEventView};
+
+pub struct MainView;
+
+impl StatefulWidget for MainView {
+	type State = AppState;
+	fn render(self, area: ratatui::prelude::Rect, buf: &mut ratatui::prelude::Buffer, state: &mut Self::State) {
+		Block::new()
+			.style(Style::default().bg(styles::CLR_BKG_GRAY_DARKER))
+			.render(area, buf);
+
+		if !state.worker_up() {
+			let splash = SplashView {};
+			splash.render(area, buf, state);
+			return;
+		}
+		let [tabs_area, main, sys_info] = Layout::default()
+			.direction(Direction::Vertical)
+			.constraints([
+				Constraint::Length(1), // Tabs area
+				Constraint::Min(10),   // Main content
+				Constraint::Length(1), // Action view
+			])
+			.areas(area);
+
+		render_tabs(tabs_area, buf, state);
+
+		let [events_tbl, meta] = Layout::default()
+			.direction(Direction::Horizontal)
+			.constraints([Constraint::Percentage(70), Constraint::Percentage(30)])
+			.areas(main);
+
+		match state.current_tab() {
+			crate::core::Tab::General => GeneralEventView {}.render(events_tbl, buf, state),
+			crate::core::Tab::Network => NetworkEventView {}.render(events_tbl, buf, state),
+			crate::core::Tab::MatchedRules => EvaluatedEventView {}.render(events_tbl, buf, state),
+		}
+
+		let right = LoadedHooksView {};
+		right.render(meta, buf, state);
+
+		let action_v = ActionView {};
+		action_v.render(sys_info, buf, state);
+	}
+}
+
+fn render_tabs(area: Rect, buf: &mut Buffer, state: &AppState) {
+	let [_, tab_general_a, _, tab_network_a, _, tab_evaluated_a] = Layout::default()
+		.direction(Direction::Horizontal)
+		.constraints([
+			Constraint::Length(1),
+			Constraint::Length(11),
+			Constraint::Length(2),
+			Constraint::Length(11),
+			Constraint::Length(2),
+			Constraint::Length(17),
+		])
+		.areas(area);
+
+	let current_tab = state.current_tab();
+
+	let tab_general_style = if current_tab.as_index() == 0 {
+		styles::STL_TAB_ACTIVE
+	} else {
+		styles::STL_TAB_DEFAULT
+	};
+
+	let tab_network_style = if current_tab.as_index() == 1 {
+		styles::STL_TAB_ACTIVE
+	} else {
+		styles::STL_TAB_DEFAULT
+	};
+
+	let tab_eval_style = if current_tab.as_index() == 2 {
+		styles::STL_TAB_ACTIVE
+	} else {
+		styles::STL_TAB_DEFAULT
+	};
+
+	Paragraph::new("General")
+		.centered()
+		.style(tab_general_style)
+		.render(tab_general_a, buf);
+
+	Paragraph::new("Network")
+		.centered()
+		.style(tab_network_style)
+		.render(tab_network_a, buf);
+
+	Paragraph::new("Matched rules")
+		.centered()
+		.style(tab_eval_style)
+		.render(tab_evaluated_a, buf);
+}
+mod action_view;
+mod evaluated_event_view;
+mod general_event_view;
+mod loaded_hooks_view;
+mod main_view;
+mod network_event_view;
+mod splash_view;
+
+pub use action_view::*;
+pub use evaluated_event_view::*;
+pub use general_event_view::*;
+pub use loaded_hooks_view::*;
+pub use main_view::*;
+pub use network_event_view::*;
+use crate::core::AppState;
+use lib_event::app_evt_types::CerberusEvent;
+use ratatui::{
+	buffer::Buffer,
+	layout::Rect,
+	text::Line,
+	widgets::{Block, Padding, Paragraph, StatefulWidget, Widget},
+};
+
+pub struct NetworkEventView;
+
+impl StatefulWidget for NetworkEventView {
+	type State = AppState;
+	fn render(self, area: ratatui::prelude::Rect, buf: &mut ratatui::prelude::Buffer, state: &mut Self::State) {
+		let show_hooks = state.cerberus_evts_network().next().is_some();
+
+		let block = Block::bordered().padding(Padding::left(1));
+
+		if !show_hooks {
+			let p = Paragraph::new("No events yet").block(block);
+			p.render(area, buf);
+		} else {
+			render_events(area, buf, state, block);
+		}
+	}
+}
+
+fn render_events(area: Rect, buf: &mut Buffer, state: &mut AppState, block: Block) {
+	let lines: Vec<Line> = state
+		.cerberus_evts_network()
+		.filter_map(|evt| match evt {
+			CerberusEvent::InetSock(n) => Some(Line::raw(format!(
+				"[INET_SOCK] {}:{} → {}:{} | Proto: {} | {} → {}",
+				ip_to_string(n.saddr),
+				n.sport,
+				ip_to_string(n.daddr),
+				n.dport,
+				n.protocol,
+				n.old_state,
+				n.new_state
+			))),
+			_ => None,
+		})
+		.collect();
+
+	let line_count = lines.len();
+	let max_scroll = line_count.saturating_sub(area.height as usize) as u16;
+
+	if state.event_scroll() > max_scroll {
+		state.set_event_scroll(max_scroll);
+	}
+
+	let paragraph = Paragraph::new(lines).block(block).scroll((state.event_scroll(), 0));
+	paragraph.render(area, buf);
+}
+
+fn ip_to_string(ip: u32) -> String {
+	let octets = ip.to_le_bytes();
+	format!("{}.{}.{}.{}", octets[0], octets[1], octets[2], octets[3])
+}
+use ratatui::{
+	buffer::Buffer,
+	layout::{Alignment, Constraint, Direction, Layout, Rect},
+	text::{Line, Span},
+	widgets::{Block, Paragraph, StatefulWidget, Widget},
+};
+
+use crate::{core::AppState, styles};
+
+pub struct SplashView;
+
+impl StatefulWidget for SplashView {
+	type State = AppState;
+
+	fn render(self, area: Rect, buf: &mut Buffer, _state: &mut Self::State) {
+		let [_, center] = Layout::default()
+			.direction(Direction::Vertical)
+			.constraints([Constraint::Percentage(10), Constraint::Fill(1)])
+			.areas(area);
+
+		let ascii = vec![
+			Line::from(" ▄████▄  ▓█████  ██▀███   ▄▄▄▄   ▓█████  ██▀███   █    ██   ██████ "),
+			Line::from("▒██▀ ▀█  ▓█   ▀ ▓██ ▒ ██▒▓█████▄ ▓█   ▀ ▓██ ▒ ██▒ ██  ▓██▒▒██    ▒ "),
+			Line::from("▒▓█    ▄ ▒███   ▓██ ░▄█ ▒▒██▒ ▄██▒███   ▓██ ░▄█ ▒▓██  ▒██░░ ▓██▄   "),
+			Line::from("▒▓▓▄ ▄██▒▒▓█  ▄ ▒██▀▀█▄  ▒██░█▀  ▒▓█  ▄ ▒██▀▀█▄  ▓▓█  ░██░  ▒   ██▒"),
+			Line::from("▒ ▓███▀ ░░▒████▒░██▓ ▒██▒░▓█  ▀█▓░▒████▒░██▓ ▒██▒▒▒█████▓ ▒██████▒▒"),
+			Line::from("░ ░▒ ▒  ░░░ ▒░ ░░ ▒▓ ░▒▓░░▒▓███▀▒░░ ▒░ ░░ ▒▓ ░▒▓░░▒▓▒ ▒ ▒ ▒ ▒▓▒ ▒ ░"),
+			Line::from("  ░  ▒    ░ ░  ░  ░▒ ░ ▒░▒░▒   ░  ░ ░  ░  ░▒ ░ ▒░░░▒░ ░ ░ ░ ░▒  ░ ░"),
+			Line::from("░           ░     ░░   ░  ░    ░    ░     ░░   ░  ░░░ ░ ░ ░  ░  ░  "),
+			Line::from("░ ░         ░  ░   ░      ░         ░  ░   ░        ░           ░  "),
+			Line::from("░                              ░                                   "),
+			Line::from(""),
+			Line::from(Span::styled("[Enter] Start", styles::STL_TXT_ACTION_SELECTED)),
+		];
+
+		let paragraph = Paragraph::new(ascii).block(Block::default()).alignment(Alignment::Center);
+
+		paragraph.render(center, buf);
+	}
+}
+use std::sync::Arc;
+
+use crate::{
+	core::AppTx,
+	error::{Error, Result},
+};
+
+use aya::maps::{MapData, RingBuf};
+use lib_common::{EbpfEvent, EventHeader, GenericEvent, InetSockSetStateEvent};
+use lib_event::app_evt_types::{AppEvent, CerberusEvent, InetSockEvent, RingBufEvent};
+use lib_rules::engine::RuleEngine;
+use tokio::io::unix::AsyncFd;
+use tracing::info;
+use zerocopy::FromBytes;
+
+// pub struct ReceiverWorker {
+// 	pub rx: EventRx,
+// 	pub app_tx: AppTx,
+// }
+
+// impl ReceiverWorker {
+// 	pub async fn start(rx: EventRx, app_tx: AppTx) -> Result<()> {
+// 		let worker = ReceiverWorker { rx, app_tx };
+// 		tokio::spawn(async move {
+// 			let res = worker.start_worker().await;
+// 			res
+// 		});
+// 		Ok(())
+// 	}
+
+// 	pub async fn start_worker(&self) -> Result<()> {
+// 		while let Ok(evt) = self.rx.recv().await {
+// 			let comm = Arc::from(String::from_utf8_lossy(&evt.comm).trim_end_matches('\0').as_ref());
+
+// 			let name: &'static str = match evt.header.event_type {
+// 				1 => "KILL",
+// 				2 => "IO_URING",
+// 				3 => "SOCKET_CONNECT",
+// 				4 => "COMMIT_CREDS",
+// 				5 => "MODULE_INIT",
+// 				6 => "INET_SOCK_SET_STATE",
+// 				_ => "UNKNOWN",
+// 			};
+
+// 			let app_evt = AppEvent::Cerberus(CerberusEvent::Generic(RingBufEvent {
+// 				name,
+// 				pid: evt.pid,
+// 				uid: evt.uid,
+// 				tgid: evt.tgid,
+// 				comm,
+// 				meta: evt.meta,
+// 			}));
+
+// 			self.app_tx.send(app_evt).await?;
+// 		}
+// 		Ok(())
+// 	}
+// }
+
+pub struct RingBufWorker {
+	pub ringbuf_fd: AsyncFd<RingBuf<MapData>>,
+	pub tx: AppTx,
+	pub rule_engine: Arc<RuleEngine>,
+}
+
+impl RingBufWorker {
+	pub async fn start(ringbuf_fd: AsyncFd<RingBuf<MapData>>, rule_engine: Arc<RuleEngine>, tx: AppTx) -> Result<()> {
+		let mut worker = RingBufWorker {
+			ringbuf_fd,
+			tx,
+			rule_engine,
+		};
+		tokio::spawn(async move {
+			let res = worker.start_worker().await;
+			res
+		});
+		Ok(())
+	}
+
+	async fn start_worker(&mut self) -> Result<()> {
+		loop {
+			let mut guard = self.ringbuf_fd.readable_mut().await?;
+			let ring_buf = guard.get_inner_mut();
+
+			while let Some(item) = ring_buf.next() {
+				let data = item.as_ref();
+
+				match parse_event_from_bytes(data) {
+					Ok(evt) => {
+						let cerberus_evt = match evt {
+							EbpfEvent::Generic(ref e) => CerberusEvent::Generic(RingBufEvent {
+								name: match e.header.event_type {
+									1 => "KILL",
+									2 => "IO_URING",
+									3 => "SOCKET_CONNECT",
+									4 => "COMMIT_CREDS",
+									5 => "MODULE_INIT",
+									6 => "INET_SOCK_SET_STATE",
+									7 => "ENTER_PTRACE",
+									_ => "UNKNOWN",
+								},
+								pid: e.pid,
+								uid: e.uid,
+								tgid: e.tgid,
+								comm: Arc::from(String::from_utf8_lossy(&e.comm).trim_end_matches('\0').to_string()),
+								meta: e.meta,
+							}),
+							EbpfEvent::InetSock(ref e) => CerberusEvent::InetSock(InetSockEvent {
+								old_state: Arc::from(state_to_str(e.oldstate)),
+								new_state: Arc::from(state_to_str(e.newstate)),
+								sport: e.sport,
+								dport: e.dport,
+								protocol: Arc::from(protocol_to_str(e.protocol)),
+								saddr: e.saddr,
+								daddr: e.daddr,
+							}),
+						};
+
+						if let Some(decorated) = self.rule_engine.process_event(&cerberus_evt) {
+							self.tx.send(AppEvent::CerberusEvaluated(decorated)).await?;
+							println!("ESSS333");
+						} else {
+							self.tx.send(AppEvent::Cerberus(cerberus_evt)).await?;
+						}
+					}
+					Err(e) => info!("Failed to parse event: {:?}", e),
+				}
+			}
+
+			guard.clear_ready();
+		}
+	}
+}
+
+fn parse_event_from_bytes(data: &[u8]) -> Result<EbpfEvent> {
+	let header = EventHeader::ref_from_prefix(data).map_err(|_| Error::InvalidEventSize)?.0;
+
+	match header.event_type {
+		1 | 3 | 4 | 5 => {
+			let evt = GenericEvent::ref_from_prefix(data).map_err(|_| Error::InvalidEventSize)?.0;
+			Ok(EbpfEvent::Generic(*evt))
+		}
+		6 => {
+			let evt = InetSockSetStateEvent::ref_from_prefix(data)
+				.map_err(|_| Error::InvalidEventSize)?
+				.0;
+			Ok(EbpfEvent::InetSock(*evt))
+		}
+		_ => Err(Error::UnknownEventType(header.event_type)),
+	}
+}
+
+fn state_to_str(state: i32) -> &'static str {
+	match state {
+		1 => "TCP_ESTABLISHED",
+		2 => "TCP_SYN_SENT",
+		3 => "TCP_SYN_RECV",
+		4 => "TCP_FIN_WAIT1",
+		5 => "TCP_FIN_WAIT2",
+		6 => "TCP_TIME_WAIT",
+		7 => "TCP_CLOSE",
+		8 => "TCP_CLOSE_WAIT",
+		9 => "TCP_LAST_ACK",
+		10 => "TCP_LISTEN",
+		11 => "TCP_CLOSING",
+		_ => "UNKNOWN",
+	}
+}
+
+fn protocol_to_str(proto: u16) -> &'static str {
+	match proto {
+		6 => "TCP",
+		17 => "UDP",
+		_ => "UNKNOWN",
+	}
+}
+use std::sync::Arc;
+
+use derive_more::From;
+
+#[derive(From)]
+pub enum AppEvent {
+	#[from]
+	Term(crossterm::event::Event),
+	#[from]
+	Cerberus(CerberusEvent),
+	#[from]
+	CerberusEvaluated(EvaluatedEvent),
+	#[from]
+	LoadedHooks,
+	#[from]
+	Action(ActionEvent),
+}
+
+#[derive(Debug)]
+pub enum ActionEvent {
+	Quit,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum RuleType {
+	Fs,
+	Network,
+	Exec,
+}
+
+#[derive(From, Clone, Debug)]
+pub enum CerberusEvent {
+	#[from]
+	Generic(RingBufEvent),
+	#[from]
+	InetSock(InetSockEvent),
+}
+
+#[derive(Debug, Clone)]
+pub struct EvaluatedEvent {
+	pub rule_id: String,
+	pub severity: String,
+	pub rule_type: RuleType,
+	pub event_meta: EventMeta,
+}
+
+#[derive(Debug, Clone)]
+pub struct EventMeta {
+	pub uid: u32,
+	pub pid: u32,
+	pub comm: Arc<str>,
+}
+
+#[derive(Debug, Clone)]
+pub struct InetSockEvent {
+	pub old_state: Arc<str>,
+	pub new_state: Arc<str>,
+	pub sport: u16,
+	pub dport: u16,
+	pub protocol: Arc<str>,
+	pub saddr: u32,
+	pub daddr: u32,
+}
+
+#[derive(Debug, Clone)]
+pub struct RingBufEvent {
+	pub name: &'static str,
+	pub uid: u32,
+	pub pid: u32,
+	pub tgid: u32,
+	pub comm: Arc<str>,
+	pub meta: u32,
+}
+use derive_more::{Display, From};
+use flume::{RecvError, SendError};
+
+pub type Result<T> = core::result::Result<T, Error>;
+
+#[derive(Debug, Display, From)]
+#[display("{self:?}")]
+pub enum Error {
+	#[from(String, &String, &str)]
+	Custom(String),
+	EventSend(String),
+	EventRecv(RecvError),
+	EbpfProgNotFound,
+	InvalidEventAlign,
+	InvalidEventSize,
+	UnknownEventType(u8),
+	MutexPoison,
+
+	#[from]
+	Io(std::io::Error), // as example
+}
+
+impl<T> From<SendError<T>> for Error {
+	fn from(value: SendError<T>) -> Self {
+		Self::EventSend(value.to_string())
+	}
+}
+
+impl From<RecvError> for Error {
+	fn from(err: RecvError) -> Self {
+		Self::EventRecv(err)
+	}
+}
+
+// region:    --- Custom
+
+impl Error {
+	pub fn custom_from_err(err: impl std::error::Error) -> Self {
+		Self::Custom(err.to_string())
+	}
+
+	pub fn custom(val: impl Into<String>) -> Self {
+		Self::Custom(val.into())
+	}
+}
+
+// endregion: --- Custom
+
+// region:    --- Error Boilerplate
+
+impl std::error::Error for Error {}
+
+// endregion: --- Error Boilerplate
+pub mod app_evt_types;
+pub mod error;
+pub mod trx;
+use crate::error::Result;
+
+pub fn new_channel<T>(name: &'static str) -> (Tx<T>, Rx<T>) {
+	let (tx, rx) = flume::unbounded();
+
+	(Tx(tx, name), Rx(rx, name))
+}
+
+pub struct Tx<T>(flume::Sender<T>, &'static str);
+
+impl<T> Tx<T> {
+	pub fn send_sync(&self, value: impl Into<T>) -> Result<()> {
+		self.0.send(value.into())?;
+		Ok(())
+	}
+
+	pub async fn send(&self, value: impl Into<T>) -> Result<()> {
+		let _ = self.0.send_async(value.into()).await?;
+		Ok(())
+	}
+}
+
+impl<T> Clone for Tx<T> {
+	fn clone(&self) -> Self {
+		Self(self.0.clone(), self.1)
+	}
+}
+
+pub struct Rx<T>(flume::Receiver<T>, &'static str);
+
+impl<T> Rx<T> {
+	pub async fn recv(&self) -> Result<T> {
+		let res = self.0.recv_async().await?;
+		Ok(res)
+	}
+}
+
+impl<T> Clone for Rx<T> {
+	fn clone(&self) -> Self {
+		Self(self.0.clone(), self.1)
+	}
+}
+use std::collections::HashMap;
+use toml::Value as TomlValue;
+
+#[derive(Debug)]
+pub struct EvalCtx {
+	fields: HashMap<String, TomlValue>,
+}
+
+impl EvalCtx {
+	pub fn new(fields: HashMap<String, TomlValue>) -> Self {
+		Self { fields }
+	}
+	pub fn get(&self, key: &str) -> Option<&TomlValue> {
+		self.fields.get(key)
+	}
+
+	pub fn insert(&mut self, key: String, value: TomlValue) -> Option<TomlValue> {
+		self.fields.insert(key, value)
+	}
+}
+use std::{
+	collections::HashMap,
+	path::Path,
+	sync::{Arc, RwLock},
+};
+
+use lib_event::app_evt_types::{CerberusEvent, EvaluatedEvent, EventMeta, RuleType};
+
+use crate::{ctx::EvalCtx, error::Result};
+use crate::{evaluator::Evaluator, ruleset::RuleSet};
+
+pub struct RuleEngine {
+	ruleset: Arc<RwLock<RuleSet>>,
+}
+
+impl RuleEngine {
+	pub fn new(dir: impl AsRef<Path>) -> Result<Self> {
+		let ruleset = Arc::new(RwLock::new(RuleSet::load_from_dir(dir)?));
+
+		Ok(Self { ruleset })
+	}
+
+	pub fn process_event(&self, event: &CerberusEvent) -> Option<EvaluatedEvent> {
+		let ctx = Self::event_to_ctx(event);
+		let ruleset = self.ruleset.read().unwrap();
+
+		for rule in &ruleset.ruleset {
+			if Evaluator::rule_matches(&rule.rule, &ctx) {
+				let meta = match &event {
+					CerberusEvent::Generic(evt) => EventMeta {
+						uid: evt.uid,
+						pid: evt.pid,
+						comm: Arc::clone(&evt.comm),
+					},
+					CerberusEvent::InetSock(_) => EventMeta {
+						uid: 0,
+						pid: 0,
+						comm: Arc::from(""),
+					},
+				};
+
+				return Some(EvaluatedEvent {
+					rule_id: rule.rule.id.clone(),
+					severity: rule.rule.severity.clone().unwrap_or("unknown".into()),
+					rule_type: match rule.rule.r#type.as_str() {
+						"fs" => RuleType::Fs,
+						"network" => RuleType::Network,
+						"exec" => RuleType::Exec,
+						_ => RuleType::Exec,
+					},
+					event_meta: meta,
+				});
+			}
+		}
+		None
+	}
+
+	fn event_to_ctx(event: &CerberusEvent) -> EvalCtx {
+		let mut fields = HashMap::new();
+		match event {
+			CerberusEvent::Generic(e) => {
+				fields.insert("name".into(), toml::Value::String(e.name.into()));
+				fields.insert("uid".into(), toml::Value::Integer(e.uid as i64));
+				fields.insert("pid".into(), toml::Value::Integer(e.pid as i64));
+				fields.insert("tgid".into(), toml::Value::Integer(e.tgid as i64));
+				fields.insert("comm".into(), toml::Value::String(e.comm.to_string()));
+			}
+			CerberusEvent::InetSock(e) => {
+				fields.insert("old_state".into(), toml::Value::String(e.old_state.to_string()));
+				fields.insert("new_state".into(), toml::Value::String(e.new_state.to_string()));
+				fields.insert("sport".into(), toml::Value::Integer(e.sport as i64));
+				fields.insert("dport".into(), toml::Value::Integer(e.dport as i64));
+				fields.insert("protocol".into(), toml::Value::String(e.protocol.to_string()));
+			}
+		}
+		EvalCtx::new(fields)
+	}
+}
+
+// region:    --- Tests
+
+#[cfg(test)]
+mod tests {
+	type Result<T> = core::result::Result<T, Box<dyn std::error::Error>>; // For tests.
+
+	use super::*;
+	use lib_event::app_evt_types::{CerberusEvent, RingBufEvent};
+	use std::sync::Arc;
+	use toml::Value;
+
+	#[test]
+	fn process_event_matches_rule() -> Result<()> {
+		// -- Setup & Fixtures
+		//
+
+		let ruleset = RuleSet::load_from_dir("./rules/")?;
+
+		let engine = RuleEngine {
+			ruleset: Arc::new(RwLock::new(ruleset)),
+		};
+
+		let event = CerberusEvent::Generic(RingBufEvent {
+			name: "KILL",
+			uid: 0,
+			pid: 1,
+			tgid: 4242,
+			comm: Arc::from("bash"),
+			meta: 0,
+		});
+
+		// -- Exec
+		let res = engine.process_event(&event);
+
+		// -- Check
+		assert!(res.is_some());
+		let matched = res.unwrap();
+		assert_eq!(matched.rule_id, "pid-exists");
+		assert_eq!(matched.severity, "low");
+		assert_eq!(matched.rule_type, RuleType::Exec);
+		assert_eq!(matched.event_meta.pid, 1);
+
+		Ok(())
+	}
+
+	#[test]
+	fn process_event_no_match() -> Result<()> {
+		// -- Setup & Fixtures
+		let rule = crate::rule::Rule {
+			rule: crate::rule::RuleInner {
+				id: "pid-zero-only".to_string(),
+				description: "Matches only pid=0".to_string(),
+				r#type: "exec".to_string(),
+				severity: Some("high".to_string()),
+				category: None,
+				conditions: vec![crate::rule::Condition {
+					field: "pid".to_string(),
+					op: "equals".to_string(),
+					value: Value::Integer(0),
+				}],
+			},
+		};
+
+		let ruleset = RuleSet { ruleset: vec![rule] };
+
+		let engine = RuleEngine {
+			ruleset: Arc::new(RwLock::new(ruleset)),
+		};
+
+		let event = CerberusEvent::Generic(RingBufEvent {
+			name: "COMMIT_CREDS",
+			uid: 1000,
+			pid: 4242,
+			tgid: 4242,
+			comm: Arc::from("bash"),
+			meta: 0,
+		});
+
+		// -- Exec
+		let res = engine.process_event(&event);
+
+		// -- Check
+		assert!(res.is_none());
+
+		Ok(())
+	}
+
+	#[test]
+	fn process_event_network_rule_match() -> Result<()> {
+		// -- Setup & Fixtures
+		let rule = crate::rule::Rule {
+			rule: crate::rule::RuleInner {
+				id: "tcp-state-change".to_string(),
+				description: "Detect TCP state transitions".to_string(),
+				r#type: "network".to_string(),
+				severity: Some("medium".to_string()),
+				category: None,
+				conditions: vec![
+					crate::rule::Condition {
+						field: "protocol".to_string(),
+						op: "equals".to_string(),
+						value: Value::String("TCP".to_string()),
+					},
+					crate::rule::Condition {
+						field: "new_state".to_string(),
+						op: "equals".to_string(),
+						value: Value::String("TCP_ESTABLISHED".to_string()),
+					},
+				],
+			},
+		};
+
+		let ruleset = RuleSet { ruleset: vec![rule] };
+
+		let engine = RuleEngine {
+			ruleset: Arc::new(RwLock::new(ruleset)),
+		};
+
+		let inet_evt = lib_event::app_evt_types::InetSockEvent {
+			old_state: Arc::from("TCP_SYN_SENT"),
+			new_state: Arc::from("TCP_ESTABLISHED"),
+			sport: 4444,
+			dport: 22,
+			protocol: Arc::from("TCP"),
+			saddr: 0,
+			daddr: 0,
+		};
+
+		let event = CerberusEvent::InetSock(inet_evt);
+
+		// -- Exec
+		let res = engine.process_event(&event);
+
+		// -- Check
+		assert!(res.is_some());
+		let matched = res.unwrap();
+		assert_eq!(matched.rule_id, "tcp-state-change");
+		assert_eq!(matched.rule_type, RuleType::Network);
+
+		Ok(())
+	}
+
+	#[test]
+	fn load_rule_from_file_and_match_event() -> Result<()> {
+		let engine = RuleEngine::new("rules/")?;
+
+		let event = CerberusEvent::Generic(lib_event::app_evt_types::RingBufEvent {
+			name: "OPEN_FILE",
+			uid: 1001,
+			pid: 2222,
+			tgid: 2222,
+			comm: Arc::from("testproc"),
+			meta: 0,
+		});
+
+		let mut ctx = RuleEngine::event_to_ctx(&event);
+		ctx.insert("path".into(), toml::Value::String("/tmp/test.txt".into()));
+
+		let ruleset = engine.ruleset.read().unwrap();
+		let matched_rule = ruleset
+			.ruleset
+			.iter()
+			.find(|r| r.rule.id == "test-rule")
+			.expect("rule not loaded");
+
+		let matched = Evaluator::rule_matches(&matched_rule.rule, &ctx);
+
+		assert!(matched);
+		assert_eq!(matched_rule.rule.severity.as_deref(), Some("very-low"));
+		assert_eq!(matched_rule.rule.category.as_deref(), Some("test"));
+
+		Ok(())
+	}
+}
+
+// endregion: --- Tests
+use derive_more::{Display, From};
+
+pub type Result<T> = core::result::Result<T, Error>;
+
+#[derive(Debug, Display, From)]
+#[display("{self:?}")]
+pub enum Error {
+	#[from(String, &String, &str)]
+	Custom(String),
+	#[from]
+	Glob(glob::GlobError),
+	#[from]
+	GlobPattern(glob::PatternError),
+	#[from]
+	TomlDe(toml::de::Error),
+	#[display("No rule file found at '{_0}'")]
+	RulePathNotFound(String),
+	#[from]
+	SimpleFs(simple_fs::Error),
+	// -- Externals
+	#[from]
+	Io(std::io::Error), // as example
+}
+
+// region:    --- Custom
+
+impl Error {
+	pub fn custom_from_err(err: impl std::error::Error) -> Self {
+		Self::Custom(err.to_string())
+	}
+
+	pub fn custom(val: impl Into<String>) -> Self {
+		Self::Custom(val.into())
+	}
+}
+
+// endregion: --- Custom
+
+// region:    --- Error Boilerplate
+
+impl std::error::Error for Error {}
+
+// endregion: --- Error Boilerplate
+use regex::Regex;
+use toml::Value;
+
+use crate::{
+	ctx::EvalCtx,
+	rule::{Condition, RuleInner},
+};
+
+pub struct Evaluator;
+
+impl Evaluator {
+	pub fn equals(a: &Value, b: &Value) -> bool {
+		if let (Some(ai), Some(bi)) = (a.as_integer(), b.as_integer()) {
+			return ai == bi;
+		}
+		if let (Some(af), Some(bf)) = (a.as_float(), b.as_float()) {
+			return (af - bf).abs() < std::f64::EPSILON;
+		}
+		if let (Some(ai), Some(bf)) = (a.as_integer(), b.as_float()) {
+			return (ai as f64 - bf).abs() < std::f64::EPSILON;
+		}
+		if let (Some(af), Some(bi)) = (a.as_float(), b.as_integer()) {
+			return (af - bi as f64).abs() < std::f64::EPSILON;
+		}
+		if let (Some(as_), Some(bs_)) = (a.as_str(), b.as_str()) {
+			return as_ == bs_;
+		}
+		if let (Some(ab), Some(bb)) = (a.as_bool(), b.as_bool()) {
+			return ab == bb;
+		}
+		a == b
+	}
+
+	pub fn eval_condition(left: Option<&Value>, cond: &Condition) -> bool {
+		let op = cond.op.as_str();
+		let right = &cond.value;
+
+		match op {
+			"equals" | "==" => {
+				if let Some(l) = left {
+					Self::equals(l, right)
+				} else {
+					false
+				}
+			}
+			"in" => match right {
+				Value::Array(arr) => {
+					if let Some(l) = left {
+						arr.iter().any(|v| Evaluator::equals(l, v))
+					} else {
+						false
+					}
+				}
+				_ => false,
+			},
+			"not_in" => match right {
+				Value::Array(arr) => {
+					if let Some(l) = left {
+						!arr.iter().any(|v| Evaluator::equals(l, v))
+					} else {
+						false
+					}
+				}
+				_ => false,
+			},
+			"regex" | "matches_regex" => {
+				if let (Some(Value::String(s)), Value::String(pattern)) = (left, right) {
+					if let Ok(re) = Regex::new(pattern) {
+						re.is_match(s)
+					} else {
+						false
+					}
+				} else {
+					false
+				}
+			}
+			">" | "gt" => left.map_or(false, |l| Self::numeric_cmp(l, right, |x, y| x > y)),
+			"<" | "lt" => left.map_or(false, |l| Self::numeric_cmp(l, right, |x, y| x < y)),
+			">=" | "gte" => left.map_or(false, |l| Self::numeric_cmp(l, right, |x, y| x >= y)),
+			"<=" | "lte" => left.map_or(false, |l| Self::numeric_cmp(l, right, |x, y| x <= y)),
+			"exists" => left.is_some(),
+			_ => false,
+		}
+	}
+
+	pub fn rule_matches(rule: &RuleInner, ctx: &EvalCtx) -> bool {
+		rule.conditions.iter().all(|cond| {
+			let left = ctx.get(&cond.field);
+			Self::eval_condition(left, cond)
+		})
+	}
+
+	pub fn in_array(val: &Value, target: &Value) -> bool {
+		target
+			.as_array()
+			.map(|arr| arr.iter().any(|el| Self::equals(val, el)))
+			.unwrap_or(false)
+	}
+
+	pub fn numeric_cmp<F>(a: &Value, b: &Value, cmp: F) -> bool
+	where
+		F: Fn(f64, f64) -> bool,
+	{
+		let aval = a
+			.as_float()
+			.or_else(|| a.as_integer().map(|i| i as f64))
+			.or_else(|| a.as_str().and_then(|s| s.parse::<f64>().ok()));
+		let bval = b
+			.as_float()
+			.or_else(|| b.as_integer().map(|i| i as f64))
+			.or_else(|| b.as_str().and_then(|s| s.parse::<f64>().ok()));
+
+		match (aval, bval) {
+			(Some(x), Some(y)) => cmp(x, y),
+			_ => false,
+		}
+	}
+}
+
+// region:    --- Tests
+
+#[cfg(test)]
+mod tests {
+	type Result<T> = core::result::Result<T, Box<dyn std::error::Error>>; // For tests.
+
+	use super::*;
+	use std::collections::HashMap;
+	use toml::Value;
+
+	fn ctx(fields: &[(&str, Value)]) -> EvalCtx {
+		let map: HashMap<String, Value> = fields.iter().map(|(k, v)| (k.to_string(), v.clone())).collect();
+		EvalCtx::new(map)
+	}
+
+	fn cond(field: &str, op: &str, value: Value) -> Condition {
+		Condition {
+			field: field.to_string(),
+			op: op.to_string(),
+			value,
+		}
+	}
+
+	#[test]
+	fn eval_equals_and_exists() -> Result<()> {
+		// -- Setup & Fixtures
+		let c1 = cond("pid", "equals", Value::Integer(42));
+		let c2 = cond("pid", "exists", Value::Boolean(true));
+		let ctx = ctx(&[("pid", Value::Integer(42))]);
+
+		// -- Exec
+		let res1 = Evaluator::eval_condition(ctx.get("pid"), &c1);
+		let res2 = Evaluator::eval_condition(ctx.get("pid"), &c2);
+
+		// -- Check
+		assert!(res1);
+		assert!(res2);
+
+		Ok(())
+	}
+
+	#[test]
+	fn eval_in_and_not_in() -> Result<()> {
+		// -- Setup & Fixtures
+		let c_in = cond(
+			"uid",
+			"in",
+			Value::Array(vec![Value::Integer(1000), Value::Integer(2000)]),
+		);
+		let c_not_in = cond(
+			"uid",
+			"not_in",
+			Value::Array(vec![Value::Integer(0), Value::Integer(1)]),
+		);
+		let ctx = ctx(&[("uid", Value::Integer(1000))]);
+
+		// -- Exec
+		let res_in = Evaluator::eval_condition(ctx.get("uid"), &c_in);
+		let res_not_in = Evaluator::eval_condition(ctx.get("uid"), &c_not_in);
+
+		// -- Check
+		assert!(res_in);
+		assert!(res_not_in);
+
+		Ok(())
+	}
+
+	#[test]
+	fn eval_regex_and_numeric() -> Result<()> {
+		// -- Setup & Fixtures
+		let c_regex = cond("comm", "regex", Value::String("^sshd".into()));
+		let c_gt = cond("pid", ">", Value::Integer(10));
+		let c_lt = cond("pid", "<", Value::Integer(200));
+		let ctx = ctx(&[("comm", Value::String("sshd: worker".into())), ("pid", Value::Integer(100))]);
+
+		// -- Exec
+		let res_regex = Evaluator::eval_condition(ctx.get("comm"), &c_regex);
+		let res_gt = Evaluator::eval_condition(ctx.get("pid"), &c_gt);
+		let res_lt = Evaluator::eval_condition(ctx.get("pid"), &c_lt);
+
+		// -- Check
+		assert!(res_regex);
+		assert!(res_gt);
+		assert!(res_lt);
+
+		Ok(())
+	}
+
+	#[test]
+	fn rule_matches_success_and_failure() -> Result<()> {
+		// -- Setup & Fixtures
+		let rule_ok = RuleInner {
+			id: "ok".into(),
+			description: "ok".into(),
+			r#type: "generic_event".into(),
+			severity: None,
+			category: None,
+			conditions: vec![
+				cond("pid", "equals", Value::Integer(123)),
+				cond("comm", "==", Value::String("bash".into())),
+			],
+		};
+
+		let ctx_ok = ctx(&[("pid", Value::Integer(123)), ("comm", Value::String("bash".into()))]);
+
+		let rule_fail = RuleInner {
+			id: "fail".into(),
+			description: "fail".into(),
+			r#type: "generic_event".into(),
+			severity: None,
+			category: None,
+			conditions: vec![
+				cond("pid", "equals", Value::Integer(123)),
+				cond("uid", "equals", Value::Integer(0)),
+			],
+		};
+
+		let ctx_fail = ctx(&[("pid", Value::Integer(123)), ("uid", Value::Integer(1000))]);
+
+		// -- Exec
+		let res_ok = Evaluator::rule_matches(&rule_ok, &ctx_ok);
+		let res_fail = Evaluator::rule_matches(&rule_fail, &ctx_fail);
+
+		// -- Check
+		assert!(res_ok);
+		assert!(!res_fail);
+
+		Ok(())
+	}
+}
+
+// endregion: --- Tests
+pub mod ctx;
+pub mod engine;
+pub mod error;
+pub mod evaluator;
+pub mod rule;
+pub mod ruleset;
+use std::path::Path;
+
+use crate::error::{Error, Result};
+use serde::Deserialize;
+use simple_fs::SPath;
+
+#[cfg_attr(test, derive(PartialEq))]
+#[derive(Debug, Deserialize)]
+pub struct Rule {
+	pub rule: RuleInner,
+}
+
+#[cfg_attr(test, derive(PartialEq))]
+#[derive(Debug, Deserialize)]
+pub struct RuleInner {
+	pub id: String,
+	pub description: String,
+	pub r#type: String,
+	pub severity: Option<String>,
+	pub category: Option<String>,
+	pub conditions: Vec<Condition>,
+}
+
+#[cfg_attr(test, derive(PartialEq))]
+#[derive(Debug, Deserialize)]
+pub struct Prefilter {
+	// filter by uid, path_prefix, etc
+	pub uid_include: Option<Vec<u32>>,
+	pub uid_exclude: Option<Vec<u32>>,
+	pub path_prefix: Option<Vec<String>>,
+}
+#[cfg_attr(test, derive(PartialEq))]
+#[derive(Debug, Deserialize)]
+pub struct Condition {
+	pub field: String,
+	pub op: String,
+	pub value: toml::Value,
+}
+
+impl Rule {
+	pub fn from_str(s: &str) -> Result<Self> {
+		let rule: Rule = toml::from_str(s)?;
+		Ok(rule)
+	}
+
+	pub fn from_file(rule_path: impl AsRef<Path>) -> Result<Self> {
+		let file_path = SPath::from_std_path(rule_path)?;
+
+		if !file_path.exists() {
+			return Err(Error::RulePathNotFound(file_path.into()));
+		}
+
+		let str = std::fs::read_to_string(file_path)?;
+		let rule: Rule = toml::from_str(&str)?;
+
+		Ok(rule)
+	}
+}
+
+impl From<RuleInner> for Rule {
+	fn from(value: RuleInner) -> Self {
+		Self { rule: value }
+	}
+}
+
+// region:    --- Tests
+
+#[cfg(test)]
+mod tests {
+	type Result<T> = core::result::Result<T, Box<dyn std::error::Error>>; // For tests.
+
+	use super::*;
+
+	#[test]
+	fn parse_rule_from_file_ok() -> Result<()> {
+		// -- Setup & Fixtures
+		let fx_rule_path = "rules/test-rule-1.toml";
+		let fx_rule_inner = RuleInner {
+			id: "test-rule".to_string(),
+			description: "Suspicious action in /tmp".to_string(),
+			r#type: "file_event".to_string(),
+			severity: Some("very-low".to_string()),
+			category: Some("test".to_string()),
+
+			conditions: vec![
+				Condition {
+					field: "path".to_string(),
+					op: "regex".to_string(),
+					value: toml::Value::String("^/tmp".to_string()),
+				},
+				Condition {
+					field: "uid".to_string(),
+					op: "not_in".to_string(),
+					value: toml::Value::Array(vec![toml::Value::Integer(0)]),
+				},
+			],
+		};
+		let fx_rule = Rule::from(fx_rule_inner);
+		// -- Exec
+		let rule = Rule::from_file(fx_rule_path)?;
+		// -- Check
+		assert_eq!(fx_rule, rule);
+
+		Ok(())
+	}
+}
+
+// endregion: --- Tests
+use std::path::Path;
+
+use crate::{error::Result, rule::Rule};
+use glob::glob;
+use serde::Deserialize;
+use tracing::warn;
+
+#[cfg_attr(test, derive(PartialEq))]
+#[derive(Debug, Deserialize)]
+pub struct RuleSet {
+	pub ruleset: Vec<Rule>,
+}
+
+impl RuleSet {
+	pub fn load_from_dir(dir: impl AsRef<Path>) -> Result<RuleSet> {
+		let mut rules = Vec::new();
+
+		// Make sure the path is like: `rules/` or `some/stuff/rules/` and not `rules`
+		let pattern = format!("{}/**/*.toml", dir.as_ref().display());
+
+		for glob in glob(&pattern)? {
+			match glob {
+				Ok(path) => {
+					let rule = Rule::from_file(path)?;
+					rules.push(rule);
+				}
+				Err(e) => warn!("Glob pattern error: {:?}", e),
+			}
+		}
+
+		Ok(RuleSet { ruleset: rules })
+	}
+
+	pub fn rule_count(&self) -> usize {
+		self.ruleset.len()
+	}
+}
+
+// region:    --- Tests
+
+#[cfg(test)]
+mod tests {
+	type Result<T> = core::result::Result<T, Box<dyn std::error::Error>>; // For tests.
+
+	use super::*;
+
+	#[test]
+	fn load_ruleset_from_dir() -> Result<()> {
+		// -- Setup & Fixtures
+		let fx_rule_dir = "rules/";
+		let fx_rule_count = 6;
+		// -- Exec
+		let ruleset = RuleSet::load_from_dir(fx_rule_dir)?;
+		// -- Check
+		assert_eq!(fx_rule_count, ruleset.rule_count());
+
+		Ok(())
+	}
+}
+
+// endregion: --- Tests

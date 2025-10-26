@@ -1,10 +1,11 @@
 [rule]
-id = "always-trigger"
+id = "pid-exists"
 description = "Triggers on any event"
-type = "generic_event"
+type = "exec"
 category = "test"
 severity = "low"
 
 [[rule.conditions]]
 field = "pid"
-op = "exists"
+op = "equals"
+value = 1

@@ -23,10 +23,7 @@ pub async fn handle_app_event(
 		AppEvent::Cerberus(cerberus_evt) => {
 			handle_cerberus_event(cerberus_evt, app_state);
 		}
-		AppEvent::CerberusEvaluated(evt) => {
-			println!("GOT IT");
-			handle_cerberus_eval_event(evt, app_state)
-		}
+		AppEvent::CerberusEvaluated(evt) => handle_cerberus_eval_event(evt, app_state),
 		AppEvent::LoadedHooks => {
 			handle_hooks_loaded(app_state, app_tx).await?;
 		}
@@ -47,23 +44,6 @@ async fn handle_hooks_loaded(app_state: &mut AppState, app_tx: &AppTx) -> Result
 	Ok(())
 }
 
-// fn handle_cerberus_event(event: &CerberusEvent, app_state: &mut AppState) {
-// 	match app_state.current_tab() {
-// 		Tab::General => {
-// 			if app_state.cerberus_evts_general.len() >= MAX_EVENTS {
-// 				app_state.cerberus_evts_general.remove(0);
-// 			}
-// 			app_state.cerberus_evts_general.push(event.clone());
-// 		}
-// 		Tab::Network => {
-// 			if app_state.cerberus_evts_network.len() >= MAX_EVENTS {
-// 				app_state.cerberus_evts_network.remove(0);
-// 			}
-// 			app_state.cerberus_evts_network.push(event.clone());
-// 		}
-// 	}
-// }
-//
 fn handle_cerberus_event(event: &CerberusEvent, app_state: &mut AppState) {
 	let events = match event {
 		CerberusEvent::Generic(_) => &mut app_state.cerberus_evts_general,

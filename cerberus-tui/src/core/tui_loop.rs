@@ -11,7 +11,7 @@ use tokio::task::JoinHandle;
 use super::event_handler::handle_app_event;
 use super::{process_app_state, AppState, AppTx, ExitTx};
 
-const RULES_DIR: &str = "./rules";
+const RULES_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/src/rules/");
 
 pub fn run_ui_loop(
 	mut term: DefaultTerminal,
@@ -21,7 +21,6 @@ pub fn run_ui_loop(
 	exit_tx: ExitTx,
 ) -> Result<JoinHandle<()>> {
 	let mut appstate = AppState::new(ebpf, LastAppEvent::default())?;
-	println!("GIT GUD1");
 
 	let rule_engine = RuleEngine::new(RULES_DIR)?;
 

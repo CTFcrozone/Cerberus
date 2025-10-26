@@ -17,6 +17,8 @@ impl RuleEngine {
 	pub fn new(dir: impl AsRef<Path>) -> Result<Self> {
 		let ruleset = Arc::new(RwLock::new(RuleSet::load_from_dir(dir)?));
 
+		println!("{ruleset:?}");
+
 		Ok(Self { ruleset })
 	}
 
@@ -91,22 +93,9 @@ mod tests {
 	#[test]
 	fn process_event_matches_rule() -> Result<()> {
 		// -- Setup & Fixtures
-		let rule = crate::rule::Rule {
-			rule: crate::rule::RuleInner {
-				id: "pid-exists".to_string(),
-				description: "Trigger when pid exists".to_string(),
-				r#type: "exec".to_string(),
-				severity: Some("low".to_string()),
-				category: None,
-				conditions: vec![crate::rule::Condition {
-					field: "pid".to_string(),
-					op: "exists".to_string(),
-					value: Value::Boolean(true),
-				}],
-			},
-		};
+		//
 
-		let ruleset = RuleSet { ruleset: vec![rule] };
+		let ruleset = RuleSet::load_from_dir("./rules/")?;
 
 		let engine = RuleEngine {
 			ruleset: Arc::new(RwLock::new(ruleset)),
@@ -114,8 +103,8 @@ mod tests {
 
 		let event = CerberusEvent::Generic(RingBufEvent {
 			name: "KILL",
-			uid: 1000,
-			pid: 4242,
+			uid: 0,
+			pid: 1,
 			tgid: 4242,
 			comm: Arc::from("bash"),
 			meta: 0,
@@ -130,7 +119,7 @@ mod tests {
 		assert_eq!(matched.rule_id, "pid-exists");
 		assert_eq!(matched.severity, "low");
 		assert_eq!(matched.rule_type, RuleType::Exec);
-		assert_eq!(matched.event_meta.pid, 4242);
+		assert_eq!(matched.event_meta.pid, 1);
 
 		Ok(())
 	}

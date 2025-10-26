@@ -1,0 +1,10 @@
+[rule]
+id = "any-process"
+description = "Matches any process event because pid >= 0"
+type = "exec"
+severity = "low"
+
+[[rule.conditions]]
+field = "pid"
+op = "gte"
+value = 0
