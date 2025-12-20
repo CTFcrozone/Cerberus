@@ -116,8 +116,8 @@ mod tests {
 		// -- Check
 		assert!(res.is_some());
 		let matched = res.unwrap();
-		assert_eq!(matched.rule_id, "pid-exists");
-		assert_eq!(matched.severity, "low");
+		assert_eq!(matched.rule_id, "pid-exists".into());
+		assert_eq!(matched.severity, "low".into());
 		assert_eq!(matched.rule_type, RuleType::Exec);
 		assert_eq!(matched.event_meta.pid, 1);
 
@@ -215,7 +215,7 @@ mod tests {
 		// -- Check
 		assert!(res.is_some());
 		let matched = res.unwrap();
-		assert_eq!(matched.rule_id, "tcp-state-change");
+		assert_eq!(matched.rule_id, "tcp-state-change".into());
 		assert_eq!(matched.rule_type, RuleType::Network);
 
 		Ok(())
