@@ -1,4 +1,4 @@
-use std::collections::VecDeque;
+use std::collections::{HashMap, VecDeque};
 use std::sync::Arc;
 
 use aya::maps::{MapData, RingBuf};
@@ -9,9 +9,21 @@ use tokio::io::unix::AsyncFd;
 use crate::core::sys_state::SysState;
 use crate::event::LastAppEvent;
 use crate::Result;
-use lib_event::app_evt_types::{CerberusEvent, EvaluatedEvent};
+use lib_event::app_evt_types::{CerberusEvent, EvaluatedEvent, RuleType};
 
 use super::format_size_xfixed;
+
+#[derive(Clone, Debug)]
+pub struct EvaluatedEntry {
+	pub event: EvaluatedEvent,
+	pub count: u64,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct EvaluatedKey {
+	pub rule_id: Arc<str>,
+	pub rule_type: RuleType,
+}
 
 pub enum View {
 	Splash,
@@ -51,7 +63,7 @@ pub struct AppState {
 	pub(in crate::core) last_app_event: LastAppEvent,
 	pub(in crate::core) cerberus_evts_general: VecDeque<CerberusEvent>,
 	pub(in crate::core) cerberus_evts_network: VecDeque<CerberusEvent>,
-	pub(in crate::core) cerberus_evts_matched: VecDeque<EvaluatedEvent>,
+	pub(in crate::core) cerberus_evts_matched: HashMap<EvaluatedKey, EvaluatedEntry>,
 
 	pub(in crate::core) hooks_loaded: bool,
 	pub current_view: View,
@@ -74,7 +86,7 @@ impl AppState {
 			last_app_event,
 			cerberus_evts_general: VecDeque::with_capacity(250),
 			cerberus_evts_network: VecDeque::with_capacity(250),
-			cerberus_evts_matched: VecDeque::with_capacity(250),
+			cerberus_evts_matched: HashMap::new(),
 
 			hooks_loaded: false,
 			current_view: View::Splash,
@@ -130,8 +142,8 @@ impl AppState {
 		self.cerberus_evts_network.iter()
 	}
 
-	pub fn cerberus_evts_matched(&self) -> impl Iterator<Item = &EvaluatedEvent> {
-		self.cerberus_evts_matched.iter()
+	pub fn cerberus_evts_matched(&self) -> impl Iterator<Item = &EvaluatedEntry> {
+		self.cerberus_evts_matched.values()
 	}
 
 	// pub fn cerberus_evts_network(&self) -> &[CerberusEvent] {

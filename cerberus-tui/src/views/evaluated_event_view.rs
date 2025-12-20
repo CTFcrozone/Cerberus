@@ -28,10 +28,11 @@ impl StatefulWidget for EvaluatedEventView {
 fn render_evaluated_events(area: Rect, buf: &mut Buffer, state: &mut AppState, block: Block) {
 	let lines: Vec<Line> = state
 		.cerberus_evts_matched()
-		.map(|evt| {
+		.map(|entry| {
+			let evt = &entry.event;
 			Line::raw(format!(
-				"[MATCHED] Rule: {} | SEVERITY:{} | TYPE:{:?} | META:{:?}",
-				evt.rule_id, evt.severity, evt.rule_type, evt.event_meta
+				"[MATCHED x{}] Rule: {} | SEVERITY:{} | TYPE:{:?} | META:{:?}",
+				entry.count, evt.rule_id, evt.severity, evt.rule_type, evt.event_meta
 			))
 		})
 		.collect();

@@ -1,5 +1,11 @@
+use std::sync::Arc;
+
 use super::{AppState, AppTx, ExitTx};
-use crate::{worker::RingBufWorker, Result};
+use crate::{
+	core::app_state::{EvaluatedEntry, EvaluatedKey},
+	worker::RingBufWorker,
+	Result,
+};
 use crossterm::event::{Event, KeyCode, KeyEventKind, KeyModifiers};
 use lib_event::app_evt_types::{ActionEvent, AppEvent, CerberusEvent, EvaluatedEvent};
 use ratatui::DefaultTerminal;
@@ -57,10 +63,25 @@ fn handle_cerberus_event(event: &CerberusEvent, app_state: &mut AppState) {
 }
 
 fn handle_cerberus_eval_event(event: &EvaluatedEvent, app_state: &mut AppState) {
-	if app_state.cerberus_evts_matched.len() >= MAX_EVENTS {
-		app_state.cerberus_evts_matched.pop_front();
+	let key = EvaluatedKey {
+		rule_id: Arc::clone(&event.rule_id),
+		rule_type: event.rule_type,
+	};
+
+	match app_state.cerberus_evts_matched.get_mut(&key) {
+		Some(entry) => {
+			entry.count += 1;
+		}
+		None => {
+			app_state.cerberus_evts_matched.insert(
+				key,
+				EvaluatedEntry {
+					event: event.clone(),
+					count: 1,
+				},
+			);
+		}
 	}
-	app_state.cerberus_evts_matched.push_back(event.clone());
 }
 
 async fn handle_term_event(term_event: &Event, app_tx: &AppTx) -> Result<()> {

@@ -42,8 +42,8 @@ impl RuleEngine {
 				};
 
 				return Some(EvaluatedEvent {
-					rule_id: rule.rule.id.clone(),
-					severity: rule.rule.severity.clone().unwrap_or("unknown".into()),
+					rule_id: Arc::from(rule.rule.id.as_str()),
+					severity: Arc::from(rule.rule.severity.as_deref().unwrap_or("unknown")),
 					rule_type: match rule.rule.r#type.as_str() {
 						"fs" => RuleType::Fs,
 						"network" => RuleType::Network,
