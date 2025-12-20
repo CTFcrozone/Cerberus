@@ -17,8 +17,6 @@ impl RuleEngine {
 	pub fn new(dir: impl AsRef<Path>) -> Result<Self> {
 		let ruleset = Arc::new(RwLock::new(RuleSet::load_from_dir(dir)?));
 
-		println!("{ruleset:?}");
-
 		Ok(Self { ruleset })
 	}
 

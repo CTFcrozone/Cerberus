@@ -1,3 +1,5 @@
+use std::time::{Duration, SystemTime};
+
 use crate::core::AppState;
 use ratatui::{
 	buffer::Buffer,
@@ -5,6 +7,18 @@ use ratatui::{
 	text::Line,
 	widgets::{Block, Padding, Paragraph, StatefulWidget, Widget},
 };
+
+use ratatui::style::{Color, Style};
+
+fn severity_style(sev: &str) -> Style {
+	match sev {
+		"critical" => Style::default().fg(Color::Red),
+		"high" => Style::default().fg(Color::LightRed),
+		"medium" => Style::default().fg(Color::Yellow),
+		"low" => Style::default().fg(Color::Green),
+		_ => Style::default().fg(Color::Gray),
+	}
+}
 
 pub struct EvaluatedEventView;
 
@@ -30,10 +44,20 @@ fn render_evaluated_events(area: Rect, buf: &mut Buffer, state: &mut AppState, b
 		.cerberus_evts_matched()
 		.map(|entry| {
 			let evt = &entry.event;
-			Line::raw(format!(
-				"[MATCHED x{}] Rule: {} | SEVERITY:{} | TYPE:{:?} | META:{:?}",
-				entry.count, evt.rule_id, evt.severity, evt.rule_type, evt.event_meta
-			))
+			let style = severity_style(&evt.severity);
+
+			Line::styled(
+				format!(
+					"[x{}] {} | {:?} | pid={} uid={} | {}",
+					entry.count,
+					evt.rule_id,
+					evt.rule_type,
+					evt.event_meta.pid,
+					evt.event_meta.uid,
+					evt.event_meta.comm,
+				),
+				style,
+			)
 		})
 		.collect();
 
