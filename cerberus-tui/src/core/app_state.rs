@@ -29,6 +29,7 @@ pub struct EvaluatedKey {
 pub enum View {
 	Splash,
 	Main,
+	Summary,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -133,12 +134,45 @@ impl AppState {
 	// pub fn cerberus_evts_general(&self) -> &[CerberusEvent] {
 	// 	&self.cerberus_evts_general
 	// }
+	//
+	pub fn barchart_rule_type(&self) -> Vec<(&'static str, u64)> {
+		let mut fs = 0;
+		let mut exec = 0;
+		let mut net = 0;
+
+		for entry in self.cerberus_evts_matched.values() {
+			match entry.event.rule_type {
+				RuleType::Fs => fs += entry.count,
+				RuleType::Network => net += entry.count,
+				RuleType::Exec => exec += entry.count,
+			}
+		}
+
+		vec![("Fs", fs), ("Network", net), ("Exec", exec)]
+	}
+
+	pub fn barchart_severity(&self) -> [(&'static str, u64); 4] {
+		let mut high = 0;
+		let mut medium = 0;
+		let mut low = 0;
+		let mut unknown = 0;
+
+		for entry in self.cerberus_evts_matched.values() {
+			match entry.event.severity.as_ref() {
+				"high" => high += entry.count,
+				"medium" => medium += entry.count,
+				"low" => low += entry.count,
+				_ => unknown += entry.count,
+			}
+		}
+
+		[("high", high), ("medium", medium), ("low", low), ("unknown", unknown)]
+	}
 
 	pub fn cerberus_evts_general(&self) -> impl Iterator<Item = &CerberusEvent> {
 		self.cerberus_evts_general.iter()
 	}
 
-	// Similarly for network events:
 	pub fn cerberus_evts_network(&self) -> impl Iterator<Item = &CerberusEvent> {
 		self.cerberus_evts_network.iter()
 	}

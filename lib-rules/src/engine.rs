@@ -10,7 +10,7 @@ use crate::{ctx::EvalCtx, error::Result};
 use crate::{evaluator::Evaluator, ruleset::RuleSet};
 
 pub struct RuleEngine {
-	ruleset: Arc<RwLock<RuleSet>>,
+	pub ruleset: Arc<RwLock<RuleSet>>,
 }
 
 impl RuleEngine {

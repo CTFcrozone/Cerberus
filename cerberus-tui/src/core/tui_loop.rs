@@ -1,5 +1,6 @@
+use crate::core::View;
 use crate::event::LastAppEvent;
-use crate::views::MainView;
+use crate::views::{MainView, SummaryView};
 use crate::Result;
 use aya::Ebpf;
 use lib_event::app_evt_types::{ActionEvent, AppEvent};
@@ -58,8 +59,18 @@ fn terminal_draw(terminal: &mut DefaultTerminal, app_state: &mut AppState) -> Re
 	terminal.draw(|frame| {
 		let area = frame.area();
 
-		let main_view = MainView {};
-		frame.render_stateful_widget(main_view, area, app_state);
+		match app_state.current_view() {
+			View::Main => {
+				frame.render_stateful_widget(MainView {}, area, app_state);
+			}
+			View::Summary => {
+				frame.render_stateful_widget(SummaryView {}, area, app_state);
+			}
+			View::Splash => {
+				// Splash is rendered internally by MainView
+				frame.render_stateful_widget(MainView {}, area, app_state);
+			}
+		}
 	})?;
 
 	Ok(())
