@@ -1,5 +1,3 @@
-use std::time::{Duration, SystemTime};
-
 use crate::core::AppState;
 use ratatui::{
 	buffer::Buffer,

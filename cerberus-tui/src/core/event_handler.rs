@@ -1,4 +1,4 @@
-use std::{sync::Arc, time::SystemTime};
+use std::sync::Arc;
 
 use super::{AppState, AppTx, ExitTx};
 use crate::{
@@ -67,8 +67,6 @@ fn handle_cerberus_eval_event(event: &EvaluatedEvent, app_state: &mut AppState) 
 		rule_id: Arc::clone(&event.rule_id),
 		rule_type: event.rule_type,
 	};
-
-	let now = SystemTime::now();
 
 	match app_state.cerberus_evts_matched.get_mut(&key) {
 		Some(entry) => {

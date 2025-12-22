@@ -18,7 +18,6 @@ pub enum Error {
 	InvalidEventSize,
 	UnknownEventType(u8),
 	MutexPoison,
-
 	// -- Externals
 	//
 	#[from]
