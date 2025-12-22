@@ -18,8 +18,7 @@ pub enum Error {
 	InvalidEventSize,
 	UnknownEventType(u8),
 	MutexPoison,
-	#[from]
-	Rusqlite(rusqlite::Error),
+
 	// -- Externals
 	//
 	#[from]
