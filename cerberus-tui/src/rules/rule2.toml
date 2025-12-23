@@ -1,7 +1,7 @@
 [rule]
 id = "module-init-test"
 description = "Test module init for name 'lkm' and cmd 'insmod'"
-type = "module_init"
+type = "module"
 category = "test"
 severity = "high"
 

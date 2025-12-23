@@ -64,6 +64,7 @@ impl RuleEngine {
 						"fs" => RuleType::Fs,
 						"network" => RuleType::Network,
 						"exec" => RuleType::Exec,
+						"module" => RuleType::Module,
 						_ => RuleType::Exec,
 					},
 					event_meta: Self::event_meta(event),
