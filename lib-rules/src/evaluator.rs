@@ -10,25 +10,42 @@ pub struct Evaluator;
 
 impl Evaluator {
 	pub fn equals(a: &Value, b: &Value) -> bool {
-		if let (Some(ai), Some(bi)) = (a.as_integer(), b.as_integer()) {
-			return ai == bi;
+		match (a, b) {
+			(Value::Integer(ai), Value::Integer(bi)) => ai == bi,
+			(Value::Float(af), Value::Float(bf)) => (af - bf).abs() < f64::EPSILON,
+			(Value::Integer(ai), Value::Float(bf)) => (*ai as f64 - bf).abs() < f64::EPSILON,
+			(Value::Float(af), Value::Integer(bi)) => (af - *bi as f64).abs() < f64::EPSILON,
+			(Value::String(as_), Value::String(bs_)) => as_ == bs_,
+			(Value::Boolean(ab), Value::Boolean(bb)) => ab == bb,
+			_ => a == b,
 		}
-		if let (Some(af), Some(bf)) = (a.as_float(), b.as_float()) {
-			return (af - bf).abs() < std::f64::EPSILON;
-		}
-		if let (Some(ai), Some(bf)) = (a.as_integer(), b.as_float()) {
-			return (ai as f64 - bf).abs() < std::f64::EPSILON;
-		}
-		if let (Some(af), Some(bi)) = (a.as_float(), b.as_integer()) {
-			return (af - bi as f64).abs() < std::f64::EPSILON;
-		}
-		if let (Some(as_), Some(bs_)) = (a.as_str(), b.as_str()) {
-			return as_ == bs_;
-		}
-		if let (Some(ab), Some(bb)) = (a.as_bool(), b.as_bool()) {
-			return ab == bb;
-		}
-		a == b
+		// if let (Some(ai), Some(bi)) = (a.as_integer(), b.as_integer()) {
+		// 	return ai == bi;
+		// }
+		// if let (Some(af), Some(bf)) = (a.as_float(), b.as_float()) {
+		// 	return (af - bf).abs() < std::f64::EPSILON;
+		// }
+		// if let (Some(ai), Some(bf)) = (a.as_integer(), b.as_float()) {
+		// 	return (ai as f64 - bf).abs() < std::f64::EPSILON;
+		// }
+		// if let (Some(af), Some(bi)) = (a.as_float(), b.as_integer()) {
+		// 	return (af - bi as f64).abs() < std::f64::EPSILON;
+		// }
+		// if let (Some(as_), Some(bs_)) = (a.as_str(), b.as_str()) {
+		// 	return as_ == bs_;
+		// }
+		// if let (Some(ab), Some(bb)) = (a.as_bool(), b.as_bool()) {
+		// 	return ab == bb;
+		// }
+		// a == b
+	}
+
+	fn as_i64_pair(left: Option<&Value>, right: &Value) -> Option<(i64, i64)> {
+		Some((left?.as_integer()?, right.as_integer()?))
+	}
+
+	fn as_str_pair<'a>(left: Option<&'a Value>, right: &'a Value) -> Option<(&'a str, &'a str)> {
+		Some((left?.as_str()?, right.as_str()?))
 	}
 
 	pub fn eval_condition(left: Option<&Value>, cond: &Condition) -> bool {
@@ -36,37 +53,23 @@ impl Evaluator {
 		let right = &cond.value;
 
 		match op {
-			"equals" | "==" => {
-				if let Some(l) = left {
-					Self::equals(l, right)
-				} else {
-					false
-				}
-			}
+			"equals" | "==" => left.map_or(false, |l| Self::equals(l, right)),
+			"starts_with" => Self::as_str_pair(left, right).map(|(a, b)| a.starts_with(b)).unwrap_or(false),
+			"bit_and" => Self::as_i64_pair(left, right).map(|(a, b)| (a & b) != 0).unwrap_or(false),
+
 			"in" => match right {
-				Value::Array(arr) => {
-					if let Some(l) = left {
-						arr.iter().any(|v| Evaluator::equals(l, v))
-					} else {
-						false
-					}
-				}
+				Value::Array(arr) => left.map_or(false, |l| arr.iter().any(|v| Self::equals(l, v))),
 				_ => false,
 			},
 			"not_in" => match right {
-				Value::Array(arr) => {
-					if let Some(l) = left {
-						!arr.iter().any(|v| Evaluator::equals(l, v))
-					} else {
-						false
-					}
-				}
+				Value::Array(arr) => left.map_or(true, |l| !arr.iter().any(|v| Self::equals(l, v))),
 				_ => false,
 			},
+
 			"regex" | "matches_regex" => {
-				if let (Some(Value::String(s)), Value::String(pattern)) = (left, right) {
+				if let Some((text, pattern)) = Self::as_str_pair(left, right) {
 					if let Ok(re) = Regex::new(pattern) {
-						re.is_match(s)
+						re.is_match(text)
 					} else {
 						false
 					}
@@ -74,6 +77,8 @@ impl Evaluator {
 					false
 				}
 			}
+
+			"!=" => left.map_or(false, |l| !Self::equals(l, right)),
 			">" | "gt" => left.map_or(false, |l| Self::numeric_cmp(l, right, |x, y| x > y)),
 			"<" | "lt" => left.map_or(false, |l| Self::numeric_cmp(l, right, |x, y| x < y)),
 			">=" | "gte" => left.map_or(false, |l| Self::numeric_cmp(l, right, |x, y| x >= y)),
@@ -93,8 +98,7 @@ impl Evaluator {
 	pub fn in_array(val: &Value, target: &Value) -> bool {
 		target
 			.as_array()
-			.map(|arr| arr.iter().any(|el| Self::equals(val, el)))
-			.unwrap_or(false)
+			.map_or(false, |arr| arr.iter().any(|el| Self::equals(val, el)))
 	}
 
 	pub fn numeric_cmp<F>(a: &Value, b: &Value, cmp: F) -> bool

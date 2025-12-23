@@ -20,24 +20,28 @@ impl RuleEngine {
 		Ok(Self { ruleset })
 	}
 
+	fn event_meta(event: &CerberusEvent) -> EventMeta {
+		match event {
+			CerberusEvent::Generic(evt) => EventMeta {
+				uid: evt.uid,
+				pid: evt.pid,
+				comm: Arc::clone(&evt.comm),
+			},
+			CerberusEvent::InetSock(_) => EventMeta {
+				uid: 0,
+				pid: 0,
+				comm: Arc::from(""),
+			},
+		}
+	}
+
 	pub fn process_event(&self, event: &CerberusEvent) -> Option<EvaluatedEvent> {
 		let ctx = Self::event_to_ctx(event);
 		let ruleset = self.ruleset.read().unwrap();
 
 		for rule in &ruleset.ruleset {
 			if Evaluator::rule_matches(&rule.rule, &ctx) {
-				let meta = match &event {
-					CerberusEvent::Generic(evt) => EventMeta {
-						uid: evt.uid,
-						pid: evt.pid,
-						comm: Arc::clone(&evt.comm),
-					},
-					CerberusEvent::InetSock(_) => EventMeta {
-						uid: 0,
-						pid: 0,
-						comm: Arc::from(""),
-					},
-				};
+				let meta = Self::event_meta(event);
 
 				return Some(EvaluatedEvent {
 					rule_id: Arc::from(rule.rule.id.as_str()),

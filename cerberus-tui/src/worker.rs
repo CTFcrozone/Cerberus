@@ -97,6 +97,7 @@ impl RingBufWorker {
 									5 => "MODULE_INIT",
 									6 => "INET_SOCK_SET_STATE",
 									7 => "ENTER_PTRACE",
+									8 => "BPRM_CHECK",
 									_ => "UNKNOWN",
 								},
 								pid: e.pid,
