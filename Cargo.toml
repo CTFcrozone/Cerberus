@@ -1,14 +1,14 @@
 [workspace]
 resolver = "2"
 members = [
-    "cerberus",
+    # "cerberus", for now not maintained
     "lib-common",
     "lib-ebpf",
     "lib-rules",
     "lib-event",
     "cerberus-tui",
 ]
-default-members = ["cerberus", "lib-common"]
+default-members = ["cerberus-tui", "lib-common"]
 
 [workspace.package]
 license = "MIT OR Apache-2.0"

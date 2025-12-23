@@ -1,4 +1,4 @@
-use crate::core::AppState;
+use crate::{core::AppState, views::support::line_from_event};
 use lib_event::app_evt_types::CerberusEvent;
 use ratatui::{
 	buffer::Buffer,
@@ -26,22 +26,7 @@ impl StatefulWidget for NetworkEventView {
 }
 
 fn render_events(area: Rect, buf: &mut Buffer, state: &mut AppState, block: Block) {
-	let lines: Vec<Line> = state
-		.cerberus_evts_network()
-		.filter_map(|evt| match evt {
-			CerberusEvent::InetSock(n) => Some(Line::raw(format!(
-				"[INET_SOCK] {}:{} → {}:{} | Proto: {} | {} → {}",
-				ip_to_string(n.saddr),
-				n.sport,
-				ip_to_string(n.daddr),
-				n.dport,
-				n.protocol,
-				n.old_state,
-				n.new_state
-			))),
-			_ => None,
-		})
-		.collect();
+	let lines: Vec<Line> = state.cerberus_evts_network().map(line_from_event).collect();
 
 	let line_count = lines.len();
 	let max_scroll = line_count.saturating_sub(area.height as usize) as u16;
@@ -52,9 +37,4 @@ fn render_events(area: Rect, buf: &mut Buffer, state: &mut AppState, block: Bloc
 
 	let paragraph = Paragraph::new(lines).block(block).scroll((state.event_scroll(), 0));
 	paragraph.render(area, buf);
-}
-
-fn ip_to_string(ip: u32) -> String {
-	let octets = ip.to_le_bytes();
-	format!("{}.{}.{}.{}", octets[0], octets[1], octets[2], octets[3])
 }

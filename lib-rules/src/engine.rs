@@ -30,7 +30,12 @@ impl RuleEngine {
 			CerberusEvent::InetSock(_) => EventMeta {
 				uid: 0,
 				pid: 0,
-				comm: Arc::from(""),
+				comm: "".into(),
+			},
+			CerberusEvent::Module(evt) => EventMeta {
+				uid: evt.uid,
+				pid: evt.pid,
+				comm: Arc::clone(&evt.comm),
 			},
 		}
 	}
@@ -50,6 +55,7 @@ impl RuleEngine {
 						"fs" => RuleType::Fs,
 						"network" => RuleType::Network,
 						"exec" => RuleType::Exec,
+						"module_init" => RuleType::Module,
 						_ => RuleType::Exec,
 					},
 					event_meta: meta,
@@ -68,6 +74,13 @@ impl RuleEngine {
 				fields.insert("pid".into(), toml::Value::Integer(e.pid as i64));
 				fields.insert("tgid".into(), toml::Value::Integer(e.tgid as i64));
 				fields.insert("comm".into(), toml::Value::String(e.comm.to_string()));
+			}
+			CerberusEvent::Module(e) => {
+				fields.insert("uid".into(), toml::Value::Integer(e.uid as i64));
+				fields.insert("pid".into(), toml::Value::Integer(e.pid as i64));
+				fields.insert("tgid".into(), toml::Value::Integer(e.tgid as i64));
+				fields.insert("comm".into(), toml::Value::String(e.comm.to_string()));
+				fields.insert("module_name".into(), toml::Value::String(e.module_name.to_string()));
 			}
 			CerberusEvent::InetSock(e) => {
 				fields.insert("old_state".into(), toml::Value::String(e.old_state.to_string()));

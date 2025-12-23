@@ -12,7 +12,7 @@ use aya_ebpf::{
 	programs::{LsmContext, ProbeContext, TracePointContext},
 };
 use aya_log_ebpf::{error, warn};
-use lib_common::{EventHeader, GenericEvent, InetSockSetStateEvent, SecurityCheckEvent};
+use lib_common::{EventHeader, GenericEvent, InetSockSetStateEvent, ModuleInitEvent, SecurityCheckEvent};
 mod vmlinux;
 use vmlinux::{file, linux_binprm, module, sockaddr, sockaddr_in, task_struct};
 
@@ -153,15 +153,9 @@ fn try_do_init_module(ctx: ProbeContext) -> Result<u32, u32> {
 
 	let name_i8 = unsafe { bpf_probe_read_kernel(&(*module).name).map_err(|_| 2u32)? };
 
-	let name: [u8; 56] = unsafe { core::mem::transmute(name_i8) };
+	let module_name: [u8; 56] = unsafe { core::mem::transmute(name_i8) };
 
-	let len = name.iter().position(|&b| b == 0).unwrap_or(56);
-
-	let name_str = unsafe { core::str::from_utf8_unchecked(&name[..len]) };
-
-	warn!(&ctx, "LKM name: {}", name_str);
-
-	let event = GenericEvent {
+	let event = ModuleInitEvent {
 		header: EventHeader {
 			event_type: 5,
 			_padding: [0u8; 3],
@@ -170,7 +164,7 @@ fn try_do_init_module(ctx: ProbeContext) -> Result<u32, u32> {
 		uid,
 		tgid,
 		comm: comm_raw,
-		meta: 0,
+		module_name,
 	};
 
 	match EVT_MAP.output(&event, 0) {

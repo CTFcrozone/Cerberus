@@ -6,8 +6,8 @@ use crate::{
 };
 
 use aya::maps::{MapData, RingBuf};
-use lib_common::{EbpfEvent, EventHeader, GenericEvent, InetSockSetStateEvent};
-use lib_event::app_evt_types::{AppEvent, CerberusEvent, InetSockEvent, RingBufEvent};
+use lib_common::{EbpfEvent, EventHeader, GenericEvent, InetSockSetStateEvent, ModuleInitEvent};
+use lib_event::app_evt_types::{AppEvent, CerberusEvent, InetSockEvent, ModuleEvent, RingBufEvent};
 use lib_rules::engine::RuleEngine;
 use tokio::io::unix::AsyncFd;
 use tracing::info;
@@ -106,6 +106,15 @@ impl RingBufWorker {
 								comm: Arc::from(String::from_utf8_lossy(&e.comm).trim_end_matches('\0').to_string()),
 								meta: e.meta,
 							}),
+							EbpfEvent::ModuleInit(ref e) => CerberusEvent::Module(ModuleEvent {
+								pid: e.pid,
+								uid: e.uid,
+								tgid: e.tgid,
+								comm: Arc::from(String::from_utf8_lossy(&e.comm).trim_end_matches('\0').to_string()),
+								module_name: Arc::from(
+									String::from_utf8_lossy(&e.module_name).trim_end_matches('\0').to_string(),
+								),
+							}),
 							EbpfEvent::InetSock(ref e) => CerberusEvent::InetSock(InetSockEvent {
 								old_state: Arc::from(state_to_str(e.oldstate)),
 								new_state: Arc::from(state_to_str(e.newstate)),
@@ -136,9 +145,13 @@ fn parse_event_from_bytes(data: &[u8]) -> Result<EbpfEvent> {
 	let header = EventHeader::ref_from_prefix(data).map_err(|_| Error::InvalidEventSize)?.0;
 
 	match header.event_type {
-		1 | 3 | 4 | 5 => {
+		1 | 3 | 4 => {
 			let evt = GenericEvent::ref_from_prefix(data).map_err(|_| Error::InvalidEventSize)?.0;
 			Ok(EbpfEvent::Generic(*evt))
+		}
+		5 => {
+			let evt = ModuleInitEvent::ref_from_prefix(data).map_err(|_| Error::InvalidEventSize)?.0;
+			Ok(EbpfEvent::ModuleInit(*evt))
 		}
 		6 => {
 			let evt = InetSockSetStateEvent::ref_from_prefix(data)

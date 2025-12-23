@@ -29,6 +29,17 @@ pub struct GenericEvent {
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug, FromBytes, Immutable, KnownLayout)]
+pub struct ModuleInitEvent {
+	pub header: EventHeader,
+	pub pid: u32,
+	pub uid: u32,
+	pub tgid: u32,
+	pub comm: [u8; 16],
+	pub module_name: [u8; 56],
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Debug, FromBytes, Immutable, KnownLayout)]
 pub struct SecurityCheckEvent {
 	pub header: EventHeader,
 	pub pid: u32,
@@ -56,4 +67,5 @@ pub struct InetSockSetStateEvent {
 pub enum EbpfEvent {
 	Generic(GenericEvent),
 	InetSock(InetSockSetStateEvent),
+	ModuleInit(ModuleInitEvent),
 }

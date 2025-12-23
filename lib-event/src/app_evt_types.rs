@@ -26,6 +26,7 @@ pub enum RuleType {
 	Fs,
 	Network,
 	Exec,
+	Module,
 }
 
 #[derive(From, Clone, Debug)]
@@ -34,6 +35,8 @@ pub enum CerberusEvent {
 	Generic(RingBufEvent),
 	#[from]
 	InetSock(InetSockEvent),
+	#[from]
+	Module(ModuleEvent),
 }
 
 #[derive(Debug, Clone)]
@@ -60,6 +63,15 @@ pub struct InetSockEvent {
 	pub protocol: Arc<str>,
 	pub saddr: u32,
 	pub daddr: u32,
+}
+
+#[derive(Debug, Clone)]
+pub struct ModuleEvent {
+	pub pid: u32,
+	pub uid: u32,
+	pub tgid: u32,
+	pub comm: Arc<str>,
+	pub module_name: Arc<str>,
 }
 
 #[derive(Debug, Clone)]

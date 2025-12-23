@@ -138,16 +138,18 @@ impl AppState {
 		let mut fs = 0;
 		let mut exec = 0;
 		let mut net = 0;
+		let mut module = 0;
 
 		for entry in self.cerberus_evts_matched.values() {
 			match entry.event.rule_type {
 				RuleType::Fs => fs += entry.count,
 				RuleType::Network => net += entry.count,
 				RuleType::Exec => exec += entry.count,
+				RuleType::Module => module += entry.count,
 			}
 		}
 
-		vec![("Fs", fs), ("Network", net), ("Exec", exec)]
+		vec![("Fs", fs), ("Network", net), ("Exec", exec), ("Module Init", module)]
 	}
 
 	pub fn barchart_severity(&self) -> [(&'static str, u64); 4] {
