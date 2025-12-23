@@ -20,6 +20,12 @@ impl RuleEngine {
 		Ok(Self { ruleset })
 	}
 
+	pub fn new_from_ruleset(ruleset: RuleSet) -> Result<Self> {
+		let ruleset = Arc::new(RwLock::new(ruleset));
+
+		Ok(Self { ruleset })
+	}
+
 	fn event_meta(event: &CerberusEvent) -> EventMeta {
 		match event {
 			CerberusEvent::Generic(evt) => EventMeta {
@@ -40,29 +46,32 @@ impl RuleEngine {
 		}
 	}
 
-	pub fn process_event(&self, event: &CerberusEvent) -> Option<EvaluatedEvent> {
+	pub fn rule_count(&self) -> usize {
+		self.ruleset.read().ok().map_or(0, |set| set.rule_count())
+	}
+
+	pub fn process_event(&self, event: &CerberusEvent) -> Result<Vec<EvaluatedEvent>> {
 		let ctx = Self::event_to_ctx(event);
-		let ruleset = self.ruleset.read().unwrap();
+		let ruleset = self.ruleset.read()?;
+		let mut matches = Vec::new();
 
 		for rule in &ruleset.ruleset {
 			if Evaluator::rule_matches(&rule.rule, &ctx) {
-				let meta = Self::event_meta(event);
-
-				return Some(EvaluatedEvent {
+				matches.push(EvaluatedEvent {
 					rule_id: Arc::from(rule.rule.id.as_str()),
 					severity: Arc::from(rule.rule.severity.as_deref().unwrap_or("unknown")),
 					rule_type: match rule.rule.r#type.as_str() {
 						"fs" => RuleType::Fs,
 						"network" => RuleType::Network,
 						"exec" => RuleType::Exec,
-						"module_init" => RuleType::Module,
 						_ => RuleType::Exec,
 					},
-					event_meta: meta,
+					event_meta: Self::event_meta(event),
 				});
 			}
 		}
-		None
+
+		Ok(matches)
 	}
 
 	fn event_to_ctx(event: &CerberusEvent) -> EvalCtx {
@@ -112,9 +121,7 @@ mod tests {
 
 		let ruleset = RuleSet::load_from_dir("./rules/")?;
 
-		let engine = RuleEngine {
-			ruleset: Arc::new(RwLock::new(ruleset)),
-		};
+		let engine = RuleEngine::new_from_ruleset(ruleset)?;
 
 		let event = CerberusEvent::Generic(RingBufEvent {
 			name: "KILL",
@@ -126,11 +133,11 @@ mod tests {
 		});
 
 		// -- Exec
-		let res = engine.process_event(&event);
+		let res = engine.process_event(&event)?;
 
 		// -- Check
-		assert!(res.is_some());
-		let matched = res.unwrap();
+		assert!(!res.is_empty());
+		let matched = &res[0];
 		assert_eq!(matched.rule_id, "pid-exists".into());
 		assert_eq!(matched.severity, "low".into());
 		assert_eq!(matched.rule_type, RuleType::Exec);
@@ -158,10 +165,7 @@ mod tests {
 		};
 
 		let ruleset = RuleSet { ruleset: vec![rule] };
-
-		let engine = RuleEngine {
-			ruleset: Arc::new(RwLock::new(ruleset)),
-		};
+		let engine = RuleEngine::new_from_ruleset(ruleset)?;
 
 		let event = CerberusEvent::Generic(RingBufEvent {
 			name: "COMMIT_CREDS",
@@ -173,10 +177,10 @@ mod tests {
 		});
 
 		// -- Exec
-		let res = engine.process_event(&event);
+		let res = engine.process_event(&event)?;
 
 		// -- Check
-		assert!(res.is_none());
+		assert!(res.is_empty());
 
 		Ok(())
 	}
@@ -208,9 +212,7 @@ mod tests {
 
 		let ruleset = RuleSet { ruleset: vec![rule] };
 
-		let engine = RuleEngine {
-			ruleset: Arc::new(RwLock::new(ruleset)),
-		};
+		let engine = RuleEngine::new_from_ruleset(ruleset)?;
 
 		let inet_evt = lib_event::app_evt_types::InetSockEvent {
 			old_state: Arc::from("TCP_SYN_SENT"),
@@ -225,11 +227,13 @@ mod tests {
 		let event = CerberusEvent::InetSock(inet_evt);
 
 		// -- Exec
-		let res = engine.process_event(&event);
+		let res = engine.process_event(&event)?;
 
 		// -- Check
-		assert!(res.is_some());
-		let matched = res.unwrap();
+
+		assert_eq!(res.len(), 1);
+		let matched = &res[0];
+
 		assert_eq!(matched.rule_id, "tcp-state-change".into());
 		assert_eq!(matched.rule_type, RuleType::Network);
 

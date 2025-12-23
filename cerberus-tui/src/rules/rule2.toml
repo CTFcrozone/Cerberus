@@ -9,8 +9,3 @@ severity = "high"
 field = "module_name"
 op = "equals"
 value = "lkm"
-
-[[rule.conditions]]
-field = "comm"
-op = "equals"
-value = "insmod"

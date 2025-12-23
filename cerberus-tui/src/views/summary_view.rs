@@ -51,9 +51,7 @@ fn render_loaded_hooks(area: Rect, buf: &mut Buffer, state: &mut AppState, block
 }
 
 pub fn render_loaded_rules_count(area: Rect, buf: &mut Buffer, state: &AppState) {
-	let count = state.rule_engine.as_ref().map_or(0, |engine| {
-		engine.ruleset.read().ok().map_or(0, |ruleset| ruleset.ruleset.len())
-	});
+	let count = state.rule_engine.as_ref().map_or(0, |engine| engine.rule_count());
 
 	let paragraph = Paragraph::new(format!("Loaded Rules: {}", count))
 		.block(Block::bordered().title("Rules"))
