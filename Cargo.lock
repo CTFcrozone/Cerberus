@@ -312,6 +312,7 @@ dependencies = [
  "lib-event",
  "lib-rules",
  "libc",
+ "notify",
  "ratatui",
  "sysinfo",
  "tokio",
