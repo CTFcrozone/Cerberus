@@ -1,0 +1,11 @@
+[rule]
+id = "exec-from-shm"
+description = "Detect execution from /dev/shm"
+type = "bprm"
+category = "evasion"
+severity = "high"
+
+[[rule.conditions]]
+field = "filepath"
+op = "regex"
+value = "^/dev/shm/.*"

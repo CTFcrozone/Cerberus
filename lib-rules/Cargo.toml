@@ -19,6 +19,7 @@ derive_more = { version = "2.0.0", features = [
 aya = { workspace = true }
 aya-log = { workspace = true }
 libc = { workspace = true }
+regex = "1"
 flume = { workspace = true }
 tracing = { workspace = true }
 futures-timer = "3.0.3"

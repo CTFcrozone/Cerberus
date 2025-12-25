@@ -18,8 +18,6 @@ pub enum Error {
 	InvalidEventSize,
 	UnknownEventType(u8),
 	MutexPoison,
-	#[from]
-	Rusqlite(rusqlite::Error),
 	// -- Externals
 	//
 	#[from]
@@ -38,6 +36,8 @@ pub enum Error {
 	AyaProgram(aya::programs::ProgramError),
 	#[from]
 	Event(lib_event::error::Error),
+	#[from]
+	RuleEngine(lib_rules::error::Error),
 	#[from]
 	Io(std::io::Error), // as example
 }

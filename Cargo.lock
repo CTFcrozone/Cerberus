@@ -293,28 +293,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "cerberus"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "aya",
- "aya-build",
- "aya-log",
- "derive_more",
- "dns-lookup",
- "flume",
- "lib-common",
- "lib-ebpf",
- "lib-event",
- "libc",
- "tokio",
- "tracing",
- "tracing-subscriber",
- "zerocopy",
- "zerocopy-derive",
-]
-
-[[package]]
 name = "cerberus-tui"
 version = "0.1.0"
 dependencies = [
@@ -334,9 +312,7 @@ dependencies = [
  "lib-event",
  "lib-rules",
  "libc",
- "modql",
  "ratatui",
- "rusqlite",
  "sysinfo",
  "tokio",
  "tracing",
@@ -921,6 +897,7 @@ dependencies = [
  "lib-event",
  "libc",
  "modql",
+ "regex",
  "rusqlite",
  "serde",
  "serde_json",

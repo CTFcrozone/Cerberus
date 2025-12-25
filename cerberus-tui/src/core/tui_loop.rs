@@ -1,14 +1,18 @@
+use crate::core::View;
 use crate::event::LastAppEvent;
-use crate::views::MainView;
+use crate::views::{MainView, SummaryView};
 use crate::Result;
 use aya::Ebpf;
 use lib_event::app_evt_types::{ActionEvent, AppEvent};
 use lib_event::trx::Rx;
+use lib_rules::engine::RuleEngine;
 use ratatui::DefaultTerminal;
 use tokio::task::JoinHandle;
 
 use super::event_handler::handle_app_event;
 use super::{process_app_state, AppState, AppTx, ExitTx};
+
+const RULES_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/src/rules/");
 
 pub fn run_ui_loop(
 	mut term: DefaultTerminal,
@@ -18,6 +22,10 @@ pub fn run_ui_loop(
 	exit_tx: ExitTx,
 ) -> Result<JoinHandle<()>> {
 	let mut appstate = AppState::new(ebpf, LastAppEvent::default())?;
+
+	let rule_engine = RuleEngine::new(RULES_DIR)?;
+
+	appstate.rule_engine = Some(std::sync::Arc::new(rule_engine));
 
 	let handle = tokio::spawn(async move {
 		loop {
@@ -51,8 +59,18 @@ fn terminal_draw(terminal: &mut DefaultTerminal, app_state: &mut AppState) -> Re
 	terminal.draw(|frame| {
 		let area = frame.area();
 
-		let main_view = MainView {};
-		frame.render_stateful_widget(main_view, area, app_state);
+		match app_state.current_view() {
+			View::Main => {
+				frame.render_stateful_widget(MainView {}, area, app_state);
+			}
+			View::Summary => {
+				frame.render_stateful_widget(SummaryView {}, area, app_state);
+			}
+			View::Splash => {
+				// Splash is rendered internally by MainView
+				frame.render_stateful_widget(MainView {}, area, app_state);
+			}
+		}
 	})?;
 
 	Ok(())

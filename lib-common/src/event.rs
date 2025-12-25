@@ -6,7 +6,9 @@ use zerocopy_derive::{FromBytes, Immutable, KnownLayout};
 // 4 => "COMMIT_CREDS",
 // 5 => "MODULE_INIT",
 // 6 => "INET_SOCK_SET_STATE",
-// 7 => "ENTER_PTRACE",
+// 7 => "ENTER_PTRACE"
+// 8  => EXEC (bprm_check_security)
+
 #[repr(C)]
 #[derive(Clone, Copy, Debug, FromBytes, Immutable, KnownLayout)]
 pub struct EventHeader {
@@ -27,6 +29,28 @@ pub struct GenericEvent {
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug, FromBytes, Immutable, KnownLayout)]
+pub struct ModuleInitEvent {
+	pub header: EventHeader,
+	pub pid: u32,
+	pub uid: u32,
+	pub tgid: u32,
+	pub comm: [u8; 16],
+	pub module_name: [u8; 56],
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Debug, FromBytes, Immutable, KnownLayout)]
+pub struct BprmSecurityCheckEvent {
+	pub header: EventHeader,
+	pub pid: u32,
+	pub uid: u32,
+	pub tgid: u32,
+	pub comm: [u8; 16],
+	pub filepath: [u8; 128],
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Debug, FromBytes, Immutable, KnownLayout)]
 pub struct InetSockSetStateEvent {
 	pub header: EventHeader,
 	pub oldstate: i32,
@@ -43,4 +67,6 @@ pub struct InetSockSetStateEvent {
 pub enum EbpfEvent {
 	Generic(GenericEvent),
 	InetSock(InetSockSetStateEvent),
+	ModuleInit(ModuleInitEvent),
+	BprmSecurityCheck(BprmSecurityCheckEvent),
 }

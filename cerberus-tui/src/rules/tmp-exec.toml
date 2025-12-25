@@ -1,0 +1,11 @@
+[rule]
+id = "tmp-exec"
+description = "Detect binaries executed from /tmp or other writable dirs"
+type = "bprm"
+category = "policy"
+severity = "medium"
+
+[[rule.conditions]]
+field = "filepath"
+op = "regex"
+value = "^/tmp/.*"

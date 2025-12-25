@@ -8,7 +8,7 @@ use super::{AppTx, Tab};
 
 pub fn process_app_state(state: &mut AppState, app_tx: &AppTx) {
 	match state.current_view() {
-		View::Main => handle_main_view(state),
+		View::Main | View::Summary => handle_main_view(state),
 		View::Splash => handle_splash_view(state, app_tx),
 	}
 }
@@ -23,6 +23,12 @@ fn handle_main_view(state: &mut AppState) {
 fn handle_main_input(state: &mut AppState) {
 	if let Some(key) = state.last_app_event().as_key_code() {
 		match key {
+			KeyCode::Char('s') | KeyCode::Char('S') => match state.current_view() {
+				View::Main => state.set_view(View::Summary),
+				View::Summary => state.set_view(View::Main),
+				_ => {}
+			},
+
 			KeyCode::Char('x') => match state.current_tab() {
 				Tab::General => {
 					state.cerberus_evts_general.clear();
@@ -30,6 +36,10 @@ fn handle_main_input(state: &mut AppState) {
 				}
 				Tab::Network => {
 					state.cerberus_evts_network.clear();
+					state.set_event_scroll(0);
+				}
+				Tab::MatchedRules => {
+					state.cerberus_evts_matched.clear();
 					state.set_event_scroll(0);
 				}
 			},

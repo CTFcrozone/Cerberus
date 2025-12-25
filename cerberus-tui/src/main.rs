@@ -1,8 +1,6 @@
 mod core;
-mod db;
 mod error;
 mod event;
-mod rules;
 mod styles;
 mod trx;
 mod views;
@@ -38,34 +36,11 @@ async fn main() -> Result<()> {
 		debug!("remove limit on locked memory failed, ret is: {ret}");
 	}
 
-	// This will include your eBPF object file as raw bytes at compile-time and load it at
-	// runtime. This approach is recommended for most real-world use cases. If you would
-	// like to specify the eBPF program at runtime rather than at compile-time, you can
-	// reach for `Bpf::load_file` instead.
 	let mut ebpf = aya::Ebpf::load(aya::include_bytes_aligned!(concat!(env!("OUT_DIR"), "/cerberus")))?;
 	if let Err(e) = aya_log::EbpfLogger::init(&mut ebpf) {
 		// This can happen if you remove all log statements from your eBPF program.
 		warn!("failed to initialize eBPF logger: {e}");
 	}
-
-	// // Now do all program_mut calls BEFORE wrapping in AsyncFd
-	// let btf = Btf::from_sys_fs()?;
-	// let program: &mut Lsm = ebpf.program_mut("sys_enter_kill").ok_or(Error::EbpfProgNotFound)?.try_into()?;
-	// program.load("task_kill", &btf)?;
-	// program.attach()?;
-
-	// let lsm_socket_connect: &mut Lsm = ebpf.program_mut("socket_connect").ok_or(Error::EbpfProgNotFound)?.try_into()?;
-	// lsm_socket_connect.load("socket_connect", &btf)?;
-	// lsm_socket_connect.attach()?;
-
-	// let tp_io_uring: &mut TracePoint =
-	// 	ebpf.program_mut("io_uring_submit").ok_or(Error::EbpfProgNotFound)?.try_into()?;
-	// tp_io_uring.load()?;
-	// tp_io_uring.attach("io_uring", "io_uring_submit_req")?;
-
-	// let kp_commit_creds: &mut KProbe = ebpf.program_mut("commit_creds").ok_or(Error::EbpfProgNotFound)?.try_into()?;
-	// kp_commit_creds.load()?;
-	// kp_commit_creds.attach("commit_creds", 0)?;
 
 	let (app_tx, app_rx) = new_channel::<AppEvent>("app_event");
 	let app_tx = AppTx::from(app_tx);
@@ -96,6 +71,17 @@ pub fn load_hooks(ebpf: &mut Ebpf) -> Result<AsyncFd<RingBuf<MapData>>> {
 	// let lsm_socket_connect: &mut Lsm = ebpf.program_mut("socket_connect").ok_or(Error::EbpfProgNotFound)?.try_into()?;
 	// lsm_socket_connect.load("socket_connect", &btf)?;
 	// lsm_socket_connect.attach()?;
+	//
+	let kp_module_init: &mut KProbe = ebpf.program_mut("do_init_module").ok_or(Error::EbpfProgNotFound)?.try_into()?;
+	kp_module_init.load()?;
+	kp_module_init.attach("do_init_module", 0)?;
+
+	let bprm: &mut Lsm = ebpf
+		.program_mut("bprm_check_security")
+		.ok_or(Error::EbpfProgNotFound)?
+		.try_into()?;
+	bprm.load("bprm_check_security", &btf)?;
+	bprm.attach()?;
 
 	let kp_commit_creds: &mut KProbe = ebpf.program_mut("commit_creds").ok_or(Error::EbpfProgNotFound)?.try_into()?;
 	kp_commit_creds.load()?;

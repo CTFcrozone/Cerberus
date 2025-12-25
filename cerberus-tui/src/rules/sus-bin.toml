@@ -1,0 +1,11 @@
+[rule]
+id = "suspicious-binary"
+description = "Block execution of known suspicious binary /tmp/malware.sh"
+type = "bprm"
+category = "malware"
+severity = "high"
+
+[[rule.conditions]]
+field = "filepath"
+op = "equals"
+value = "/tmp/malware.sh"

@@ -20,6 +20,13 @@ pub enum Error {
 	// -- Externals
 	#[from]
 	Io(std::io::Error), // as example
+	LockPoison,
+}
+
+impl<T> From<std::sync::PoisonError<T>> for Error {
+	fn from(_val: std::sync::PoisonError<T>) -> Self {
+		Self::LockPoison
+	}
 }
 
 // region:    --- Custom

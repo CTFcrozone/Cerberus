@@ -16,7 +16,7 @@ impl RuleSet {
 		let mut rules = Vec::new();
 
 		// Make sure the path is like: `rules/` or `some/stuff/rules/` and not `rules`
-		let pattern = format!("{}*.toml", dir.as_ref().display());
+		let pattern = format!("{}/**/*.toml", dir.as_ref().display());
 
 		for glob in glob(&pattern)? {
 			match glob {
@@ -48,7 +48,7 @@ mod tests {
 	fn load_ruleset_from_dir() -> Result<()> {
 		// -- Setup & Fixtures
 		let fx_rule_dir = "rules/";
-		let fx_rule_count = 5;
+		let fx_rule_count = 6;
 		// -- Exec
 		let ruleset = RuleSet::load_from_dir(fx_rule_dir)?;
 		// -- Check

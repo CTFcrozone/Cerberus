@@ -1,4 +1,5 @@
 use crate::core::AppState;
+use crate::views::support::line_from_event;
 use lib_event::app_evt_types::CerberusEvent;
 use ratatui::{
 	buffer::Buffer,
@@ -26,16 +27,7 @@ impl StatefulWidget for GeneralEventView {
 }
 
 fn render_events(area: Rect, buf: &mut Buffer, state: &mut AppState, block: Block) {
-	let lines: Vec<Line> = state
-		.cerberus_evts_general()
-		.filter_map(|evt| match evt {
-			CerberusEvent::Generic(g) => Some(Line::raw(format!(
-				"[{}] UID:{} | PID:{} | TGID:{} | CMD:{} | META:{}",
-				g.name, g.uid, g.pid, g.tgid, g.comm, g.meta
-			))),
-			_ => None,
-		})
-		.collect();
+	let lines: Vec<Line> = state.cerberus_evts_general().map(line_from_event).collect();
 
 	let line_count = lines.len();
 	let max_scroll = line_count.saturating_sub(area.height as usize) as u16;

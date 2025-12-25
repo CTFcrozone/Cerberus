@@ -1,32 +1,49 @@
-use std::collections::VecDeque;
+use std::collections::{HashMap, VecDeque};
+use std::sync::Arc;
 
 use aya::maps::{MapData, RingBuf};
 use aya::Ebpf;
+use lib_rules::engine::RuleEngine;
 use tokio::io::unix::AsyncFd;
 
 use crate::core::sys_state::SysState;
 use crate::event::LastAppEvent;
 use crate::Result;
-use lib_event::app_evt_types::CerberusEvent;
+use lib_event::app_evt_types::{CerberusEvent, EvaluatedEvent};
 
 use super::format_size_xfixed;
+
+#[derive(Clone, Debug)]
+pub struct EvaluatedEntry {
+	pub event: EvaluatedEvent,
+	pub count: u64,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct EvaluatedKey {
+	pub rule_id: Arc<str>,
+	pub rule_type: Arc<str>,
+}
 
 pub enum View {
 	Splash,
 	Main,
+	Summary,
 }
 
 #[derive(Clone, Copy, Debug)]
 pub enum Tab {
 	Network,
 	General,
+	MatchedRules,
 }
 
 impl Tab {
 	pub fn next(self) -> Self {
 		match self {
 			Tab::General => Tab::Network,
-			Tab::Network => Tab::General,
+			Tab::Network => Tab::MatchedRules,
+			Tab::MatchedRules => Tab::General,
 		}
 	}
 
@@ -34,6 +51,7 @@ impl Tab {
 		match self {
 			Tab::General => 0,
 			Tab::Network => 1,
+			Tab::MatchedRules => 2,
 		}
 	}
 }
@@ -46,10 +64,13 @@ pub struct AppState {
 	pub(in crate::core) last_app_event: LastAppEvent,
 	pub(in crate::core) cerberus_evts_general: VecDeque<CerberusEvent>,
 	pub(in crate::core) cerberus_evts_network: VecDeque<CerberusEvent>,
+	pub(in crate::core) cerberus_evts_matched: HashMap<EvaluatedKey, EvaluatedEntry>,
+
 	pub(in crate::core) hooks_loaded: bool,
 	pub current_view: View,
 	pub tab: Tab,
 	pub event_scroll: u16,
+	pub rule_engine: Option<Arc<RuleEngine>>,
 	pub ringbuf_fd: Option<AsyncFd<RingBuf<MapData>>>,
 	pub worker_up: bool,
 }
@@ -66,8 +87,11 @@ impl AppState {
 			last_app_event,
 			cerberus_evts_general: VecDeque::with_capacity(250),
 			cerberus_evts_network: VecDeque::with_capacity(250),
+			cerberus_evts_matched: HashMap::new(),
+
 			hooks_loaded: false,
 			current_view: View::Splash,
+			rule_engine: None,
 			tab: Tab::General,
 			ringbuf_fd: None,
 			worker_up: false,
@@ -109,14 +133,41 @@ impl AppState {
 	// pub fn cerberus_evts_general(&self) -> &[CerberusEvent] {
 	// 	&self.cerberus_evts_general
 	// }
+	//
+	pub fn barchart_rule_type(&self) -> Vec<(&str, u64)> {
+		let mut counts: HashMap<&str, u64> = HashMap::new();
+
+		for evt in self.cerberus_evts_matched.values() {
+			let rule_type = evt.event.rule_type.as_ref();
+			*counts.entry(rule_type).or_insert(0) += evt.count;
+		}
+
+		let data: Vec<(&str, u64)> = counts.into_iter().collect();
+		data
+	}
+
+	pub fn barchart_severity(&self) -> Vec<(&str, u64)> {
+		let mut counts: HashMap<&str, u64> = HashMap::new();
+
+		for evt in self.cerberus_evts_matched.values() {
+			let severity = evt.event.severity.as_ref();
+			*counts.entry(severity).or_insert(0) += evt.count;
+		}
+
+		let data: Vec<(&str, u64)> = counts.into_iter().collect();
+		data
+	}
 
 	pub fn cerberus_evts_general(&self) -> impl Iterator<Item = &CerberusEvent> {
 		self.cerberus_evts_general.iter()
 	}
 
-	// Similarly for network events:
 	pub fn cerberus_evts_network(&self) -> impl Iterator<Item = &CerberusEvent> {
 		self.cerberus_evts_network.iter()
+	}
+
+	pub fn cerberus_evts_matched(&self) -> impl Iterator<Item = &EvaluatedEntry> {
+		self.cerberus_evts_matched.values()
 	}
 
 	// pub fn cerberus_evts_network(&self) -> &[CerberusEvent] {

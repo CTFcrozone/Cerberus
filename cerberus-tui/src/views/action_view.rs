@@ -26,6 +26,9 @@ impl StatefulWidget for ActionView {
 			Span::raw("["),
 			Span::styled("X", styles::STL_TXT_ACTION),
 			Span::raw("] Clear events  "),
+			Span::raw("["),
+			Span::styled("S", styles::STL_TXT_ACTION),
+			Span::raw("] Summary view  "),
 		]);
 
 		Paragraph::new(line).render(actions_a, buf);

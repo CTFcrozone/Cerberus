@@ -1,0 +1,16 @@
+[rule]
+id = "rootkit-exec"
+description = "Detect execution of rootkit installer as non-root"
+type = "bprm"
+category = "malware"
+severity = "critical"
+
+[[rule.conditions]]
+field = "filepath"
+op = "equals"
+value = "/usr/local/bin/rk_install"
+
+[[rule.conditions]]
+field = "uid"
+op = "not_equals"
+value = "0"

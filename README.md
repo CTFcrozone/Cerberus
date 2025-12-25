@@ -23,12 +23,6 @@ TUI version:
 cargo run -p cerberus-tui --release --config 'target."cfg(all())".runner="sudo -E"'
 ```
 
-No TUI:
-
-```shell
-cargo run -p cerberus --release --config 'target."cfg(all())".runner="sudo -E"'
-```
-
 Cargo build scripts are used to automatically build the eBPF correctly and include it in the
 program.
 
