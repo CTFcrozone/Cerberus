@@ -9,7 +9,7 @@ use aya_ebpf::{
 		r#gen::{bpf_d_path, bpf_ktime_get_ns, bpf_send_signal},
 	},
 	macros::{kprobe, lsm, map, tracepoint},
-	maps::RingBuf,
+	maps::{PerCpuArray, RingBuf},
 	programs::{LsmContext, ProbeContext, TracePointContext},
 };
 use aya_log_ebpf::{error, warn};
@@ -19,9 +19,12 @@ use vmlinux::{file, linux_binprm, module, sockaddr, sockaddr_in, task_struct};
 
 #[map]
 static EVT_MAP: RingBuf = RingBuf::with_byte_size(32 * 1024, 0);
+#[map(name = "FPATH")]
+static mut FPATH: PerCpuArray<[u8; 128]> = PerCpuArray::with_max_entries(1, 0);
+
 const SYSTEMD_RESOLVE: &[u8; 16] = b"systemd-resolve\0";
 const TOKIO_RUNTIME: &[u8; 16] = b"tokio-runtime-w\0";
-
+const PATH_LEN: u32 = 128;
 const AF_INET: u16 = 2;
 
 macro_rules! match_comm {
@@ -271,13 +274,12 @@ fn try_bprm_check_security(ctx: LsmContext) -> Result<i32, i32> {
 	let comm = bpf_get_current_comm().unwrap_or([0u8; 16]);
 	let bprm: *const linux_binprm = unsafe { ctx.arg(0) };
 
-	let mut filename: [u8; 128] = [0u8; 128];
+	let buf = unsafe { FPATH.get_ptr_mut(0).ok_or(1i32)? };
 
 	unsafe {
 		let file = (*bprm).file;
 		let f_path = &(*file).__bindgen_anon_1.__f_path as *const _ as *mut path;
-		let buf_ptr = filename.as_mut_ptr() as *mut i8;
-		let ret = bpf_d_path(f_path, buf_ptr, filename.len() as u32);
+		let ret = bpf_d_path(f_path, buf as *mut i8, PATH_LEN);
 
 		if ret < 0 {
 			return Err(0);
@@ -293,7 +295,7 @@ fn try_bprm_check_security(ctx: LsmContext) -> Result<i32, i32> {
 		uid,
 		tgid,
 		comm,
-		filepath: filename,
+		filepath: unsafe { *buf },
 	};
 
 	match EVT_MAP.output(&event, 0) {
