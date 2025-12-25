@@ -33,6 +33,7 @@ pub async fn handle_app_event(
 		AppEvent::LoadedHooks => {
 			handle_hooks_loaded(app_state, app_tx).await?;
 		}
+		_ => {}
 	};
 
 	Ok(())

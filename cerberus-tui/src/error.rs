@@ -40,6 +40,15 @@ pub enum Error {
 	RuleEngine(lib_rules::error::Error),
 	#[from]
 	Io(std::io::Error), // as example
+	#[from]
+	Notify(notify::Error),
+	LockPoison,
+}
+
+impl<T> From<std::sync::PoisonError<T>> for Error {
+	fn from(_val: std::sync::PoisonError<T>) -> Self {
+		Self::LockPoison
+	}
 }
 
 impl<T> From<SendError<T>> for Error {

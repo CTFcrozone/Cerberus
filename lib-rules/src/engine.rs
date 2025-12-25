@@ -20,6 +20,17 @@ impl RuleEngine {
 		Ok(Self { ruleset })
 	}
 
+	pub fn reload_ruleset(&self, dir: impl AsRef<Path>) -> Result<()> {
+		let ruleset = RuleSet::load_from_dir(dir)?;
+
+		{
+			let mut rules_guard = self.ruleset.write()?;
+			*rules_guard = ruleset;
+		}
+
+		Ok(())
+	}
+
 	pub fn new_from_ruleset(ruleset: RuleSet) -> Result<Self> {
 		let ruleset = Arc::new(RwLock::new(ruleset));
 

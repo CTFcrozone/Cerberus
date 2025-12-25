@@ -1,11 +1,15 @@
+use std::path::Path;
+use std::sync::{Arc, RwLock};
+
 use crate::core::View;
 use crate::event::LastAppEvent;
 use crate::views::{MainView, SummaryView};
 use crate::Result;
 use aya::Ebpf;
-use lib_event::app_evt_types::{ActionEvent, AppEvent};
-use lib_event::trx::Rx;
+use lib_event::app_evt_types::{ActionEvent, AppEvent, RuleWatchEvent};
+use lib_event::trx::{new_channel, Rx, Tx};
 use lib_rules::engine::RuleEngine;
+use notify::{Config, Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use ratatui::DefaultTerminal;
 use tokio::task::JoinHandle;
 
@@ -13,6 +17,38 @@ use super::event_handler::handle_app_event;
 use super::{process_app_state, AppState, AppTx, ExitTx};
 
 const RULES_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/src/rules/");
+
+pub fn rule_watcher(dir: impl AsRef<Path>, tx: Tx<RuleWatchEvent>) -> notify::Result<RecommendedWatcher> {
+	let mut watcher: RecommendedWatcher = RecommendedWatcher::new(
+		move |res: notify::Result<Event>| match res {
+			Ok(_) => {
+				let _ = tx.send_sync(RuleWatchEvent::Reload);
+			}
+			Err(err) => eprintln!("notify error: {err}"),
+		},
+		notify::Config::default(),
+	)?;
+
+	watcher.watch(dir.as_ref(), RecursiveMode::Recursive)?;
+
+	Ok(watcher)
+}
+
+pub async fn rule_watch_worker(rx: Rx<RuleWatchEvent>, app_state: Arc<RwLock<AppState>>) -> Result<()> {
+	while let Ok(evt) = rx.recv().await {
+		match evt {
+			RuleWatchEvent::Reload => {
+				let state = app_state.write()?;
+
+				if let Some(engine) = &state.rule_engine {
+					engine.reload_ruleset(RULES_DIR)?;
+				}
+			}
+		}
+	}
+
+	Ok(())
+}
 
 pub fn run_ui_loop(
 	mut term: DefaultTerminal,
