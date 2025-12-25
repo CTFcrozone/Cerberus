@@ -277,7 +277,7 @@ fn try_bprm_check_security(ctx: LsmContext) -> Result<i32, i32> {
 		let file = (*bprm).file;
 		let f_path = &(*file).__bindgen_anon_1.__f_path as *const _ as *mut path;
 		let buf_ptr = filename.as_mut_ptr() as *mut i8;
-		let ret = bpf_d_path(f_path, buf_ptr, 128);
+		let ret = bpf_d_path(f_path, buf_ptr, filename.len() as u32);
 
 		if ret < 0 {
 			return Err(0);
