@@ -2,6 +2,7 @@
 #![no_main]
 
 use aya_ebpf::{
+	bindings::{self, path},
 	helpers::{
 		bpf_get_current_comm, bpf_get_current_pid_tgid, bpf_get_current_uid_gid, bpf_probe_read_kernel,
 		bpf_probe_read_kernel_str,
@@ -12,7 +13,7 @@ use aya_ebpf::{
 	programs::{LsmContext, ProbeContext, TracePointContext},
 };
 use aya_log_ebpf::{error, warn};
-use lib_common::{EventHeader, GenericEvent, InetSockSetStateEvent, ModuleInitEvent, SecurityCheckEvent};
+use lib_common::{BprmSecurityCheckEvent, EventHeader, GenericEvent, InetSockSetStateEvent, ModuleInitEvent};
 mod vmlinux;
 use vmlinux::{file, linux_binprm, module, sockaddr, sockaddr_in, task_struct};
 
@@ -65,6 +66,14 @@ pub fn sys_enter_ptrace(ctx: TracePointContext) -> u32 {
 #[lsm(hook = "task_kill")]
 pub fn sys_enter_kill(ctx: LsmContext) -> i32 {
 	match try_sys_enter_kill(ctx) {
+		Ok(ret) => ret,
+		Err(ret) => ret,
+	}
+}
+
+#[lsm(hook = "bprm_check_security")]
+pub fn bprm_check_security(ctx: LsmContext) -> i32 {
+	match try_bprm_check_security(ctx) {
 		Ok(ret) => ret,
 		Err(ret) => ret,
 	}
@@ -175,14 +184,6 @@ fn try_do_init_module(ctx: ProbeContext) -> Result<u32, u32> {
 	Ok(0)
 }
 
-#[lsm(hook = "bprm_check_security")]
-pub fn bprm_check_security(ctx: LsmContext) -> i32 {
-	match try_bprm_check_security(ctx) {
-		Ok(ret) => ret,
-		Err(ret) => ret,
-	}
-}
-
 fn try_socket_connect(ctx: LsmContext) -> Result<i32, i32> {
 	let addr: *const sockaddr = unsafe { ctx.arg(1) };
 	let ret: i32 = unsafe { ctx.arg(3) };
@@ -270,33 +271,29 @@ fn try_bprm_check_security(ctx: LsmContext) -> Result<i32, i32> {
 	let comm = bpf_get_current_comm().unwrap_or([0u8; 16]);
 	let bprm: *const linux_binprm = unsafe { ctx.arg(0) };
 
-	// nice try diddy
-	let mut filename: [u8; 256] = [0u8; 256];
-	//
+	let mut filename: [u8; 128] = [0u8; 128];
 
 	unsafe {
-		let file = unsafe { (*bprm).file };
+		let file = (*bprm).file;
+		let f_path = &(*file).__bindgen_anon_1.__f_path as *const _ as *mut path;
+		let buf_ptr = filename.as_mut_ptr() as *mut i8;
+		let ret = bpf_d_path(f_path, buf_ptr, 128);
 
-		let f_path = (*file).__bindgen_anon_1.f_path;
-		// let path = bpf_d_path(path, buf, sz)
-		// if !dentry_ptr.is_null() {
-		// 	let name_ptr = &(*dentry_ptr).d_name.name as *const [u8; 256];
-		// 	let _ = bpf_probe_read_kernel_str(&mut filename, name_ptr as *const u8);
-		// }
+		if ret < 0 {
+			return Err(0);
+		}
 	}
 
-	// TODO
-
-	let event = SecurityCheckEvent {
+	let event = BprmSecurityCheckEvent {
 		header: EventHeader {
-			event_type: 8, // EXEC
-			_padding: [0u8; 3],
+			event_type: 8,
+			_padding: [0; 3],
 		},
 		pid,
 		uid,
 		tgid,
 		comm,
-		meta: filename,
+		filepath: filename,
 	};
 
 	match EVT_MAP.output(&event, 0) {

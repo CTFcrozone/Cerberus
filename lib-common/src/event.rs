@@ -40,13 +40,13 @@ pub struct ModuleInitEvent {
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug, FromBytes, Immutable, KnownLayout)]
-pub struct SecurityCheckEvent {
+pub struct BprmSecurityCheckEvent {
 	pub header: EventHeader,
 	pub pid: u32,
 	pub uid: u32,
 	pub tgid: u32,
 	pub comm: [u8; 16],
-	pub meta: [u8; 256],
+	pub filepath: [u8; 128],
 }
 
 #[repr(C)]
@@ -68,4 +68,5 @@ pub enum EbpfEvent {
 	Generic(GenericEvent),
 	InetSock(InetSockSetStateEvent),
 	ModuleInit(ModuleInitEvent),
+	BprmSecurityCheck(BprmSecurityCheckEvent),
 }

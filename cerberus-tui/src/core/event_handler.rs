@@ -53,6 +53,7 @@ async fn handle_hooks_loaded(app_state: &mut AppState, app_tx: &AppTx) -> Result
 fn handle_cerberus_event(event: &CerberusEvent, app_state: &mut AppState) {
 	let events = match event {
 		CerberusEvent::Generic(_) => &mut app_state.cerberus_evts_general,
+		CerberusEvent::Bprm(_) => &mut app_state.cerberus_evts_general,
 		CerberusEvent::Module(_) => &mut app_state.cerberus_evts_general,
 		CerberusEvent::InetSock(_) => &mut app_state.cerberus_evts_network,
 	};

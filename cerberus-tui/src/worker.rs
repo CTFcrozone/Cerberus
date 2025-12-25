@@ -6,8 +6,10 @@ use crate::{
 };
 
 use aya::maps::{MapData, RingBuf};
-use lib_common::{EbpfEvent, EventHeader, GenericEvent, InetSockSetStateEvent, ModuleInitEvent};
-use lib_event::app_evt_types::{AppEvent, CerberusEvent, InetSockEvent, ModuleEvent, RingBufEvent};
+use lib_common::{
+	BprmSecurityCheckEvent, EbpfEvent, EventHeader, GenericEvent, InetSockSetStateEvent, ModuleInitEvent,
+};
+use lib_event::app_evt_types::{AppEvent, BprmSecurityEvent, CerberusEvent, InetSockEvent, ModuleEvent, RingBufEvent};
 use lib_rules::engine::RuleEngine;
 use tokio::io::unix::AsyncFd;
 use tracing::info;
@@ -103,17 +105,22 @@ impl RingBufWorker {
 								pid: e.pid,
 								uid: e.uid,
 								tgid: e.tgid,
-								comm: Arc::from(String::from_utf8_lossy(&e.comm).trim_end_matches('\0').to_string()),
+								comm: Arc::from(String::from_utf8_lossy(&e.comm).trim_end_matches('\0')),
 								meta: e.meta,
 							}),
 							EbpfEvent::ModuleInit(ref e) => CerberusEvent::Module(ModuleEvent {
 								pid: e.pid,
 								uid: e.uid,
 								tgid: e.tgid,
-								comm: Arc::from(String::from_utf8_lossy(&e.comm).trim_end_matches('\0').to_string()),
-								module_name: Arc::from(
-									String::from_utf8_lossy(&e.module_name).trim_end_matches('\0').to_string(),
-								),
+								comm: Arc::from(String::from_utf8_lossy(&e.comm).trim_end_matches('\0')),
+								module_name: Arc::from(String::from_utf8_lossy(&e.module_name).trim_end_matches('\0')),
+							}),
+							EbpfEvent::BprmSecurityCheck(ref e) => CerberusEvent::Bprm(BprmSecurityEvent {
+								pid: e.pid,
+								uid: e.uid,
+								tgid: e.tgid,
+								comm: Arc::from(String::from_utf8_lossy(&e.comm).trim_end_matches('\0')),
+								filepath: Arc::from(String::from_utf8_lossy(&e.filepath).trim_end_matches('\0')),
 							}),
 							EbpfEvent::InetSock(ref e) => CerberusEvent::InetSock(InetSockEvent {
 								old_state: Arc::from(state_to_str(e.oldstate)),
@@ -158,6 +165,12 @@ fn parse_event_from_bytes(data: &[u8]) -> Result<EbpfEvent> {
 				.map_err(|_| Error::InvalidEventSize)?
 				.0;
 			Ok(EbpfEvent::InetSock(*evt))
+		}
+		8 => {
+			let evt = BprmSecurityCheckEvent::ref_from_prefix(data)
+				.map_err(|_| Error::InvalidEventSize)?
+				.0;
+			Ok(EbpfEvent::BprmSecurityCheck(*evt))
 		}
 		_ => Err(Error::UnknownEventType(header.event_type)),
 	}

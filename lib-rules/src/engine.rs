@@ -43,6 +43,11 @@ impl RuleEngine {
 				pid: evt.pid,
 				comm: Arc::clone(&evt.comm),
 			},
+			CerberusEvent::Bprm(evt) => EventMeta {
+				uid: evt.uid,
+				pid: evt.pid,
+				comm: Arc::clone(&evt.comm),
+			},
 		}
 	}
 
@@ -98,6 +103,13 @@ impl RuleEngine {
 				fields.insert("sport".into(), toml::Value::Integer(e.sport as i64));
 				fields.insert("dport".into(), toml::Value::Integer(e.dport as i64));
 				fields.insert("protocol".into(), toml::Value::String(e.protocol.to_string()));
+			}
+			CerberusEvent::Bprm(e) => {
+				fields.insert("uid".into(), toml::Value::Integer(e.uid as i64));
+				fields.insert("pid".into(), toml::Value::Integer(e.pid as i64));
+				fields.insert("tgid".into(), toml::Value::Integer(e.tgid as i64));
+				fields.insert("comm".into(), toml::Value::String(e.comm.to_string()));
+				fields.insert("filepath".into(), toml::Value::String(e.filepath.to_string()));
 			}
 		}
 		EvalCtx::new(fields)

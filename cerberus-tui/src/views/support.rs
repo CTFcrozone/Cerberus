@@ -11,6 +11,10 @@ pub fn line_from_event(evt: &CerberusEvent) -> Line<'static> {
 			"[MODULE_INIT] UID:{} | PID:{} | TGID:{} | CMD:{} | MODULE_NAME:{}",
 			m.uid, m.pid, m.tgid, m.comm, m.module_name
 		)),
+		CerberusEvent::Bprm(b) => Line::raw(format!(
+			"[BRPM_SEC_CHECK] UID:{} | PID:{} | TGID:{} | CMD:{} | FILEPATH:{}",
+			b.uid, b.pid, b.tgid, b.comm, b.filepath
+		)),
 		CerberusEvent::InetSock(n) => Line::raw(format!(
 			"[INET_SOCK] {}:{} → {}:{} | Proto: {} | {} → {}",
 			ip_to_string(n.saddr),

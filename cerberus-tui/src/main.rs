@@ -76,6 +76,13 @@ pub fn load_hooks(ebpf: &mut Ebpf) -> Result<AsyncFd<RingBuf<MapData>>> {
 	kp_module_init.load()?;
 	kp_module_init.attach("do_init_module", 0)?;
 
+	let bprm: &mut Lsm = ebpf
+		.program_mut("bprm_check_security")
+		.ok_or(Error::EbpfProgNotFound)?
+		.try_into()?;
+	bprm.load("bprm_check_security", &btf)?;
+	bprm.attach()?;
+
 	let kp_commit_creds: &mut KProbe = ebpf.program_mut("commit_creds").ok_or(Error::EbpfProgNotFound)?.try_into()?;
 	kp_commit_creds.load()?;
 	kp_commit_creds.attach("commit_creds", 0)?;
