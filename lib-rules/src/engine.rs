@@ -4,7 +4,7 @@ use std::{
 	sync::{Arc, RwLock},
 };
 
-use lib_event::app_evt_types::{CerberusEvent, EvaluatedEvent, EventMeta, RuleType};
+use lib_event::app_evt_types::{CerberusEvent, EvaluatedEvent, EventMeta};
 
 use crate::{ctx::EvalCtx, error::Result};
 use crate::{evaluator::Evaluator, ruleset::RuleSet};
@@ -65,13 +65,7 @@ impl RuleEngine {
 				matches.push(EvaluatedEvent {
 					rule_id: Arc::from(rule.rule.id.as_str()),
 					severity: Arc::from(rule.rule.severity.as_deref().unwrap_or("unknown")),
-					rule_type: match rule.rule.r#type.as_str() {
-						"fs" => RuleType::Fs,
-						"network" => RuleType::Network,
-						"exec" => RuleType::Exec,
-						"module" => RuleType::Module,
-						_ => RuleType::Exec,
-					},
+					rule_type: rule.rule.r#type.as_str().into(),
 					event_meta: Self::event_meta(event),
 				});
 			}
@@ -153,7 +147,7 @@ mod tests {
 		let matched = &res[0];
 		assert_eq!(matched.rule_id, "pid-exists".into());
 		assert_eq!(matched.severity, "low".into());
-		assert_eq!(matched.rule_type, RuleType::Exec);
+		assert_eq!(matched.rule_type, "exec".into());
 		assert_eq!(matched.event_meta.pid, 1);
 
 		Ok(())
@@ -192,7 +186,7 @@ mod tests {
 		// -- Exec
 		let res = engine.process_event(&event)?;
 
-		// -- Check
+		// -- CheckRuleType::Exec
 		assert!(res.is_empty());
 
 		Ok(())
@@ -248,7 +242,7 @@ mod tests {
 		let matched = &res[0];
 
 		assert_eq!(matched.rule_id, "tcp-state-change".into());
-		assert_eq!(matched.rule_type, RuleType::Network);
+		assert_eq!(matched.rule_type, "network".into());
 
 		Ok(())
 	}

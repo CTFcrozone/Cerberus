@@ -7,5 +7,5 @@ severity = "medium"
 
 [[rule.conditions]]
 field = "filepath"
-op = "matches"
+op = "regex"
 value = "^/tmp/.*"

@@ -67,7 +67,7 @@ fn handle_cerberus_event(event: &CerberusEvent, app_state: &mut AppState) {
 fn handle_cerberus_eval_event(event: &EvaluatedEvent, app_state: &mut AppState) {
 	let key = EvaluatedKey {
 		rule_id: Arc::clone(&event.rule_id),
-		rule_type: event.rule_type,
+		rule_type: Arc::clone(&event.rule_type),
 	};
 
 	match app_state.cerberus_evts_matched.get_mut(&key) {

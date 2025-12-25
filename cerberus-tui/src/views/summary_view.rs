@@ -66,7 +66,7 @@ fn render_last_event_meta(area: Rect, buf: &mut Buffer, state: &AppState) {
 		.last()
 		.map(|evt| {
 			format!(
-				"Rule: {}\nSeverity: {}\nType: {:?}\nPID: {} \nUID: {} \nCOMM: {}",
+				"Rule: {}\nSeverity: {}\nType: {}\nPID: {} \nUID: {} \nCOMM: {}",
 				evt.event.rule_id,
 				evt.event.severity,
 				evt.event.rule_type,

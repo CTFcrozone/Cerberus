@@ -1,0 +1,11 @@
+[rule]
+id = "kernel-module-loader"
+description = "Detect execution of kernel module loaders"
+type = "bprm"
+category = "kernel"
+severity = "critical"
+
+[[rule.conditions]]
+field = "filepath"
+op = "contains"
+value = "kmod"

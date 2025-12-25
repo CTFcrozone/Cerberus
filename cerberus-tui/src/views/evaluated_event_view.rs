@@ -41,18 +41,17 @@ fn render_evaluated_events(area: Rect, buf: &mut Buffer, state: &mut AppState, b
 	let lines: Vec<Line> = state
 		.cerberus_evts_matched()
 		.map(|entry| {
-			let evt = &entry.event;
-			let style = severity_style(&evt.severity);
+			let style = severity_style(&entry.event.severity);
 
 			Line::styled(
 				format!(
-					"[x{}] {} | {:?} | pid={} uid={} | {}",
-					entry.count,
-					evt.rule_id,
-					evt.rule_type,
-					evt.event_meta.pid,
-					evt.event_meta.uid,
-					evt.event_meta.comm,
+					"Rule: {} | Severity: {} | Type: {} | PID: {} | UID: {} | COMM: {}",
+					entry.event.severity,
+					entry.event.severity,
+					entry.event.severity,
+					entry.event.severity,
+					entry.event.severity,
+					entry.event.severity
 				),
 				style,
 			)

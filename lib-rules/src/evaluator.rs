@@ -53,10 +53,10 @@ impl Evaluator {
 		let right = &cond.value;
 
 		match op {
-			"equals" | "==" => left.map_or(false, |l| Self::equals(l, right)),
+			"==" | "equals" => left.map_or(false, |l| Self::equals(l, right)),
 			"starts_with" => Self::as_str_pair(left, right).map(|(a, b)| a.starts_with(b)).unwrap_or(false),
 			"bit_and" => Self::as_i64_pair(left, right).map(|(a, b)| (a & b) != 0).unwrap_or(false),
-
+			"contains" => Self::as_str_pair(left, right).map(|(a, b)| a.contains(b)).unwrap_or(false),
 			"in" => match right {
 				Value::Array(arr) => left.map_or(false, |l| arr.iter().any(|v| Self::equals(l, v))),
 				_ => false,
@@ -78,7 +78,7 @@ impl Evaluator {
 				}
 			}
 
-			"!=" => left.map_or(false, |l| !Self::equals(l, right)),
+			"!=" | "not_equals" => left.map_or(false, |l| !Self::equals(l, right)),
 			">" | "gt" => left.map_or(false, |l| Self::numeric_cmp(l, right, |x, y| x > y)),
 			"<" | "lt" => left.map_or(false, |l| Self::numeric_cmp(l, right, |x, y| x < y)),
 			">=" | "gte" => left.map_or(false, |l| Self::numeric_cmp(l, right, |x, y| x >= y)),

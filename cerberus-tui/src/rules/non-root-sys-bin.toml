@@ -1,0 +1,16 @@
+[rule]
+id = "non-root-system-bin"
+description = "Detect non-root execution of protected system binaries"
+type = "bprm"
+category = "privilege-escalation"
+severity = "high"
+
+[[rule.conditions]]
+field = "filepath"
+op = "regex"
+value = "^/sbin/.*"
+
+[[rule.conditions]]
+field = "uid"
+op = "not_equals"
+value = "0"

@@ -9,7 +9,7 @@ use tokio::io::unix::AsyncFd;
 use crate::core::sys_state::SysState;
 use crate::event::LastAppEvent;
 use crate::Result;
-use lib_event::app_evt_types::{CerberusEvent, EvaluatedEvent, RuleType};
+use lib_event::app_evt_types::{CerberusEvent, EvaluatedEvent};
 
 use super::format_size_xfixed;
 
@@ -22,7 +22,7 @@ pub struct EvaluatedEntry {
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct EvaluatedKey {
 	pub rule_id: Arc<str>,
-	pub rule_type: RuleType,
+	pub rule_type: Arc<str>,
 }
 
 pub enum View {
@@ -134,40 +134,28 @@ impl AppState {
 	// 	&self.cerberus_evts_general
 	// }
 	//
-	pub fn barchart_rule_type(&self) -> Vec<(&'static str, u64)> {
-		let mut fs = 0;
-		let mut exec = 0;
-		let mut net = 0;
-		let mut module = 0;
+	pub fn barchart_rule_type(&self) -> Vec<(&str, u64)> {
+		let mut counts: HashMap<&str, u64> = HashMap::new();
 
-		for entry in self.cerberus_evts_matched.values() {
-			match entry.event.rule_type {
-				RuleType::Fs => fs += entry.count,
-				RuleType::Network => net += entry.count,
-				RuleType::Exec => exec += entry.count,
-				RuleType::Module => module += entry.count,
-			}
+		for evt in self.cerberus_evts_matched.values() {
+			let rule_type = evt.event.rule_type.as_ref();
+			*counts.entry(rule_type).or_insert(0) += evt.count;
 		}
 
-		vec![("Fs", fs), ("Network", net), ("Exec", exec), ("Module Init", module)]
+		let data: Vec<(&str, u64)> = counts.into_iter().collect();
+		data
 	}
 
-	pub fn barchart_severity(&self) -> [(&'static str, u64); 4] {
-		let mut high = 0;
-		let mut medium = 0;
-		let mut low = 0;
-		let mut unknown = 0;
+	pub fn barchart_severity(&self) -> Vec<(&str, u64)> {
+		let mut counts: HashMap<&str, u64> = HashMap::new();
 
-		for entry in self.cerberus_evts_matched.values() {
-			match entry.event.severity.as_ref() {
-				"high" => high += entry.count,
-				"medium" => medium += entry.count,
-				"low" => low += entry.count,
-				_ => unknown += entry.count,
-			}
+		for evt in self.cerberus_evts_matched.values() {
+			let severity = evt.event.severity.as_ref();
+			*counts.entry(severity).or_insert(0) += evt.count;
 		}
 
-		[("high", high), ("medium", medium), ("low", low), ("unknown", unknown)]
+		let data: Vec<(&str, u64)> = counts.into_iter().collect();
+		data
 	}
 
 	pub fn cerberus_evts_general(&self) -> impl Iterator<Item = &CerberusEvent> {

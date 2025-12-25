@@ -21,14 +21,6 @@ pub enum ActionEvent {
 	Quit,
 }
 
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
-pub enum RuleType {
-	Fs,
-	Network,
-	Exec,
-	Module,
-}
-
 #[derive(From, Clone, Debug)]
 pub enum CerberusEvent {
 	#[from]
@@ -45,7 +37,7 @@ pub enum CerberusEvent {
 pub struct EvaluatedEvent {
 	pub rule_id: Arc<str>,
 	pub severity: Arc<str>,
-	pub rule_type: RuleType,
+	pub rule_type: Arc<str>,
 	pub event_meta: EventMeta,
 }
 
