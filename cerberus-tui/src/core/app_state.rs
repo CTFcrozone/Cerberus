@@ -65,7 +65,8 @@ pub struct AppState {
 	pub(in crate::core) cerberus_evts_general: VecDeque<CerberusEvent>,
 	pub(in crate::core) cerberus_evts_network: VecDeque<CerberusEvent>,
 	pub(in crate::core) cerberus_evts_matched: HashMap<EvaluatedKey, EvaluatedEntry>,
-
+	pub(in crate::core) rule_type_counts: HashMap<Arc<str>, u64>,
+	pub(in crate::core) severity_counts: HashMap<Arc<str>, u64>,
 	pub(in crate::core) hooks_loaded: bool,
 	pub current_view: View,
 	pub tab: Tab,
@@ -88,7 +89,8 @@ impl AppState {
 			cerberus_evts_general: VecDeque::with_capacity(250),
 			cerberus_evts_network: VecDeque::with_capacity(250),
 			cerberus_evts_matched: HashMap::new(),
-
+			rule_type_counts: HashMap::new(),
+			severity_counts: HashMap::new(),
 			hooks_loaded: false,
 			current_view: View::Splash,
 			rule_engine: None,
@@ -135,27 +137,11 @@ impl AppState {
 	// }
 	//
 	pub fn barchart_rule_type(&self) -> Vec<(&str, u64)> {
-		let mut counts: HashMap<&str, u64> = HashMap::new();
-
-		for evt in self.cerberus_evts_matched.values() {
-			let rule_type = evt.event.rule_type.as_ref();
-			*counts.entry(rule_type).or_insert(0) += evt.count;
-		}
-
-		let data: Vec<(&str, u64)> = counts.into_iter().collect();
-		data
+		self.rule_type_counts.iter().map(|(k, v)| (k.as_ref(), *v)).collect()
 	}
 
 	pub fn barchart_severity(&self) -> Vec<(&str, u64)> {
-		let mut counts: HashMap<&str, u64> = HashMap::new();
-
-		for evt in self.cerberus_evts_matched.values() {
-			let severity = evt.event.severity.as_ref();
-			*counts.entry(severity).or_insert(0) += evt.count;
-		}
-
-		let data: Vec<(&str, u64)> = counts.into_iter().collect();
-		data
+		self.severity_counts.iter().map(|(k, v)| (k.as_ref(), *v)).collect()
 	}
 
 	pub fn cerberus_evts_general(&self) -> impl Iterator<Item = &CerberusEvent> {

@@ -70,6 +70,10 @@ fn handle_cerberus_eval_event(event: &EvaluatedEvent, app_state: &mut AppState) 
 		rule_type: Arc::clone(&event.rule_type),
 	};
 
+	*app_state.rule_type_counts.entry(Arc::clone(&event.rule_type)).or_insert(0) += 1;
+
+	*app_state.severity_counts.entry(Arc::clone(&event.severity)).or_insert(0) += 1;
+
 	match app_state.cerberus_evts_matched.get_mut(&key) {
 		Some(entry) => {
 			entry.count += 1;
