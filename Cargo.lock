@@ -39,6 +39,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e16d2d3311acee920a9eb8d33b8cbc1787ce4a264e85f964c2404b969bdcd487"
 
 [[package]]
+name = "arc-swap"
+version = "1.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "51d03449bb8ca2cc2ef70869af31463d1ae5ccc8fa3e334b307203fbf815207e"
+dependencies = [
+ "rustversion",
+]
+
+[[package]]
 name = "assert_matches"
 version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -297,6 +306,7 @@ name = "cerberus-tui"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "arc-swap",
  "aya",
  "aya-build",
  "aya-log",
@@ -887,6 +897,7 @@ dependencies = [
 name = "lib-rules"
 version = "0.1.0"
 dependencies = [
+ "arc-swap",
  "aya",
  "aya-log",
  "derive_more",
