@@ -1,5 +1,6 @@
 use std::path::Path;
 use std::sync::{Arc, RwLock};
+use std::time::Duration;
 
 use crate::core::View;
 use crate::event::LastAppEvent;
@@ -9,7 +10,8 @@ use aya::Ebpf;
 use lib_event::app_evt_types::{ActionEvent, AppEvent, RuleWatchEvent};
 use lib_event::trx::{new_channel, Rx, Tx};
 use lib_rules::engine::RuleEngine;
-use notify::{Config, Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
+use notify::{Config, Event, EventKind, INotifyWatcher, RecommendedWatcher, RecursiveMode, Watcher};
+use notify_debouncer_full::{new_debouncer, DebounceEventResult, Debouncer, NoCache};
 use ratatui::DefaultTerminal;
 use tokio::task::JoinHandle;
 
@@ -18,25 +20,20 @@ use super::{process_app_state, AppState, AppTx, ExitTx};
 
 pub struct UiRuntime {
 	pub ui_handle: JoinHandle<()>,
-	pub _rule_watcher: RecommendedWatcher,
+	pub _rule_watcher: Debouncer<INotifyWatcher, NoCache>,
 }
 
 const RULES_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/src/rules/");
 
-pub fn rule_watcher(dir: impl AsRef<Path>, tx: Tx<RuleWatchEvent>) -> notify::Result<RecommendedWatcher> {
-	let mut watcher: RecommendedWatcher = RecommendedWatcher::new(
-		move |res: notify::Result<Event>| match res {
-			Ok(_) => {
-				let _ = tx.send_sync(RuleWatchEvent::Reload);
-			}
-			Err(err) => eprintln!("notify error: {err}"),
-		},
-		notify::Config::default(),
-	)?;
+pub fn rule_watcher(dir: impl AsRef<Path>, tx: Tx<RuleWatchEvent>) -> Result<Debouncer<INotifyWatcher, NoCache>> {
+	let mut debouncer = new_debouncer(Duration::from_secs(1), None, move |res: DebounceEventResult| {
+		if res.is_ok() {
+			let _ = tx.send_sync(RuleWatchEvent::Reload);
+		}
+	})?;
+	debouncer.watch(dir.as_ref(), RecursiveMode::Recursive)?;
 
-	watcher.watch(dir.as_ref(), RecursiveMode::Recursive)?;
-
-	Ok(watcher)
+	Ok(debouncer)
 }
 
 pub async fn rule_watch_worker(rx: Rx<RuleWatchEvent>, engine: Arc<RuleEngine>) -> Result<()> {
