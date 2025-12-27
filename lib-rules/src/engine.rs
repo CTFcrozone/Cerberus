@@ -66,11 +66,11 @@ impl RuleEngine {
 		let mut matches = Vec::new();
 
 		for rule in &ruleset.ruleset {
-			if Evaluator::rule_matches(&rule.rule, &ctx) {
+			if Evaluator::rule_matches(&rule.inner, &ctx) {
 				matches.push(EvaluatedEvent {
-					rule_id: Arc::from(rule.rule.id.as_str()),
-					severity: Arc::from(rule.rule.severity.as_deref().unwrap_or("unknown")),
-					rule_type: rule.rule.r#type.as_str().into(),
+					rule_id: Arc::from(rule.inner.id.as_str()),
+					severity: Arc::from(rule.inner.severity.as_deref().unwrap_or("unknown")),
+					rule_type: rule.inner.r#type.as_str().into(),
 					event_meta: Self::event_meta(event),
 				});
 			}
@@ -162,7 +162,7 @@ mod tests {
 	fn process_event_no_match() -> Result<()> {
 		// -- Setup & Fixtures
 		let rule = crate::rule::Rule {
-			rule: crate::rule::RuleInner {
+			inner: crate::rule::RuleInner {
 				id: "pid-zero-only".to_string(),
 				description: "Matches only pid=0".to_string(),
 				r#type: "exec".to_string(),
@@ -174,6 +174,7 @@ mod tests {
 					value: Value::Integer(0),
 				}],
 			},
+			hash: "examplehash".to_string(),
 		};
 
 		let ruleset = RuleSet { ruleset: vec![rule] };
@@ -191,7 +192,7 @@ mod tests {
 		// -- Exec
 		let res = engine.process_event(&event)?;
 
-		// -- CheckRuleType::Exec
+		// -- Check
 		assert!(res.is_empty());
 
 		Ok(())
@@ -201,7 +202,7 @@ mod tests {
 	fn process_event_network_rule_match() -> Result<()> {
 		// -- Setup & Fixtures
 		let rule = crate::rule::Rule {
-			rule: crate::rule::RuleInner {
+			inner: crate::rule::RuleInner {
 				id: "tcp-state-change".to_string(),
 				description: "Detect TCP state transitions".to_string(),
 				r#type: "network".to_string(),
@@ -220,6 +221,7 @@ mod tests {
 					},
 				],
 			},
+			hash: "examplehash".to_string(),
 		};
 
 		let ruleset = RuleSet { ruleset: vec![rule] };
@@ -272,14 +274,14 @@ mod tests {
 		let matched_rule = ruleset
 			.ruleset
 			.iter()
-			.find(|r| r.rule.id == "test-rule")
+			.find(|r| r.inner.id == "test-rule")
 			.expect("rule not loaded");
 
-		let matched = Evaluator::rule_matches(&matched_rule.rule, &ctx);
+		let matched = Evaluator::rule_matches(&matched_rule.inner, &ctx);
 
 		assert!(matched);
-		assert_eq!(matched_rule.rule.severity.as_deref(), Some("very-low"));
-		assert_eq!(matched_rule.rule.category.as_deref(), Some("test"));
+		assert_eq!(matched_rule.inner.severity.as_deref(), Some("very-low"));
+		assert_eq!(matched_rule.inner.category.as_deref(), Some("test"));
 
 		Ok(())
 	}
