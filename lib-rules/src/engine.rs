@@ -1,8 +1,5 @@
-use std::{
-	collections::HashMap,
-	path::Path,
-	sync::{Arc, RwLock},
-};
+use arc_swap::ArcSwap;
+use std::{collections::HashMap, path::Path, sync::Arc};
 
 use lib_event::app_evt_types::{CerberusEvent, EvaluatedEvent, EventMeta};
 
@@ -10,20 +7,28 @@ use crate::{ctx::EvalCtx, error::Result};
 use crate::{evaluator::Evaluator, ruleset::RuleSet};
 
 pub struct RuleEngine {
-	pub ruleset: Arc<RwLock<RuleSet>>,
+	pub ruleset: ArcSwap<RuleSet>,
 }
 
 impl RuleEngine {
 	pub fn new(dir: impl AsRef<Path>) -> Result<Self> {
-		let ruleset = Arc::new(RwLock::new(RuleSet::load_from_dir(dir)?));
+		let ruleset = RuleSet::load_from_dir(dir)?;
+		Ok(Self {
+			ruleset: ArcSwap::from_pointee(ruleset),
+		})
+	}
 
-		Ok(Self { ruleset })
+	pub fn reload_ruleset(&self, dir: impl AsRef<Path>) -> Result<()> {
+		let new = Arc::new(RuleSet::load_from_dir(dir)?);
+		self.ruleset.store(new);
+
+		Ok(())
 	}
 
 	pub fn new_from_ruleset(ruleset: RuleSet) -> Result<Self> {
-		let ruleset = Arc::new(RwLock::new(ruleset));
-
-		Ok(Self { ruleset })
+		Ok(Self {
+			ruleset: ArcSwap::from_pointee(ruleset),
+		})
 	}
 
 	fn event_meta(event: &CerberusEvent) -> EventMeta {
@@ -52,12 +57,12 @@ impl RuleEngine {
 	}
 
 	pub fn rule_count(&self) -> usize {
-		self.ruleset.read().ok().map_or(0, |set| set.rule_count())
+		self.ruleset.load().rule_count()
 	}
 
 	pub fn process_event(&self, event: &CerberusEvent) -> Result<Vec<EvaluatedEvent>> {
 		let ctx = Self::event_to_ctx(event);
-		let ruleset = self.ruleset.read()?;
+		let ruleset = self.ruleset.load();
 		let mut matches = Vec::new();
 
 		for rule in &ruleset.ruleset {
@@ -263,7 +268,7 @@ mod tests {
 		let mut ctx = RuleEngine::event_to_ctx(&event);
 		ctx.insert("path".into(), toml::Value::String("/tmp/test.txt".into()));
 
-		let ruleset = engine.ruleset.read().unwrap();
+		let ruleset = engine.ruleset.load();
 		let matched_rule = ruleset
 			.ruleset
 			.iter()

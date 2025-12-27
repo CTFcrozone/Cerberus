@@ -45,13 +45,14 @@ fn render_evaluated_events(area: Rect, buf: &mut Buffer, state: &mut AppState, b
 
 			Line::styled(
 				format!(
-					"Rule: {} | Severity: {} | Type: {} | PID: {} | UID: {} | COMM: {}",
+					"[{}x] Rule: {} | Severity: {} | Type: {} | PID: {} | UID: {} | COMM: {}",
+					entry.count,
+					entry.event.rule_id,
 					entry.event.severity,
-					entry.event.severity,
-					entry.event.severity,
-					entry.event.severity,
-					entry.event.severity,
-					entry.event.severity
+					entry.event.rule_type,
+					entry.event.event_meta.pid,
+					entry.event.event_meta.uid,
+					entry.event.event_meta.comm
 				),
 				style,
 			)

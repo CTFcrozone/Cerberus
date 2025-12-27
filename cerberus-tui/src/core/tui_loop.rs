@@ -1,18 +1,47 @@
+use std::path::Path;
+use std::sync::Arc;
+use std::time::Duration;
+
 use crate::core::View;
 use crate::event::LastAppEvent;
 use crate::views::{MainView, SummaryView};
 use crate::Result;
 use aya::Ebpf;
-use lib_event::app_evt_types::{ActionEvent, AppEvent};
-use lib_event::trx::Rx;
+use lib_event::app_evt_types::{ActionEvent, AppEvent, RuleWatchEvent};
+use lib_event::trx::{new_channel, Rx, Tx};
 use lib_rules::engine::RuleEngine;
+use notify::{INotifyWatcher, RecursiveMode};
+use notify_debouncer_full::{new_debouncer, DebounceEventResult, Debouncer, NoCache};
 use ratatui::DefaultTerminal;
 use tokio::task::JoinHandle;
 
 use super::event_handler::handle_app_event;
 use super::{process_app_state, AppState, AppTx, ExitTx};
 
+pub struct UiRuntime {
+	pub ui_handle: JoinHandle<()>,
+	pub _rule_watcher: Debouncer<INotifyWatcher, NoCache>,
+}
+
 const RULES_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/src/rules/");
+
+pub fn rule_watcher(dir: impl AsRef<Path>, tx: Tx<RuleWatchEvent>) -> Result<Debouncer<INotifyWatcher, NoCache>> {
+	let mut debouncer = new_debouncer(Duration::from_secs(1), None, move |res: DebounceEventResult| {
+		if res.is_ok() {
+			let _ = tx.send_sync(RuleWatchEvent::Reload);
+		}
+	})?;
+	debouncer.watch(dir.as_ref(), RecursiveMode::Recursive)?;
+
+	Ok(debouncer)
+}
+
+pub async fn rule_watch_worker(rx: Rx<RuleWatchEvent>, engine: Arc<RuleEngine>) -> Result<()> {
+	while let Ok(_) = rx.recv().await {
+		engine.reload_ruleset(RULES_DIR)?;
+	}
+	Ok(())
+}
 
 pub fn run_ui_loop(
 	mut term: DefaultTerminal,
@@ -20,12 +49,11 @@ pub fn run_ui_loop(
 	app_tx: AppTx,
 	app_rx: Rx<AppEvent>,
 	exit_tx: ExitTx,
-) -> Result<JoinHandle<()>> {
+) -> Result<UiRuntime> {
 	let mut appstate = AppState::new(ebpf, LastAppEvent::default())?;
 
-	let rule_engine = RuleEngine::new(RULES_DIR)?;
-
-	appstate.rule_engine = Some(std::sync::Arc::new(rule_engine));
+	let rule_engine = Arc::new(RuleEngine::new(RULES_DIR)?);
+	appstate.rule_engine = Some(rule_engine.clone());
 
 	let handle = tokio::spawn(async move {
 		loop {
@@ -52,7 +80,14 @@ pub fn run_ui_loop(
 		}
 	});
 
-	Ok(handle)
+	let (rule_tx, rule_rx) = new_channel::<RuleWatchEvent>("rules");
+	let _watcher = rule_watcher(RULES_DIR, rule_tx)?;
+	tokio::spawn(rule_watch_worker(rule_rx, rule_engine));
+
+	Ok(UiRuntime {
+		ui_handle: handle,
+		_rule_watcher: _watcher,
+	})
 }
 
 fn terminal_draw(terminal: &mut DefaultTerminal, app_state: &mut AppState) -> Result<()> {

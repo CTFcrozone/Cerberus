@@ -33,6 +33,7 @@ pub async fn handle_app_event(
 		AppEvent::LoadedHooks => {
 			handle_hooks_loaded(app_state, app_tx).await?;
 		}
+		_ => {}
 	};
 
 	Ok(())
@@ -69,6 +70,10 @@ fn handle_cerberus_eval_event(event: &EvaluatedEvent, app_state: &mut AppState) 
 		rule_id: Arc::clone(&event.rule_id),
 		rule_type: Arc::clone(&event.rule_type),
 	};
+
+	*app_state.rule_type_counts.entry(Arc::clone(&event.rule_type)).or_insert(0) += 1;
+
+	*app_state.severity_counts.entry(Arc::clone(&event.severity)).or_insert(0) += 1;
 
 	match app_state.cerberus_evts_matched.get_mut(&key) {
 		Some(entry) => {

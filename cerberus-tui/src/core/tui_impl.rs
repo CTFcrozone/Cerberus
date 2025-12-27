@@ -52,7 +52,7 @@ async fn exec_app(
 	let _tin_read_handle = run_term_read(app_tx.clone())?;
 	let _tui_handle = run_ui_loop(terminal, ebpf, app_tx, app_rx, exit_tx)?;
 
-	_tui_handle.await?;
+	_tui_handle.ui_handle.await?;
 
 	Ok(())
 }
