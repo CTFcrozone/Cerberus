@@ -1,5 +1,5 @@
 use std::path::Path;
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 use std::time::Duration;
 
 use crate::core::View;
@@ -10,7 +10,7 @@ use aya::Ebpf;
 use lib_event::app_evt_types::{ActionEvent, AppEvent, RuleWatchEvent};
 use lib_event::trx::{new_channel, Rx, Tx};
 use lib_rules::engine::RuleEngine;
-use notify::{Config, Event, EventKind, INotifyWatcher, RecommendedWatcher, RecursiveMode, Watcher};
+use notify::{INotifyWatcher, RecursiveMode};
 use notify_debouncer_full::{new_debouncer, DebounceEventResult, Debouncer, NoCache};
 use ratatui::DefaultTerminal;
 use tokio::task::JoinHandle;

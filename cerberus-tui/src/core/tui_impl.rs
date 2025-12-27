@@ -1,9 +1,6 @@
 use std::io::stdout;
 
-use crate::{
-	core::tui_loop::{rule_watch_worker, rule_watcher},
-	Result,
-};
+use crate::Result;
 use aya::Ebpf;
 use crossterm::{
 	cursor,
@@ -14,11 +11,8 @@ use crossterm::{
 use derive_more::{Deref, From};
 use ratatui::DefaultTerminal;
 
+use lib_event::app_evt_types::AppEvent;
 use lib_event::trx::{Rx, Tx};
-use lib_event::{
-	app_evt_types::{AppEvent, RuleWatchEvent},
-	trx::new_channel,
-};
 
 use super::{term_reader::run_term_read, tui_loop::run_ui_loop};
 

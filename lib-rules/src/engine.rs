@@ -1,9 +1,5 @@
 use arc_swap::ArcSwap;
-use std::{
-	collections::HashMap,
-	path::Path,
-	sync::{Arc, RwLock},
-};
+use std::{collections::HashMap, path::Path, sync::Arc};
 
 use lib_event::app_evt_types::{CerberusEvent, EvaluatedEvent, EventMeta};
 

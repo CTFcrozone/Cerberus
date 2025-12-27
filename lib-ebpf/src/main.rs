@@ -2,20 +2,19 @@
 #![no_main]
 
 use aya_ebpf::{
-	bindings::{self, path},
+	bindings::path,
 	helpers::{
 		bpf_get_current_comm, bpf_get_current_pid_tgid, bpf_get_current_uid_gid, bpf_probe_read_kernel,
-		bpf_probe_read_kernel_str,
-		r#gen::{bpf_d_path, bpf_ktime_get_ns, bpf_send_signal},
+		r#gen::{bpf_d_path, bpf_send_signal},
 	},
 	macros::{kprobe, lsm, map, tracepoint},
 	maps::{PerCpuArray, RingBuf},
 	programs::{LsmContext, ProbeContext, TracePointContext},
 };
-use aya_log_ebpf::{error, warn};
+use aya_log_ebpf::error;
 use lib_common::{BprmSecurityCheckEvent, EventHeader, GenericEvent, InetSockSetStateEvent, ModuleInitEvent};
 mod vmlinux;
-use vmlinux::{file, linux_binprm, module, sockaddr, sockaddr_in, task_struct};
+use vmlinux::{linux_binprm, module, sockaddr, sockaddr_in, task_struct};
 
 #[map]
 static EVT_MAP: RingBuf = RingBuf::with_byte_size(32 * 1024, 0);
@@ -187,7 +186,7 @@ fn try_do_init_module(ctx: ProbeContext) -> Result<u32, u32> {
 	Ok(0)
 }
 
-fn try_socket_connect(ctx: LsmContext) -> Result<i32, i32> {
+fn _try_socket_connect(ctx: LsmContext) -> Result<i32, i32> {
 	let addr: *const sockaddr = unsafe { ctx.arg(1) };
 	let ret: i32 = unsafe { ctx.arg(3) };
 

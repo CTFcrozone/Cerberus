@@ -1,5 +1,4 @@
 use crate::{core::AppState, views::support::line_from_event};
-use lib_event::app_evt_types::CerberusEvent;
 use ratatui::{
 	buffer::Buffer,
 	layout::Rect,
