@@ -16,27 +16,27 @@ use tokio::task::JoinHandle;
 use super::event_handler::handle_app_event;
 use super::{process_app_state, AppState, AppTx, ExitTx};
 
+pub struct UiRuntime {
+	pub ui_handle: JoinHandle<()>,
+	pub _rule_watcher: RecommendedWatcher,
+}
+
 const RULES_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/src/rules/");
 
-pub fn rule_watcher(dir: String, tx: Tx<RuleWatchEvent>) -> Result<()> {
-	std::thread::spawn(move || {
-		let (ntx, nrx) = std::sync::mpsc::channel();
-
-		let mut watcher =
-			notify::RecommendedWatcher::new(ntx, notify::Config::default()).expect("failed to create watcher");
-
-		watcher
-			.watch(dir.as_ref(), notify::RecursiveMode::Recursive)
-			.expect("failed to watch rules dir");
-
-		for res in nrx {
-			if res.is_ok() {
+pub fn rule_watcher(dir: impl AsRef<Path>, tx: Tx<RuleWatchEvent>) -> notify::Result<RecommendedWatcher> {
+	let mut watcher: RecommendedWatcher = RecommendedWatcher::new(
+		move |res: notify::Result<Event>| match res {
+			Ok(_) => {
 				let _ = tx.send_sync(RuleWatchEvent::Reload);
 			}
-		}
-	});
+			Err(err) => eprintln!("notify error: {err}"),
+		},
+		notify::Config::default(),
+	)?;
 
-	Ok(())
+	watcher.watch(dir.as_ref(), RecursiveMode::Recursive)?;
+
+	Ok(watcher)
 }
 
 pub async fn rule_watch_worker(rx: Rx<RuleWatchEvent>, engine: Arc<RuleEngine>) -> Result<()> {
@@ -52,7 +52,7 @@ pub fn run_ui_loop(
 	app_tx: AppTx,
 	app_rx: Rx<AppEvent>,
 	exit_tx: ExitTx,
-) -> Result<JoinHandle<()>> {
+) -> Result<UiRuntime> {
 	let mut appstate = AppState::new(ebpf, LastAppEvent::default())?;
 
 	let rule_engine = Arc::new(RuleEngine::new(RULES_DIR)?);
@@ -84,10 +84,13 @@ pub fn run_ui_loop(
 	});
 
 	let (rule_tx, rule_rx) = new_channel::<RuleWatchEvent>("rules");
-	rule_watcher(RULES_DIR.to_string(), rule_tx)?;
+	let _watcher = rule_watcher(RULES_DIR, rule_tx)?;
 	tokio::spawn(rule_watch_worker(rule_rx, rule_engine));
 
-	Ok(handle)
+	Ok(UiRuntime {
+		ui_handle: handle,
+		_rule_watcher: _watcher,
+	})
 }
 
 fn terminal_draw(terminal: &mut DefaultTerminal, app_state: &mut AppState) -> Result<()> {
