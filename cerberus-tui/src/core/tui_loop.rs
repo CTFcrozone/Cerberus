@@ -18,35 +18,31 @@ use super::{process_app_state, AppState, AppTx, ExitTx};
 
 const RULES_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/src/rules/");
 
-pub fn rule_watcher(dir: impl AsRef<Path>, tx: Tx<RuleWatchEvent>) -> notify::Result<RecommendedWatcher> {
-	let mut watcher: RecommendedWatcher = RecommendedWatcher::new(
-		move |res: notify::Result<Event>| match res {
-			Ok(_) => {
+pub fn rule_watcher(dir: String, tx: Tx<RuleWatchEvent>) -> Result<()> {
+	std::thread::spawn(move || {
+		let (ntx, nrx) = std::sync::mpsc::channel();
+
+		let mut watcher =
+			notify::RecommendedWatcher::new(ntx, notify::Config::default()).expect("failed to create watcher");
+
+		watcher
+			.watch(dir.as_ref(), notify::RecursiveMode::Recursive)
+			.expect("failed to watch rules dir");
+
+		for res in nrx {
+			if res.is_ok() {
 				let _ = tx.send_sync(RuleWatchEvent::Reload);
 			}
-			Err(err) => eprintln!("notify error: {err}"),
-		},
-		notify::Config::default(),
-	)?;
+		}
+	});
 
-	watcher.watch(dir.as_ref(), RecursiveMode::Recursive)?;
-
-	Ok(watcher)
+	Ok(())
 }
 
-pub async fn rule_watch_worker(rx: Rx<RuleWatchEvent>, app_state: Arc<RwLock<AppState>>) -> Result<()> {
-	while let Ok(evt) = rx.recv().await {
-		match evt {
-			RuleWatchEvent::Reload => {
-				let state = app_state.write()?;
-
-				if let Some(engine) = &state.rule_engine {
-					engine.reload_ruleset(RULES_DIR)?;
-				}
-			}
-		}
+pub async fn rule_watch_worker(rx: Rx<RuleWatchEvent>, engine: Arc<RuleEngine>) -> Result<()> {
+	while let Ok(_) = rx.recv().await {
+		engine.reload_ruleset(RULES_DIR)?;
 	}
-
 	Ok(())
 }
 
@@ -59,9 +55,8 @@ pub fn run_ui_loop(
 ) -> Result<JoinHandle<()>> {
 	let mut appstate = AppState::new(ebpf, LastAppEvent::default())?;
 
-	let rule_engine = RuleEngine::new(RULES_DIR)?;
-
-	appstate.rule_engine = Some(std::sync::Arc::new(rule_engine));
+	let rule_engine = Arc::new(RuleEngine::new(RULES_DIR)?);
+	appstate.rule_engine = Some(rule_engine.clone());
 
 	let handle = tokio::spawn(async move {
 		loop {
@@ -87,6 +82,10 @@ pub fn run_ui_loop(
 			appstate.last_app_event = app_event.into();
 		}
 	});
+
+	let (rule_tx, rule_rx) = new_channel::<RuleWatchEvent>("rules");
+	rule_watcher(RULES_DIR.to_string(), rule_tx)?;
+	tokio::spawn(rule_watch_worker(rule_rx, rule_engine));
 
 	Ok(handle)
 }
