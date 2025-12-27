@@ -43,7 +43,7 @@ copied to a Linux server or VM and run there.
 
 ## License
 
-With the exception of eBPF code, rust-aya-ebpf-xp is distributed under the terms
+With the exception of eBPF code, Cerberus is distributed under the terms
 of either the [MIT license] or the [Apache License] (version 2.0), at your
 option.
 
