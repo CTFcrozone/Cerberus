@@ -74,6 +74,8 @@ pub struct AppState {
 	pub rule_engine: Option<Arc<RuleEngine>>,
 	pub ringbuf_fd: Option<AsyncFd<RingBuf<MapData>>>,
 	pub worker_up: bool,
+	pub popup_show: bool,
+	pub selected_rule: usize,
 }
 
 impl AppState {
@@ -97,6 +99,8 @@ impl AppState {
 			tab: Tab::General,
 			ringbuf_fd: None,
 			worker_up: false,
+			popup_show: false,
+			selected_rule: 0,
 		})
 	}
 
@@ -175,6 +179,34 @@ impl AppState {
 
 	pub fn ringbuf_fd(&mut self) -> Option<AsyncFd<RingBuf<MapData>>> {
 		self.ringbuf_fd.take()
+	}
+}
+
+impl AppState {
+	pub fn selected_rule(&self) -> usize {
+		self.selected_rule
+	}
+
+	pub fn next_rule(&mut self, max: usize) {
+		if max == 0 {
+			return;
+		}
+		self.selected_rule = (self.selected_rule + 1) % max;
+	}
+
+	pub fn prev_rule(&mut self, max: usize) {
+		if max == 0 {
+			return;
+		}
+		if self.selected_rule == 0 {
+			self.selected_rule = max - 1;
+		} else {
+			self.selected_rule -= 1;
+		}
+	}
+
+	pub fn toggle_rule_popup(&mut self) {
+		self.popup_show = !self.popup_show;
 	}
 }
 

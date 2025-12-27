@@ -29,6 +29,21 @@ fn handle_main_input(state: &mut AppState) {
 				_ => {}
 			},
 
+			KeyCode::Enter => match state.current_tab() {
+				Tab::MatchedRules => state.toggle_rule_popup(),
+				_ => {}
+			},
+
+			KeyCode::Up => match state.current_tab() {
+				Tab::MatchedRules => state.next_rule(state.cerberus_evts_matched().count()),
+				_ => {}
+			},
+
+			KeyCode::Down => match state.current_tab() {
+				Tab::MatchedRules => state.prev_rule(state.cerberus_evts_matched().count()),
+				_ => {}
+			},
+
 			KeyCode::Char('x') => match state.current_tab() {
 				Tab::General => {
 					state.cerberus_evts_general.clear();

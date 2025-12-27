@@ -69,6 +69,7 @@ impl RuleEngine {
 			if Evaluator::rule_matches(&rule.inner, &ctx) {
 				matches.push(EvaluatedEvent {
 					rule_id: Arc::from(rule.inner.id.as_str()),
+					rule_hash: Arc::from(rule.hash.as_str()),
 					severity: Arc::from(rule.inner.severity.as_deref().unwrap_or("unknown")),
 					rule_type: rule.inner.r#type.as_str().into(),
 					event_meta: Self::event_meta(event),
