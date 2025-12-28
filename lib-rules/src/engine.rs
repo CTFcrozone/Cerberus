@@ -69,7 +69,7 @@ impl RuleEngine {
 			if Evaluator::rule_matches(&rule.inner, &ctx) {
 				matches.push(EvaluatedEvent {
 					rule_id: Arc::from(rule.inner.id.as_str()),
-					rule_hash: Arc::from(rule.hash.as_str()),
+					rule_hash: rule.hash_hex(),
 					severity: Arc::from(rule.inner.severity.as_deref().unwrap_or("unknown")),
 					rule_type: rule.inner.r#type.as_str().into(),
 					event_meta: Self::event_meta(event),
@@ -175,7 +175,7 @@ mod tests {
 					value: Value::Integer(0),
 				}],
 			},
-			hash: "examplehash".to_string(),
+			hash: [0u8; 32],
 		};
 
 		let ruleset = RuleSet { ruleset: vec![rule] };
@@ -222,7 +222,7 @@ mod tests {
 					},
 				],
 			},
-			hash: "examplehash".to_string(),
+			hash: [0u8; 32],
 		};
 
 		let ruleset = RuleSet { ruleset: vec![rule] };

@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::{path::Path, sync::Arc};
 
 use crate::{
 	error::{Error, Result},
@@ -11,7 +11,7 @@ use simple_fs::SPath;
 #[derive(Debug, Deserialize)]
 pub struct Rule {
 	pub inner: RuleInner,
-	pub hash: String,
+	pub hash: [u8; 32],
 }
 
 #[derive(Deserialize)]
@@ -52,6 +52,10 @@ impl Rule {
 		Ok(rule)
 	}
 
+	pub fn hash_hex(&self) -> Arc<str> {
+		hex::encode(self.hash).into()
+	}
+
 	pub fn from_file(rule_path: impl AsRef<Path>) -> Result<Self> {
 		let file_path = SPath::from_std_path(rule_path)?;
 
@@ -61,7 +65,7 @@ impl Rule {
 
 		let str = std::fs::read_to_string(file_path)?;
 		let rule_raw: RuleRaw = toml::from_str(&str)?;
-		let hash = hash_utils::blake3_hex(&str);
+		let hash = hash_utils::blake3(&str);
 
 		Ok(Rule {
 			inner: rule_raw.rule,
@@ -110,7 +114,10 @@ mod tests {
 		};
 		let fx_rule = Rule {
 			inner: fx_rule_inner,
-			hash: "0d398410f6750a44db843fd08fcf06b4210cc56dbc5425ce95c0a2063da0fb22".to_string(),
+			hash: [
+				13, 57, 132, 16, 246, 117, 10, 68, 219, 132, 63, 208, 143, 207, 6, 180, 33, 12, 197, 109, 188, 84, 37,
+				206, 149, 192, 162, 6, 61, 160, 251, 34,
+			],
 		};
 		// -- Exec
 		let rule = Rule::from_file(fx_rule_path)?;
