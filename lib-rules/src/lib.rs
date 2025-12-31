@@ -1,3 +1,4 @@
+pub mod correlation;
 pub mod ctx;
 pub mod engine;
 pub mod error;
