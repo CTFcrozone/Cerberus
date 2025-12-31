@@ -174,7 +174,9 @@ mod tests {
 					op: "equals".to_string(),
 					value: Value::Integer(0),
 				}],
+				sequence: None,
 			},
+
 			hash: [0u8; 32],
 		};
 
@@ -221,6 +223,7 @@ mod tests {
 						value: Value::String("TCP_ESTABLISHED".to_string()),
 					},
 				],
+				sequence: None,
 			},
 			hash: [0u8; 32],
 		};

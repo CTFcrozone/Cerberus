@@ -3,6 +3,7 @@ use std::{path::Path, sync::Arc};
 use crate::{
 	error::{Error, Result},
 	hash_utils,
+	sequence::Sequence,
 };
 use serde::Deserialize;
 use simple_fs::SPath;
@@ -28,6 +29,8 @@ pub struct RuleInner {
 	pub severity: Option<String>,
 	pub category: Option<String>,
 	pub conditions: Vec<Condition>,
+	#[serde(default)]
+	pub sequence: Option<Sequence>,
 }
 
 #[cfg_attr(test, derive(PartialEq))]
@@ -103,6 +106,7 @@ mod tests {
 					value: toml::Value::Array(vec![toml::Value::Integer(0)]),
 				},
 			],
+			sequence: None,
 		};
 		let fx_rule = Rule {
 			inner: fx_rule_inner,
