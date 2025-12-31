@@ -1,13 +1,22 @@
-use std::path::Path;
+use std::{path::Path, sync::Arc};
 
-use crate::error::{Error, Result};
+use crate::{
+	error::{Error, Result},
+	hash_utils,
+};
 use serde::Deserialize;
 use simple_fs::SPath;
 
 #[cfg_attr(test, derive(PartialEq))]
 #[derive(Debug, Deserialize)]
 pub struct Rule {
-	pub rule: RuleInner,
+	pub inner: RuleInner,
+	pub hash: [u8; 32],
+}
+
+#[derive(Deserialize)]
+struct RuleRaw {
+	rule: RuleInner,
 }
 
 #[cfg_attr(test, derive(PartialEq))]
@@ -43,6 +52,10 @@ impl Rule {
 		Ok(rule)
 	}
 
+	pub fn hash_hex(&self) -> Arc<str> {
+		hex::encode(self.hash).into()
+	}
+
 	pub fn from_file(rule_path: impl AsRef<Path>) -> Result<Self> {
 		let file_path = SPath::from_std_path(rule_path)?;
 
@@ -51,17 +64,21 @@ impl Rule {
 		}
 
 		let str = std::fs::read_to_string(file_path)?;
-		let rule: Rule = toml::from_str(&str)?;
+		let rule_raw: RuleRaw = toml::from_str(&str)?;
+		let hash = hash_utils::blake3(&str);
 
-		Ok(rule)
+		Ok(Rule {
+			inner: rule_raw.rule,
+			hash,
+		})
 	}
 }
 
-impl From<RuleInner> for Rule {
-	fn from(value: RuleInner) -> Self {
-		Self { rule: value }
-	}
-}
+// impl From<RuleInner> for Rule {
+// 	fn from(value: RuleInner) -> Self {
+// 		Self { rule: value }
+// 	}
+// }
 
 // region:    --- Tests
 
@@ -95,7 +112,13 @@ mod tests {
 				},
 			],
 		};
-		let fx_rule = Rule::from(fx_rule_inner);
+		let fx_rule = Rule {
+			inner: fx_rule_inner,
+			hash: [
+				13, 57, 132, 16, 246, 117, 10, 68, 219, 132, 63, 208, 143, 207, 6, 180, 33, 12, 197, 109, 188, 84, 37,
+				206, 149, 192, 162, 6, 61, 160, 251, 34,
+			],
+		};
 		// -- Exec
 		let rule = Rule::from_file(fx_rule_path)?;
 		// -- Check

@@ -4,7 +4,7 @@ use std::time::Duration;
 
 use crate::core::View;
 use crate::event::LastAppEvent;
-use crate::views::{MainView, SummaryView};
+use crate::views::{render_rule_popup, MainView, SummaryView};
 use crate::Result;
 use aya::Ebpf;
 use lib_event::app_evt_types::{ActionEvent, AppEvent, RuleWatchEvent};
@@ -105,6 +105,10 @@ fn terminal_draw(terminal: &mut DefaultTerminal, app_state: &mut AppState) -> Re
 				// Splash is rendered internally by MainView
 				frame.render_stateful_widget(MainView {}, area, app_state);
 			}
+		}
+
+		if app_state.popup_show {
+			render_rule_popup(frame, &app_state);
 		}
 	})?;
 
