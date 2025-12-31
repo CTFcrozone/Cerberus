@@ -32,14 +32,6 @@ pub struct RuleInner {
 
 #[cfg_attr(test, derive(PartialEq))]
 #[derive(Debug, Deserialize)]
-pub struct Prefilter {
-	// filter by uid, path_prefix, etc
-	pub uid_include: Option<Vec<u32>>,
-	pub uid_exclude: Option<Vec<u32>>,
-	pub path_prefix: Option<Vec<String>>,
-}
-#[cfg_attr(test, derive(PartialEq))]
-#[derive(Debug, Deserialize)]
 pub struct Condition {
 	pub field: String,
 	pub op: String,
