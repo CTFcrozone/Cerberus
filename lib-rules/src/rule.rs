@@ -9,7 +9,7 @@ use serde::Deserialize;
 use simple_fs::SPath;
 
 #[cfg_attr(test, derive(PartialEq))]
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct Rule {
 	pub inner: RuleInner,
 	pub hash: [u8; 32],
@@ -21,7 +21,7 @@ struct RuleRaw {
 }
 
 #[cfg_attr(test, derive(PartialEq))]
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct RuleInner {
 	pub id: String,
 	pub description: String,
@@ -34,7 +34,7 @@ pub struct RuleInner {
 }
 
 #[cfg_attr(test, derive(PartialEq))]
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct Condition {
 	pub field: String,
 	pub op: String,

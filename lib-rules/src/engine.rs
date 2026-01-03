@@ -74,6 +74,10 @@ impl RuleEngine {
 					rule_type: rule.inner.r#type.as_str().into(),
 					event_meta: Self::event_meta(event),
 				});
+
+				let Some(seq) = &rule.inner.sequence else {
+					continue;
+				};
 			}
 		}
 

@@ -1,4 +1,4 @@
-use std::time::Instant;
+use std::{sync::Arc, time::Instant};
 
 use serde::Deserialize;
 
@@ -22,15 +22,12 @@ pub struct Sequence {
 #[cfg_attr(test, derive(PartialEq))]
 #[derive(Debug, Deserialize, Clone)]
 pub struct Step {
-	pub rule_id: Option<String>,
-
-	pub event_name: Option<String>,
+	pub rule_id: String,
 	#[serde(with = "humantime_serde")]
 	pub within: std::time::Duration,
 }
 
-#[derive(Debug)]
 pub struct SequenceProgress {
 	pub step_idx: usize,
-	pub last_seen: Instant,
+	pub last_match: Instant,
 }
