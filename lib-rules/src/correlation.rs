@@ -15,7 +15,7 @@ use crate::{
 pub struct CorrelationEngine {
 	// root rule_id -> rule sequence
 	pub active: HashMap<String, VecDeque<SequenceProgress>>,
-	// rule_id -> rules (all)
+	// step rule_id -> rule
 	pub reverse_index: HashMap<String, Vec<Rule>>,
 }
 
@@ -38,6 +38,7 @@ impl CorrelationEngine {
 
 	pub fn process_rule_sequence(&mut self, rule_id: &str, now: Instant) -> Vec<String> {
 		let mut completed = Vec::new();
+		// wrong??
 
 		let Some(dependent_rules) = self.reverse_index.get(rule_id) else {
 			return completed;
