@@ -1,6 +1,7 @@
 use std::{
 	collections::{HashMap, VecDeque},
 	hash::Hash,
+	sync::Arc,
 	time::Instant,
 	usize,
 };
@@ -13,80 +14,57 @@ use crate::{
 };
 
 pub struct CorrelationEngine {
-	// root rule_id -> rule sequence
-	pub active: HashMap<String, VecDeque<SequenceProgress>>,
-	// step rule_id -> rule
-	pub reverse_index: HashMap<String, Vec<Rule>>,
+	// root rule_id -> progress sequence
+	active: HashMap<String, Vec<SequenceProgress>>,
+}
+
+#[derive(Debug, Clone)]
+pub struct CorrelatedMatch {
+	pub root_rule_id: String,
+	pub steps: usize,
 }
 
 impl CorrelationEngine {
-	pub fn new(rules: &[Rule]) -> Self {
-		let mut reverse_index: HashMap<String, Vec<Rule>> = HashMap::new();
-		for rule in rules {
-			if let Some(seq) = &rule.inner.sequence {
-				for step in &seq.steps {
-					reverse_index.entry(step.rule_id.clone()).or_default().push(rule.clone());
-				}
-			}
-		}
-
-		Self {
-			active: HashMap::new(),
-			reverse_index,
-		}
+	pub fn new() -> Self {
+		Self { active: HashMap::new() }
 	}
 
-	pub fn process_rule_sequence(&mut self, rule_id: &str, now: Instant) -> Vec<String> {
-		let mut completed = Vec::new();
-		// wrong??
+	pub fn on_root_match(&mut self, root_rule_id: &str, seq: &Sequence, now: Instant) -> Option<CorrelatedMatch> {
+		let entries = self.active.entry(root_rule_id.to_string()).or_default();
 
-		let Some(dependent_rules) = self.reverse_index.get(rule_id) else {
-			return completed;
-		};
-
-		for rule in dependent_rules {
-			let Some(seq) = &rule.inner.sequence else {
-				continue;
-			};
-
-			let queue = self.active.entry(rule.inner.id.clone()).or_default();
-
-			// advance old sequences
-			for progress in queue.iter_mut() {
-				let Some(step) = seq.steps.get(progress.step_idx) else {
-					continue;
-				};
-
-				if step.rule_id == rule_id && now.duration_since(progress.last_match) <= step.within {
+		// advance existing seqs
+		for progress in entries.iter_mut() {
+			if let Some(step) = seq.steps.get(progress.step_idx) {
+				if now.duration_since(progress.last_match) <= step.within {
 					progress.step_idx += 1;
 					progress.last_match = now;
 
 					if progress.step_idx == seq.steps.len() {
-						completed.push(rule.inner.id.clone());
-						progress.step_idx = usize::MAX;
+						return Some(CorrelatedMatch {
+							root_rule_id: root_rule_id.to_string(),
+							steps: seq.steps.len(),
+						});
 					}
 				}
 			}
-
-			// start new seq
-			if let Some(first) = seq.steps.first() {
-				if first.rule_id == rule_id {
-					queue.push_back(SequenceProgress {
-						step_idx: 1,
-						last_match: now,
-					});
-				}
-			}
-
-			// delete expired
-			queue.retain(|p| {
-				let Some(prev) = seq.steps.get(p.step_idx.saturating_sub(1)) else {
-					return false;
-				};
-				now.duration_since(p.last_match) <= prev.within
-			});
 		}
 
-		completed
+		// start new seq
+
+		entries.push(SequenceProgress {
+			step_idx: 0,
+			last_match: now,
+		});
+
+		// cleanup expired
+		entries.retain(|p| {
+			let idx = p.step_idx.saturating_sub(1);
+			seq.steps
+				.get(idx)
+				.map(|s| now.duration_since(p.last_match) <= s.within)
+				.unwrap_or(false)
+		});
+
+		None
 	}
 }

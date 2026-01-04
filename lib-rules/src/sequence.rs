@@ -14,8 +14,6 @@ pub enum SequenceKind {
 #[derive(Debug, Deserialize, Clone)]
 pub struct Sequence {
 	pub kind: SequenceKind,
-	#[serde(default)]
-	pub ordered: bool,
 	pub steps: Vec<Step>,
 }
 
