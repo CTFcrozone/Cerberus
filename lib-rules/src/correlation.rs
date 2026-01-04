@@ -30,41 +30,17 @@ impl CorrelationEngine {
 	}
 
 	pub fn on_root_match(&mut self, root_rule_id: &str, seq: &Sequence, now: Instant) -> Option<CorrelatedMatch> {
-		let entries = self.active.entry(root_rule_id.to_string()).or_default();
-
-		// advance existing seqs
-		for progress in entries.iter_mut() {
-			if let Some(step) = seq.steps.get(progress.step_idx) {
-				if now.duration_since(progress.last_match) <= step.within {
-					progress.step_idx += 1;
-					progress.last_match = now;
-
-					if progress.step_idx == seq.steps.len() {
-						return Some(CorrelatedMatch {
-							root_rule_id: root_rule_id.to_string(),
-							steps: seq.steps.len(),
-						});
-					}
-				}
-			}
-		}
-
-		// start new seq
-
-		entries.push(SequenceProgress {
-			step_idx: 0,
-			last_match: now,
-		});
-
-		// cleanup expired
-		entries.retain(|p| {
-			let idx = p.step_idx.saturating_sub(1);
-			seq.steps
-				.get(idx)
-				.map(|s| now.duration_since(p.last_match) <= s.within)
-				.unwrap_or(false)
-		});
-
 		None
 	}
 }
+
+// region:    --- Tests
+
+#[cfg(test)]
+mod tests {
+	type Result<T> = core::result::Result<T, Box<dyn std::error::Error>>; // For tests.
+
+	use super::*;
+}
+
+// endregion: --- Tests
