@@ -3,18 +3,22 @@ use std::{collections::HashMap, path::Path, sync::Arc};
 
 use lib_event::app_evt_types::{CerberusEvent, EvaluatedEvent, EventMeta};
 
+use crate::correlation::Correlator;
 use crate::{ctx::EvalCtx, error::Result};
 use crate::{evaluator::Evaluator, ruleset::RuleSet};
 
 pub struct RuleEngine {
 	pub ruleset: ArcSwap<RuleSet>,
+	correlator: Correlator,
 }
 
 impl RuleEngine {
 	pub fn new(dir: impl AsRef<Path>) -> Result<Self> {
 		let ruleset = RuleSet::load_from_dir(dir)?;
+
 		Ok(Self {
 			ruleset: ArcSwap::from_pointee(ruleset),
+			correlator: Correlator::new(),
 		})
 	}
 
@@ -28,6 +32,7 @@ impl RuleEngine {
 	pub fn new_from_ruleset(ruleset: RuleSet) -> Result<Self> {
 		Ok(Self {
 			ruleset: ArcSwap::from_pointee(ruleset),
+			correlator: Correlator::new(),
 		})
 	}
 
@@ -64,6 +69,7 @@ impl RuleEngine {
 		let ctx = Self::event_to_ctx(event);
 		let ruleset = self.ruleset.load();
 		let mut matches = Vec::new();
+		// let now = Instant::now();
 
 		for rule in &ruleset.ruleset {
 			if Evaluator::rule_matches(&rule.inner, &ctx) {
@@ -74,10 +80,15 @@ impl RuleEngine {
 					rule_type: rule.inner.r#type.as_str().into(),
 					event_meta: Self::event_meta(event),
 				});
+				// let rule_id = rule.inner.id.as_str();
 
-				let Some(seq) = &rule.inner.sequence else {
-					continue;
-				};
+				// for root_rule in &ruleset.ruleset {
+				// 	let Some(seq) = &root_rule.inner.sequence else { continue };
+
+				// 	if let Some(alert) = self.correlator.on_rule_match(rule_id, seq, &root_rule.inner.id, now) {
+				// 		tracing::warn!("CORRELATED: {:?}", alert);
+				// 	}
+				// }
 			}
 		}
 
