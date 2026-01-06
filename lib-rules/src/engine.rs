@@ -91,10 +91,17 @@ impl RuleEngine {
 				// advance seqs for other rules
 				for root_rule in &ruleset.ruleset {
 					if let Some(seq) = &root_rule.inner.sequence {
-						if root_rule.inner.id != *matched_rule_id {
-							if let Some(alert) = corr.on_rule_match(matched_rule_id, seq, &root_rule.inner.id, now) {
-								tracing::warn!("CORRELATED ALERT: {:?}", alert);
-							}
+						if let Some(alert) = corr.on_rule_match(matched_rule_id, seq, &root_rule.inner.id, now) {
+							matches.push(EvaluatedEvent {
+								rule_id: Arc::from(format!(
+									"CORRELATION - {} - {}",
+									root_rule.inner.id, matched_rule_id
+								)),
+								rule_hash: root_rule.hash_hex(),
+								severity: Arc::from(root_rule.inner.severity.as_deref().unwrap_or("unknown")),
+								rule_type: "correlation".into(),
+								event_meta: Self::event_meta(event),
+							});
 						}
 					}
 				}

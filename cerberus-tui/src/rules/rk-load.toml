@@ -1,5 +1,5 @@
 [rule]
-id = "kernel-module-loader"
+id = "rk-load"
 description = "Detect kernel module loading followed by exec"
 type = "kernel"
 severity = "critical"
@@ -8,11 +8,4 @@ category = "kernel"
 [[rule.conditions]]
 field = "module_name"
 op = "contains"
-value = "lkm"
-
-[rule.sequence]
-kind = "rule"
-
-[[rule.sequence.steps]]
-rule_id = "rk-load"
-within = "5s"
+value = "rk"

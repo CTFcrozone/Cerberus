@@ -1,0 +1,19 @@
+[rule]
+id = "any-bprm"
+description = "Matches any execve"
+type = "bprm"
+severity = "low"
+category = "test"
+
+[[rule.conditions]]
+field = "filepath"
+op = "contains"
+value = "/"
+
+
+[rule.sequence]
+kind = "rule"
+
+[[rule.sequence.steps]]
+rule_id = "exec-from-shm"
+within = "5s"
