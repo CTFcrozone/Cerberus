@@ -5,5 +5,6 @@ pub mod error;
 pub mod evaluator;
 pub mod hash_utils;
 pub mod rule;
+pub mod rule_index;
 pub mod ruleset;
 pub mod sequence;

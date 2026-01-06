@@ -58,7 +58,6 @@ pub enum EngineEvent {
 }
 
 #[derive(Debug, Clone)]
-
 pub struct CorrelatedEvent {
 	pub base_rule_id: Arc<str>,
 	pub seq_rule_id: Arc<str>,

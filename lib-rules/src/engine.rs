@@ -6,21 +6,26 @@ use std::{collections::HashMap, path::Path, sync::Arc};
 use lib_event::app_evt_types::{CerberusEvent, EvaluatedEvent, EventMeta};
 
 use crate::correlation::Correlator;
+use crate::rule::Rule;
+use crate::rule_index::{EventKind, RuleIndex};
 use crate::{ctx::EvalCtx, error::Result};
 use crate::{evaluator::Evaluator, ruleset::RuleSet};
 
 pub struct RuleEngine {
 	pub ruleset: ArcSwap<RuleSet>,
+	pub index: ArcSwap<RuleIndex>,
 	correlator: Mutex<Correlator>,
 }
 
 impl RuleEngine {
 	pub fn new(dir: impl AsRef<Path>) -> Result<Self> {
 		let ruleset = RuleSet::load_from_dir(dir)?;
+		let index = RuleIndex::build(ruleset.clone());
 
 		Ok(Self {
 			ruleset: ArcSwap::from_pointee(ruleset),
 			correlator: Mutex::new(Correlator::new()),
+			index: ArcSwap::from_pointee(index),
 		})
 	}
 
@@ -32,9 +37,12 @@ impl RuleEngine {
 	}
 
 	pub fn new_from_ruleset(ruleset: RuleSet) -> Result<Self> {
+		let index = RuleIndex::build(ruleset.clone());
+
 		Ok(Self {
 			ruleset: ArcSwap::from_pointee(ruleset),
 			correlator: Mutex::new(Correlator::new()),
+			index: ArcSwap::from_pointee(index),
 		})
 	}
 
@@ -67,42 +75,61 @@ impl RuleEngine {
 		self.ruleset.load().rule_count()
 	}
 
+	fn find_rule_by_id<'a>(ruleset: &'a RuleSet, rule_id: &'a str) -> Option<&'a Rule> {
+		ruleset.ruleset.iter().find(|rule| rule.inner.id == rule_id)
+	}
+
+	// FIXME: Correlation no longer showing
+
+	fn advance_sequences(
+		&self,
+		corr: &mut Correlator,
+		matched_rule: &Rule,
+		now: Instant,
+		ruleset: &RuleSet,
+		index: &RuleIndex,
+		out: &mut Vec<EvaluatedEvent>,
+		event: &CerberusEvent,
+	) {
+		let key: Arc<str> = matched_rule.inner.id.as_str().into();
+		let Some(root_ids) = index.seq_listeners.get(&key) else {
+			return;
+		};
+
+		for root_id in root_ids {
+			let Some(root_rule) = Self::find_rule_by_id(ruleset, root_id) else {
+				continue;
+			};
+
+			let Some(seq) = &root_rule.inner.sequence else {
+				continue;
+			};
+
+			if let Some(_) = corr.on_rule_match(&matched_rule.inner.id, seq, &root_rule.inner.id, now) {
+				out.push(Self::rule_to_eval_event(root_rule, Self::event_meta(event)));
+			}
+		}
+	}
+
 	pub fn process_event(&self, event: &CerberusEvent) -> Result<Vec<EvaluatedEvent>> {
 		let ctx = Self::event_to_ctx(event);
 		let ruleset = self.ruleset.load();
 		let mut matches = Vec::new();
+		let index = self.index.load();
 		let now = Instant::now();
 		let mut corr = self.correlator.lock()?;
+		let evt_kind = EventKind::from(event);
 
-		for rule in &ruleset.ruleset {
-			if Evaluator::rule_matches(&rule.inner, &ctx) {
-				matches.push(EvaluatedEvent {
-					rule_id: Arc::from(rule.inner.id.as_str()),
-					rule_hash: rule.hash_hex(),
-					severity: Arc::from(rule.inner.severity.as_deref().unwrap_or("unknown")),
-					rule_type: rule.inner.r#type.as_str().into(),
-					event_meta: Self::event_meta(event),
-				});
-				let matched_rule_id = &rule.inner.id;
-				if let Some(seq) = &rule.inner.sequence {
-					corr.on_root_match(matched_rule_id, seq, now);
-				}
+		if let Some(candidates) = index.by_evt_kind.get(&evt_kind) {
+			for rule_id in candidates {
+				if let Some(rule) = Self::find_rule_by_id(&ruleset, rule_id) {
+					if Evaluator::rule_matches(&rule.inner, &ctx) {
+						matches.push(Self::rule_to_eval_event(rule, Self::event_meta(event)));
 
-				// advance seqs for other rules
-				for root_rule in &ruleset.ruleset {
-					if let Some(seq) = &root_rule.inner.sequence {
-						if let Some(alert) = corr.on_rule_match(matched_rule_id, seq, &root_rule.inner.id, now) {
-							matches.push(EvaluatedEvent {
-								rule_id: Arc::from(format!(
-									"CORRELATION - {} - {}",
-									root_rule.inner.id, matched_rule_id
-								)),
-								rule_hash: root_rule.hash_hex(),
-								severity: Arc::from(root_rule.inner.severity.as_deref().unwrap_or("unknown")),
-								rule_type: "correlation".into(),
-								event_meta: Self::event_meta(event),
-							});
+						if let Some(seq) = &rule.inner.sequence {
+							corr.on_root_match(&rule.inner.id, seq, now);
 						}
+						self.advance_sequences(&mut corr, rule, now, &ruleset, &index, &mut matches, event);
 					}
 				}
 			}
@@ -110,6 +137,51 @@ impl RuleEngine {
 
 		Ok(matches)
 	}
+
+	// Works but not the best
+	// pub fn process_event(&self, event: &CerberusEvent) -> Result<Vec<EvaluatedEvent>> {
+	// 	let ctx = Self::event_to_ctx(event);
+	// 	let ruleset = self.ruleset.load();
+	// 	let mut matches = Vec::new();
+	// 	let now = Instant::now();
+	// 	let mut corr = self.correlator.lock()?;
+
+	// 	for rule in &ruleset.ruleset {
+	// 		if Evaluator::rule_matches(&rule.inner, &ctx) {
+	// 			matches.push(EvaluatedEvent {
+	// 				rule_id: Arc::from(rule.inner.id.as_str()),
+	// 				rule_hash: rule.hash_hex(),
+	// 				severity: Arc::from(rule.inner.severity.as_deref().unwrap_or("unknown")),
+	// 				rule_type: rule.inner.r#type.as_str().into(),
+	// 				event_meta: Self::event_meta(event),
+	// 			});
+	// 			let matched_rule_id = &rule.inner.id;
+	// 			if let Some(seq) = &rule.inner.sequence {
+	// 				corr.on_root_match(matched_rule_id, seq, now);
+	// 			}
+
+	// 			// advance seqs for other rules
+	// 			for root_rule in &ruleset.ruleset {
+	// 				if let Some(seq) = &root_rule.inner.sequence {
+	// 					if let Some(alert) = corr.on_rule_match(matched_rule_id, seq, &root_rule.inner.id, now) {
+	// 						matches.push(EvaluatedEvent {
+	// 							rule_id: Arc::from(format!(
+	// 								"CORRELATION - {} - {}",
+	// 								root_rule.inner.id, matched_rule_id
+	// 							)),
+	// 							rule_hash: root_rule.hash_hex(),
+	// 							severity: Arc::from(root_rule.inner.severity.as_deref().unwrap_or("unknown")),
+	// 							rule_type: "correlation".into(),
+	// 							event_meta: Self::event_meta(event),
+	// 						});
+	// 					}
+	// 				}
+	// 			}
+	// 		}
+	// 	}
+
+	// 	Ok(matches)
+	// }
 
 	fn event_to_ctx(event: &CerberusEvent) -> EvalCtx {
 		let mut fields = HashMap::new();
@@ -144,6 +216,16 @@ impl RuleEngine {
 			}
 		}
 		EvalCtx::new(fields)
+	}
+
+	fn rule_to_eval_event(rule: &Rule, event_meta: EventMeta) -> EvaluatedEvent {
+		EvaluatedEvent {
+			rule_id: Arc::from(rule.inner.id.as_str()),
+			rule_hash: rule.hash_hex(),
+			severity: Arc::from(rule.inner.severity.as_deref().unwrap_or("unknown")),
+			rule_type: rule.inner.r#type.as_str().into(),
+			event_meta,
+		}
 	}
 }
 

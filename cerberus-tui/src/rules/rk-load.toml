@@ -1,7 +1,7 @@
 [rule]
 id = "rk-load"
 description = "Detect kernel module loading followed by exec"
-type = "kernel"
+type = "module"
 severity = "critical"
 category = "kernel"
 

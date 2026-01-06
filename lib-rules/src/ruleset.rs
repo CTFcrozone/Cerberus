@@ -6,7 +6,7 @@ use serde::Deserialize;
 use tracing::warn;
 
 #[cfg_attr(test, derive(PartialEq))]
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct RuleSet {
 	pub ruleset: Vec<Rule>,
 }
