@@ -79,8 +79,6 @@ impl RuleEngine {
 		ruleset.ruleset.iter().find(|rule| rule.inner.id == rule_id)
 	}
 
-	// FIXME: Correlation no longer showing
-
 	fn advance_sequences(
 		&self,
 		corr: &mut Correlator,
@@ -105,8 +103,20 @@ impl RuleEngine {
 				continue;
 			};
 
-			if let Some(_) = corr.on_rule_match(&matched_rule.inner.id, seq, &root_rule.inner.id, now) {
-				out.push(Self::rule_to_eval_event(root_rule, Self::event_meta(event)));
+			if corr
+				.on_rule_match(&matched_rule.inner.id, seq, &root_rule.inner.id, now)
+				.is_some()
+			{
+				out.push(EvaluatedEvent {
+					rule_id: Arc::from(format!(
+						"CORRELATION - {} - {}",
+						root_rule.inner.id, matched_rule.inner.id
+					)),
+					rule_hash: root_rule.hash_hex(),
+					severity: Arc::from(root_rule.inner.severity.as_deref().unwrap_or("unknown")),
+					rule_type: "correlation".into(),
+					event_meta: Self::event_meta(event),
+				});
 			}
 		}
 	}
@@ -122,66 +132,25 @@ impl RuleEngine {
 
 		if let Some(candidates) = index.by_evt_kind.get(&evt_kind) {
 			for rule_id in candidates {
-				if let Some(rule) = Self::find_rule_by_id(&ruleset, rule_id) {
-					if Evaluator::rule_matches(&rule.inner, &ctx) {
-						matches.push(Self::rule_to_eval_event(rule, Self::event_meta(event)));
+				let Some(rule) = Self::find_rule_by_id(&ruleset, rule_id) else {
+					continue;
+				};
 
-						if let Some(seq) = &rule.inner.sequence {
-							corr.on_root_match(&rule.inner.id, seq, now);
-						}
-						self.advance_sequences(&mut corr, rule, now, &ruleset, &index, &mut matches, event);
-					}
+				if !Evaluator::rule_matches(&rule.inner, &ctx) {
+					continue;
 				}
+
+				matches.push(Self::rule_to_eval_event(rule, Self::event_meta(event)));
+
+				if let Some(seq) = &rule.inner.sequence {
+					corr.on_root_match(&rule.inner.id, seq, now);
+				}
+				self.advance_sequences(&mut corr, rule, now, &ruleset, &index, &mut matches, event);
 			}
 		}
 
 		Ok(matches)
 	}
-
-	// Works but not the best
-	// pub fn process_event(&self, event: &CerberusEvent) -> Result<Vec<EvaluatedEvent>> {
-	// 	let ctx = Self::event_to_ctx(event);
-	// 	let ruleset = self.ruleset.load();
-	// 	let mut matches = Vec::new();
-	// 	let now = Instant::now();
-	// 	let mut corr = self.correlator.lock()?;
-
-	// 	for rule in &ruleset.ruleset {
-	// 		if Evaluator::rule_matches(&rule.inner, &ctx) {
-	// 			matches.push(EvaluatedEvent {
-	// 				rule_id: Arc::from(rule.inner.id.as_str()),
-	// 				rule_hash: rule.hash_hex(),
-	// 				severity: Arc::from(rule.inner.severity.as_deref().unwrap_or("unknown")),
-	// 				rule_type: rule.inner.r#type.as_str().into(),
-	// 				event_meta: Self::event_meta(event),
-	// 			});
-	// 			let matched_rule_id = &rule.inner.id;
-	// 			if let Some(seq) = &rule.inner.sequence {
-	// 				corr.on_root_match(matched_rule_id, seq, now);
-	// 			}
-
-	// 			// advance seqs for other rules
-	// 			for root_rule in &ruleset.ruleset {
-	// 				if let Some(seq) = &root_rule.inner.sequence {
-	// 					if let Some(alert) = corr.on_rule_match(matched_rule_id, seq, &root_rule.inner.id, now) {
-	// 						matches.push(EvaluatedEvent {
-	// 							rule_id: Arc::from(format!(
-	// 								"CORRELATION - {} - {}",
-	// 								root_rule.inner.id, matched_rule_id
-	// 							)),
-	// 							rule_hash: root_rule.hash_hex(),
-	// 							severity: Arc::from(root_rule.inner.severity.as_deref().unwrap_or("unknown")),
-	// 							rule_type: "correlation".into(),
-	// 							event_meta: Self::event_meta(event),
-	// 						});
-	// 					}
-	// 				}
-	// 			}
-	// 		}
-	// 	}
-
-	// 	Ok(matches)
-	// }
 
 	fn event_to_ctx(event: &CerberusEvent) -> EvalCtx {
 		let mut fields = HashMap::new();
@@ -247,7 +216,7 @@ mod tests {
 
 		let ruleset = RuleSet::load_from_dir("./rules/")?;
 
-		let mut engine = RuleEngine::new_from_ruleset(ruleset)?;
+		let engine = RuleEngine::new_from_ruleset(ruleset)?;
 
 		let event = CerberusEvent::Generic(RingBufEvent {
 			name: "KILL",
@@ -294,7 +263,7 @@ mod tests {
 		};
 
 		let ruleset = RuleSet { ruleset: vec![rule] };
-		let mut engine = RuleEngine::new_from_ruleset(ruleset)?;
+		let engine = RuleEngine::new_from_ruleset(ruleset)?;
 
 		let event = CerberusEvent::Generic(RingBufEvent {
 			name: "COMMIT_CREDS",
@@ -343,7 +312,7 @@ mod tests {
 
 		let ruleset = RuleSet { ruleset: vec![rule] };
 
-		let mut engine = RuleEngine::new_from_ruleset(ruleset)?;
+		let engine = RuleEngine::new_from_ruleset(ruleset)?;
 
 		let inet_evt = lib_event::app_evt_types::InetSockEvent {
 			old_state: Arc::from("TCP_SYN_SENT"),

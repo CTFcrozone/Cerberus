@@ -62,8 +62,6 @@ impl RuleIndex {
 			}
 
 			if let Some(seq) = rule.inner.sequence {
-				seq_listeners.entry(rule_id.clone()).or_default().push(rule_id.clone());
-
 				for step in seq.steps {
 					seq_listeners.entry(step.rule_id.into()).or_default().push(rule_id.clone());
 				}

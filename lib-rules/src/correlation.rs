@@ -36,6 +36,10 @@ impl Correlator {
 		root_rule_id: &str,
 		now: Instant,
 	) -> Option<CorrelatedMatch> {
+		if !self.active.contains_key(root_rule_id) {
+			return None;
+		}
+
 		let queue = self.active.get_mut(root_rule_id)?;
 
 		for prog in queue.iter_mut() {
