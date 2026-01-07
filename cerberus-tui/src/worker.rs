@@ -15,49 +15,7 @@ use tokio::io::unix::AsyncFd;
 use tracing::info;
 use zerocopy::FromBytes;
 
-// pub struct ReceiverWorker {
-// 	pub rx: EventRx,
-// 	pub app_tx: AppTx,
-// }
 
-// impl ReceiverWorker {
-// 	pub async fn start(rx: EventRx, app_tx: AppTx) -> Result<()> {
-// 		let worker = ReceiverWorker { rx, app_tx };
-// 		tokio::spawn(async move {
-// 			let res = worker.start_worker().await;
-// 			res
-// 		});
-// 		Ok(())
-// 	}
-
-// 	pub async fn start_worker(&self) -> Result<()> {
-// 		while let Ok(evt) = self.rx.recv().await {
-// 			let comm = Arc::from(String::from_utf8_lossy(&evt.comm).trim_end_matches('\0').as_ref());
-
-// 			let name: &'static str = match evt.header.event_type {
-// 				1 => "KILL",
-// 				2 => "IO_URING",
-// 				3 => "SOCKET_CONNECT",
-// 				4 => "COMMIT_CREDS",
-// 				5 => "MODULE_INIT",
-// 				6 => "INET_SOCK_SET_STATE",
-// 				_ => "UNKNOWN",
-// 			};
-
-// 			let app_evt = AppEvent::Cerberus(CerberusEvent::Generic(RingBufEvent {
-// 				name,
-// 				pid: evt.pid,
-// 				uid: evt.uid,
-// 				tgid: evt.tgid,
-// 				comm,
-// 				meta: evt.meta,
-// 			}));
-
-// 			self.app_tx.send(app_evt).await?;
-// 		}
-// 		Ok(())
-// 	}
-// }
 
 pub struct RingBufWorker {
 	pub ringbuf_fd: AsyncFd<RingBuf<MapData>>,
