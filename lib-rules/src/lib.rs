@@ -1,3 +1,4 @@
+pub mod compiled_rules;
 pub mod correlation;
 pub mod ctx;
 pub mod engine;

@@ -17,6 +17,14 @@ pub enum Error {
 	RulePathNotFound(String),
 	#[from]
 	SimpleFs(simple_fs::Error),
+
+	UnknownOp {
+		op: String,
+	},
+
+	UnknownField {
+		field: String,
+	},
 	// -- Externals
 	#[from]
 	Io(std::io::Error), // as example
