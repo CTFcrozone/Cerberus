@@ -2,7 +2,6 @@ mod core;
 mod error;
 mod event;
 mod styles;
-mod trx;
 mod views;
 mod worker;
 pub use self::error::{Error, Result};
