@@ -19,25 +19,6 @@ impl Evaluator {
 			(Value::Boolean(ab), Value::Boolean(bb)) => ab == bb,
 			_ => a == b,
 		}
-		// if let (Some(ai), Some(bi)) = (a.as_integer(), b.as_integer()) {
-		// 	return ai == bi;
-		// }
-		// if let (Some(af), Some(bf)) = (a.as_float(), b.as_float()) {
-		// 	return (af - bf).abs() < std::f64::EPSILON;
-		// }
-		// if let (Some(ai), Some(bf)) = (a.as_integer(), b.as_float()) {
-		// 	return (ai as f64 - bf).abs() < std::f64::EPSILON;
-		// }
-		// if let (Some(af), Some(bi)) = (a.as_float(), b.as_integer()) {
-		// 	return (af - bi as f64).abs() < std::f64::EPSILON;
-		// }
-		// if let (Some(as_), Some(bs_)) = (a.as_str(), b.as_str()) {
-		// 	return as_ == bs_;
-		// }
-		// if let (Some(ab), Some(bb)) = (a.as_bool(), b.as_bool()) {
-		// 	return ab == bb;
-		// }
-		// a == b
 	}
 
 	fn as_i64_pair(left: Option<&Value>, right: &Value) -> Option<(i64, i64)> {
@@ -222,6 +203,7 @@ mod tests {
 				cond("pid", "equals", Value::Integer(123)),
 				cond("comm", "==", Value::String("bash".into())),
 			],
+			sequence: None,
 		};
 
 		let ctx_ok = ctx(&[("pid", Value::Integer(123)), ("comm", Value::String("bash".into()))]);
@@ -236,6 +218,7 @@ mod tests {
 				cond("pid", "equals", Value::Integer(123)),
 				cond("uid", "equals", Value::Integer(0)),
 			],
+			sequence: None,
 		};
 
 		let ctx_fail = ctx(&[("pid", Value::Integer(123)), ("uid", Value::Integer(1000))]);

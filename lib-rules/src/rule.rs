@@ -3,12 +3,13 @@ use std::{path::Path, sync::Arc};
 use crate::{
 	error::{Error, Result},
 	hash_utils,
+	sequence::Sequence,
 };
 use serde::Deserialize;
 use simple_fs::SPath;
 
 #[cfg_attr(test, derive(PartialEq))]
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct Rule {
 	pub inner: RuleInner,
 	pub hash: [u8; 32],
@@ -20,7 +21,7 @@ struct RuleRaw {
 }
 
 #[cfg_attr(test, derive(PartialEq))]
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct RuleInner {
 	pub id: String,
 	pub description: String,
@@ -28,18 +29,12 @@ pub struct RuleInner {
 	pub severity: Option<String>,
 	pub category: Option<String>,
 	pub conditions: Vec<Condition>,
+	#[serde(default)]
+	pub sequence: Option<Sequence>,
 }
 
 #[cfg_attr(test, derive(PartialEq))]
-#[derive(Debug, Deserialize)]
-pub struct Prefilter {
-	// filter by uid, path_prefix, etc
-	pub uid_include: Option<Vec<u32>>,
-	pub uid_exclude: Option<Vec<u32>>,
-	pub path_prefix: Option<Vec<String>>,
-}
-#[cfg_attr(test, derive(PartialEq))]
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct Condition {
 	pub field: String,
 	pub op: String,
@@ -111,6 +106,7 @@ mod tests {
 					value: toml::Value::Array(vec![toml::Value::Integer(0)]),
 				},
 			],
+			sequence: None,
 		};
 		let fx_rule = Rule {
 			inner: fx_rule_inner,

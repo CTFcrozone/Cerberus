@@ -1,0 +1,76 @@
+use std::{collections::HashMap, sync::Arc};
+
+use lib_event::app_evt_types::CerberusEvent;
+use strum::IntoEnumIterator;
+use strum_macros::EnumIter;
+
+use crate::ruleset::RuleSet;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, EnumIter)]
+pub enum EventKind {
+	Generic,
+	InetSock,
+	Module,
+	Bprm,
+}
+
+impl From<&CerberusEvent> for EventKind {
+	fn from(value: &CerberusEvent) -> Self {
+		match value {
+			CerberusEvent::Generic(_) => EventKind::Generic,
+			CerberusEvent::Bprm(_) => EventKind::Bprm,
+			CerberusEvent::InetSock(_) => EventKind::InetSock,
+			CerberusEvent::Module(_) => EventKind::Module,
+		}
+	}
+}
+
+fn field_in(kind: EventKind, field: &str) -> bool {
+	match kind {
+		EventKind::Generic => matches!(field, "name" | "uid" | "pid" | "tgid" | "comm"),
+		EventKind::InetSock => matches!(field, "old_state" | "new_state" | "sport" | "dport" | "protocol"),
+		EventKind::Bprm => matches!(field, "uid" | "pid" | "tgid" | "comm" | "filepath"),
+		EventKind::Module => matches!(field, "uid" | "pid" | "tgid" | "comm" | "module_name"),
+	}
+}
+
+pub struct RuleIndex {
+	// evt kind -> rule ids
+	pub by_evt_kind: HashMap<EventKind, Vec<Arc<str>>>,
+	// rule id -> root rules that have a sequence with this rule
+	pub seq_listeners: HashMap<Arc<str>, Vec<Arc<str>>>,
+}
+
+impl RuleIndex {
+	pub fn build(ruleset: RuleSet) -> Self {
+		let mut by_evt_kind: HashMap<EventKind, Vec<Arc<str>>> = HashMap::new();
+		let mut seq_listeners: HashMap<Arc<str>, Vec<Arc<str>>> = HashMap::new();
+
+		for rule in ruleset.ruleset {
+			let mut supported = Vec::new();
+			let rule_id: Arc<str> = rule.inner.id.into();
+
+			for kind in EventKind::iter() {
+				let ok = rule.inner.conditions.iter().all(|c| field_in(kind, &c.field));
+				if ok {
+					supported.push(kind);
+				}
+			}
+
+			for kind in supported {
+				by_evt_kind.entry(kind).or_default().push(rule_id.clone());
+			}
+
+			if let Some(seq) = rule.inner.sequence {
+				for step in seq.steps {
+					seq_listeners.entry(step.rule_id.into()).or_default().push(rule_id.clone());
+				}
+			}
+		}
+
+		Self {
+			by_evt_kind,
+			seq_listeners,
+		}
+	}
+}
