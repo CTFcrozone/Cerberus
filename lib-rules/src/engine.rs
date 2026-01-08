@@ -30,8 +30,12 @@ impl RuleEngine {
 	}
 
 	pub fn reload_ruleset(&self, dir: impl AsRef<Path>) -> Result<()> {
-		let new = Arc::new(RuleSet::load_from_dir(dir)?);
+		let ruleset = RuleSet::load_from_dir(dir)?;
+		let new = Arc::new(ruleset.clone());
+		let index = Arc::new(RuleIndex::build(ruleset.clone()));
+
 		self.ruleset.store(new);
+		self.index.store(index);
 
 		Ok(())
 	}

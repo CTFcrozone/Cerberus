@@ -1,4 +1,4 @@
-use std::io::stdout;
+use std::{io::stdout, sync::Arc};
 
 use crate::Result;
 use aya::Ebpf;
@@ -9,6 +9,7 @@ use crossterm::{
 	terminal::{DisableLineWrap, EnterAlternateScreen, LeaveAlternateScreen},
 };
 use derive_more::{Deref, From};
+use lib_rules::engine::RuleEngine;
 use ratatui::DefaultTerminal;
 
 use lib_event::app_evt_types::AppEvent;
@@ -22,7 +23,13 @@ pub struct ExitTx(Tx<()>);
 #[derive(Clone, From, Deref)]
 pub struct AppTx(Tx<AppEvent>);
 
-pub async fn start_tui(ebpf: Ebpf, app_tx: AppTx, app_rx: Rx<AppEvent>, exit_tx: ExitTx) -> Result<()> {
+pub async fn start_tui(
+	ebpf: Ebpf,
+	rule_engine: Arc<RuleEngine>,
+	app_tx: AppTx,
+	app_rx: Rx<AppEvent>,
+	exit_tx: ExitTx,
+) -> Result<()> {
 	let terminal = ratatui::init();
 
 	execute!(
@@ -33,7 +40,7 @@ pub async fn start_tui(ebpf: Ebpf, app_tx: AppTx, app_rx: Rx<AppEvent>, exit_tx:
 		DisableLineWrap
 	)?;
 
-	let _ = exec_app(terminal, ebpf, app_tx, app_rx, exit_tx).await;
+	let _ = exec_app(terminal, ebpf, app_tx, rule_engine, app_rx, exit_tx).await;
 
 	ratatui::restore();
 	execute!(stdout(), LeaveAlternateScreen, DisableMouseCapture, cursor::Show)?;
@@ -44,13 +51,14 @@ async fn exec_app(
 	mut terminal: DefaultTerminal,
 	ebpf: Ebpf,
 	app_tx: AppTx,
+	rule_engine: Arc<RuleEngine>,
 	app_rx: Rx<AppEvent>,
 	exit_tx: ExitTx,
 ) -> Result<()> {
 	terminal.clear()?;
 
 	let _tin_read_handle = run_term_read(app_tx.clone())?;
-	let _tui_handle = run_ui_loop(terminal, ebpf, app_tx, app_rx, exit_tx)?;
+	let _tui_handle = run_ui_loop(terminal, ebpf, app_tx, rule_engine, app_rx, exit_tx)?;
 
 	_tui_handle.ui_handle.await?;
 

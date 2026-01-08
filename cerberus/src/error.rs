@@ -16,10 +16,18 @@ pub enum Error {
 	EbpfProgNotFound,
 	InvalidEventAlign,
 	InvalidEventSize,
+	#[display("Cerberus daemon failed to start.\nCause {cause}")]
+	DaemonStartFail {
+		cause: String,
+	},
+
+	HomeDirNotFound,
 	UnknownEventType(u8),
 	MutexPoison,
 	// -- Externals
 	//
+	#[from]
+	Var(std::env::VarError),
 	#[from]
 	Oneshot(tokio::sync::oneshot::error::RecvError),
 	#[from]

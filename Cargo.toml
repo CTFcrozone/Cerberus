@@ -6,9 +6,9 @@ members = [
     "lib-ebpf",
     "lib-rules",
     "lib-event",
-    "cerberus-tui",
+    "cerberus",
 ]
-default-members = ["cerberus-tui", "lib-common"]
+default-members = ["cerberus", "lib-common"]
 
 [workspace.package]
 license = "MIT OR Apache-2.0"
@@ -29,7 +29,7 @@ zerocopy-derive = "0.8"
 # `std` feature is currently required to build `clap`.
 #
 # See https://github.com/clap-rs/clap/blob/61f5ee5/clap_builder/src/lib.rs#L15.
-clap = { version = "4.5.20", default-features = false, features = ["std"] }
+clap = { version = "4.5.20", default-features = false, features = ["std", "cargo", "derive"] }
 libc = { version = "0.2.159", default-features = false }
 derive_more = { version = "2", features = ["from", "display"] }
 tokio = { version = "1.40.0", default-features = false }

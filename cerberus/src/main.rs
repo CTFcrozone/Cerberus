@@ -1,28 +1,95 @@
+mod cli;
 mod core;
 mod error;
 mod event;
 mod styles;
 mod views;
 mod worker;
+use crate::{
+	cli::args::{Cli, RunMode},
+	worker::RingBufWorker,
+};
+
 pub use self::error::{Error, Result};
 use aya::{
 	maps::{MapData, RingBuf},
 	programs::{KProbe, Lsm, TracePoint},
 	Btf, Ebpf,
 };
+use clap::Parser;
 use core::{start_tui, AppTx, ExitTx};
-use lib_event::{app_evt_types::AppEvent, trx::new_channel};
+use daemonize::Daemonize;
+use lib_event::{
+	app_evt_types::AppEvent,
+	trx::{new_channel, Rx},
+};
+use lib_rules::engine::RuleEngine;
+use std::{fs::File, path::Path, sync::Arc};
+use tracing::info;
 #[rustfmt::skip]
 use tracing::{debug, warn};
 use tokio::io::unix::AsyncFd;
 use tracing_subscriber::EnvFilter;
 
+pub fn daemonize_process(log_path: &str) -> Result<()> {
+	let log_file = File::create(Path::new(log_path))?;
+
+	let daemonize = Daemonize::new()
+		.working_directory("/")
+		.umask(0o027)
+		.stdout(log_file.try_clone()?)
+		.stderr(log_file);
+
+	daemonize
+		.start()
+		.map_err(|err| Error::DaemonStartFail { cause: err.to_string() })?;
+
+	Ok(())
+}
+
+pub async fn start_daemon(
+	mut ebpf: Ebpf,
+	rule_engine: Arc<RuleEngine>,
+	app_tx: AppTx,
+	app_rx: Rx<AppEvent>,
+) -> Result<()> {
+	let ringbuf_fd = load_hooks(&mut ebpf)?;
+
+	RingBufWorker::start(ringbuf_fd, rule_engine, app_tx).await?;
+
+	run_daemon_sink(app_rx).await?;
+
+	Ok(())
+}
+
+// TODO: tracing appender
+pub async fn run_daemon_sink(rx: Rx<AppEvent>) -> Result<()> {
+	while let Ok(evt) = rx.recv().await {
+		match evt {
+			AppEvent::CerberusEvaluated(alert) => {
+				info!(target: "alert", "{:?}", alert);
+			}
+			AppEvent::Cerberus(evt) => {
+				info!(target: "event", "{:?}", evt);
+			}
+			_ => {}
+		}
+	}
+	Ok(())
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
+	let args = Cli::parse();
+
 	tracing_subscriber::fmt()
 		.with_target(false)
 		.with_env_filter(EnvFilter::from_default_env())
 		.init();
+
+	if let RunMode::Daemon = args.mode {
+		daemonize_process(&args.log_file)?;
+	}
 
 	// Bump the memlock rlimit. This is needed for older kernels that don't use the
 	// new memcg based accounting, see https://lwn.net/Articles/837122/
@@ -41,22 +108,30 @@ async fn main() -> Result<()> {
 		warn!("failed to initialize eBPF logger: {e}");
 	}
 
+	let home_dir = std::env::home_dir().ok_or(Error::HomeDirNotFound)?;
+	let rule_dir = home_dir.join(".cerberus/rules/");
+	let rule_engine = Arc::new(RuleEngine::new(rule_dir)?);
+
 	let (app_tx, app_rx) = new_channel::<AppEvent>("app_event");
 	let app_tx = AppTx::from(app_tx);
 
 	let (exit_tx, exit_rx) = new_channel::<()>("exit");
 	let exit_tx = ExitTx::from(exit_tx);
 
-	// let res = load_hooks(ebpf)?;
+	match args.mode {
+		RunMode::Tui => {
+			start_tui(ebpf, rule_engine, app_tx, app_rx, exit_tx).await?;
+			let _ = exit_rx.recv().await;
+		}
 
-	// let ring_buf = RingBuf::try_from(ebpf.take_map("EVT_MAP").ok_or(Error::EbpfProgNotFound)?)?;
-
-	let tui_handle = tokio::spawn(async move { start_tui(ebpf, app_tx, app_rx, exit_tx).await });
-
-	let _ = exit_rx.recv().await;
-	if let Err(err) = tui_handle.await {
-		eprintln!("TUI task panicked or failed: {err}");
+		RunMode::Daemon => {
+			start_daemon(ebpf, rule_engine, app_tx, app_rx).await?;
+		}
 	}
+
+	// if let Err(err) = tui_handle.await {
+	// 	eprintln!("TUI task panicked or failed: {err}");
+	// }
 
 	Ok(())
 }

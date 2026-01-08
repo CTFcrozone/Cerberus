@@ -1,4 +1,5 @@
-use std::path::Path;
+use std::env;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -23,7 +24,12 @@ pub struct UiRuntime {
 	pub _rule_watcher: Debouncer<INotifyWatcher, NoCache>,
 }
 
-const RULES_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/src/rules/");
+const RULES_DIR: &str = "/home/voidbyte/.cerberus/rules/";
+
+pub fn get_rules_path() -> Result<PathBuf> {
+	let home = env::var("HOME")?;
+	Ok(std::path::Path::new(&home).join(RULES_DIR))
+}
 
 pub fn rule_watcher(dir: impl AsRef<Path>, tx: Tx<RuleWatchEvent>) -> Result<Debouncer<INotifyWatcher, NoCache>> {
 	let mut debouncer = new_debouncer(Duration::from_secs(1), None, move |res: DebounceEventResult| {
@@ -47,12 +53,12 @@ pub fn run_ui_loop(
 	mut term: DefaultTerminal,
 	ebpf: Ebpf,
 	app_tx: AppTx,
+	rule_engine: Arc<RuleEngine>,
 	app_rx: Rx<AppEvent>,
 	exit_tx: ExitTx,
 ) -> Result<UiRuntime> {
 	let mut appstate = AppState::new(ebpf, LastAppEvent::default())?;
 
-	let rule_engine = Arc::new(RuleEngine::new(RULES_DIR)?);
 	appstate.rule_engine = Some(rule_engine.clone());
 
 	let handle = tokio::spawn(async move {
