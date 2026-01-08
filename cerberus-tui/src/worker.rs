@@ -15,8 +15,6 @@ use tokio::io::unix::AsyncFd;
 use tracing::info;
 use zerocopy::FromBytes;
 
-
-
 pub struct RingBufWorker {
 	pub ringbuf_fd: AsyncFd<RingBuf<MapData>>,
 	pub tx: AppTx,
