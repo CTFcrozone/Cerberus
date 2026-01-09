@@ -14,6 +14,7 @@
 1. (if cross-compiling) LLVM: (e.g.) `brew install llvm` (on macOS)
 1. (if cross-compiling) C toolchain: (e.g.) [`brew install filosottile/musl-cross/musl-cross`](https://github.com/FiloSottile/homebrew-musl-cross) (on macOS)
 1. bpf-linker: `cargo install bpf-linker` (`--no-default-features` on macOS)
+1. libbpf-devel (Package manager)
 
 ## Build & Run
 
@@ -22,7 +23,13 @@ Use `cargo build`, `cargo check`, etc. as normal. Run your program with:
 TUI version:
 
 ```shell
-cargo run -p cerberus-tui --release --config 'target."cfg(all())".runner="sudo -E"'
+cargo run -p cerberus --release --config 'target."cfg(all())".runner="sudo -E"'
+```
+
+Daemon version (WIP):
+
+```shell
+cargo run -p cerberus --release --config 'target."cfg(all())".runner="sudo -E"' -- --mode daemon
 ```
 
 Cargo build scripts are used to automatically build the eBPF correctly and include it in the
@@ -33,13 +40,32 @@ program.
 Cross compilation should work on both Intel and Apple Silicon Macs.
 
 ```shell
-CC=${ARCH}-linux-musl-gcc cargo build --package rust-aya-ebpf-xp --release \
+CC=${ARCH}-linux-musl-gcc cargo build --package cerberus --release \
   --target=${ARCH}-unknown-linux-musl \
   --config=target.${ARCH}-unknown-linux-musl.linker=\"${ARCH}-linux-musl-gcc\"
 ```
 
 The cross-compiled program `target/${ARCH}-unknown-linux-musl/release/cerberus` can be
 copied to a Linux server or VM and run there.
+
+If tracefs is not mounted automatically, it must be done manually with:
+
+```shell
+sudo mount -t tracefs tracefs /sys/kernel/tracing
+```
+
+## Development
+
+### Prerequisites
+
+1. All prerequisites from the top of the readme
+1. bindgen-cli
+1. aya-tool (for generating vmlinux)
+
+```shell
+cargo install bindgen-cli
+cargo install --git https://github.com/aya-rs/aya -- aya-tool
+```
 
 ## License
 

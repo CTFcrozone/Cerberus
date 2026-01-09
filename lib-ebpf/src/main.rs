@@ -273,11 +273,11 @@ fn try_bprm_check_security(ctx: LsmContext) -> Result<i32, i32> {
 	let comm = bpf_get_current_comm().unwrap_or([0u8; 16]);
 	let bprm: *const linux_binprm = unsafe { ctx.arg(0) };
 
-	let buf = unsafe { FPATH.get_ptr_mut(0).ok_or(1i32)? };
+	let buf = unsafe { FPATH.get_ptr_mut(0).ok_or(0)? };
 
 	unsafe {
 		let file = (*bprm).file;
-		let f_path = &(*file).__bindgen_anon_1.__f_path as *const _ as *mut path;
+		let f_path = &(*file).__bindgen_anon_1.f_path as *const _ as *mut path;
 		let ret = bpf_d_path(f_path, buf as *mut i8, PATH_LEN);
 
 		if ret < 0 {
