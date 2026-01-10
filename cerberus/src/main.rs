@@ -24,8 +24,9 @@ use lib_event::{
 	trx::{new_channel, Rx},
 };
 use lib_rules::engine::RuleEngine;
-use std::{fs::File, path::Path, sync::Arc};
+use std::{fs::File, path::Path, sync::Arc, time::Duration};
 use tracing::info;
+use tracing_appender::rolling;
 #[rustfmt::skip]
 use tracing::{debug, warn};
 use tokio::io::unix::AsyncFd;
@@ -62,7 +63,19 @@ pub async fn start_daemon(
 	Ok(())
 }
 
-// TODO: tracing appender
+fn init_tracing(log_path: &str) -> impl Drop {
+	let file_appender = rolling::daily("/var/log/cerberus", log_path);
+	let (non_blocking_writer, guard) = tracing_appender::non_blocking(file_appender);
+
+	tracing_subscriber::fmt()
+		.with_writer(non_blocking_writer)
+		.with_target(false)
+		.with_env_filter(EnvFilter::from_default_env())
+		.init();
+
+	guard
+}
+
 pub async fn run_daemon_sink(rx: Rx<AppEvent>) -> Result<()> {
 	while let Ok(evt) = rx.recv().await {
 		match evt {
@@ -82,10 +95,15 @@ pub async fn run_daemon_sink(rx: Rx<AppEvent>) -> Result<()> {
 async fn main() -> Result<()> {
 	let args = Cli::parse();
 
-	tracing_subscriber::fmt()
-		.with_target(false)
-		.with_env_filter(EnvFilter::from_default_env())
-		.init();
+	if args.time.is_some() && args.mode != RunMode::Daemon {
+		return Err(Error::InvalidTimeMode);
+	}
+
+	let Some(duration) = args.time else {
+		return Err(Error::NoTimeSpecified);
+	};
+
+	let _tracing_guard = init_tracing(&args.log_file);
 
 	if let RunMode::Daemon = args.mode {
 		daemonize_process(&args.log_file)?;
@@ -125,6 +143,7 @@ async fn main() -> Result<()> {
 		}
 
 		RunMode::Daemon => {
+			let duration: Duration = duration.into();
 			start_daemon(ebpf, rule_engine, app_tx, app_rx).await?;
 		}
 	}

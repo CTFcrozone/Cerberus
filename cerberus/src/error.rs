@@ -16,6 +16,9 @@ pub enum Error {
 	EbpfProgNotFound,
 	InvalidEventAlign,
 	InvalidEventSize,
+	#[display("Timed run is only possible in 'daemon' mode")]
+	InvalidTimeMode,
+	NoTimeSpecified,
 	#[display("Cerberus daemon failed to start.\nCause {cause}")]
 	DaemonStartFail {
 		cause: String,

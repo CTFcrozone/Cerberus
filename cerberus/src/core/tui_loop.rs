@@ -26,11 +26,6 @@ pub struct UiRuntime {
 
 const RULES_DIR: &str = "/home/voidbyte/.cerberus/rules/";
 
-pub fn get_rules_path() -> Result<PathBuf> {
-	let home = env::var("HOME")?;
-	Ok(std::path::Path::new(&home).join(RULES_DIR))
-}
-
 pub fn rule_watcher(dir: impl AsRef<Path>, tx: Tx<RuleWatchEvent>) -> Result<Debouncer<INotifyWatcher, NoCache>> {
 	let mut debouncer = new_debouncer(Duration::from_secs(1), None, move |res: DebounceEventResult| {
 		if res.is_ok() {
