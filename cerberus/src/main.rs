@@ -26,7 +26,7 @@ use lib_event::{
 use lib_rules::engine::RuleEngine;
 use std::{fs::File, path::Path, sync::Arc, time::Duration};
 use tracing::info;
-use tracing_appender::rolling;
+use tracing_appender::{non_blocking::WorkerGuard, rolling};
 #[rustfmt::skip]
 use tracing::{debug, warn};
 use tokio::io::unix::AsyncFd;
@@ -53,17 +53,24 @@ pub async fn start_daemon(
 	rule_engine: Arc<RuleEngine>,
 	app_tx: AppTx,
 	app_rx: Rx<AppEvent>,
+	exit_tx: ExitTx,
+	run_time: Duration,
 ) -> Result<()> {
 	let ringbuf_fd = load_hooks(&mut ebpf)?;
 
 	RingBufWorker::start(ringbuf_fd, rule_engine, app_tx).await?;
+
+	tokio::spawn(async move {
+		tokio::time::sleep(run_time).await;
+		let _ = exit_tx.send(()).await;
+	});
 
 	run_daemon_sink(app_rx).await?;
 
 	Ok(())
 }
 
-fn init_tracing(log_path: &str) -> impl Drop {
+fn init_tracing(log_path: &str) -> WorkerGuard {
 	let file_appender = rolling::daily("/var/log/cerberus", log_path);
 	let (non_blocking_writer, guard) = tracing_appender::non_blocking(file_appender);
 
@@ -80,7 +87,7 @@ pub async fn run_daemon_sink(rx: Rx<AppEvent>) -> Result<()> {
 	while let Ok(evt) = rx.recv().await {
 		match evt {
 			AppEvent::CerberusEvaluated(alert) => {
-				info!(target: "alert", "{:?}", alert);
+				info!(target: "Matched rule", "{:?}", alert);
 			}
 			AppEvent::Cerberus(evt) => {
 				info!(target: "event", "{:?}", evt);
@@ -98,10 +105,6 @@ async fn main() -> Result<()> {
 	if args.time.is_some() && args.mode != RunMode::Daemon {
 		return Err(Error::InvalidTimeMode);
 	}
-
-	let Some(duration) = args.time else {
-		return Err(Error::NoTimeSpecified);
-	};
 
 	let _tracing_guard = init_tracing(&args.log_file);
 
@@ -139,14 +142,17 @@ async fn main() -> Result<()> {
 	match args.mode {
 		RunMode::Tui => {
 			start_tui(ebpf, rule_engine, app_tx, app_rx, exit_tx).await?;
-			let _ = exit_rx.recv().await;
 		}
 
 		RunMode::Daemon => {
-			let duration: Duration = duration.into();
-			start_daemon(ebpf, rule_engine, app_tx, app_rx).await?;
+			let Some(duration) = args.time else {
+				return Err(Error::NoTimeSpecified);
+			};
+			start_daemon(ebpf, rule_engine, app_tx, app_rx, exit_tx, duration.into()).await?;
 		}
 	}
+
+	let _ = exit_rx.recv().await;
 
 	// if let Err(err) = tui_handle.await {
 	// 	eprintln!("TUI task panicked or failed: {err}");
