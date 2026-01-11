@@ -9,7 +9,10 @@ use crate::{
 };
 use aya::Ebpf;
 use daemonize::Daemonize;
-use lib_event::{app_evt_types::AppEvent, trx::Rx};
+use lib_event::{
+	app_evt_types::{AppEvent, CerberusEvent, EvaluatedEvent},
+	trx::Rx,
+};
 use lib_rules::engine::RuleEngine;
 use tokio_util::sync::CancellationToken;
 use tracing::info;
@@ -35,7 +38,6 @@ pub async fn _run_daemon_sink(rx: Rx<AppEvent>, shutdown: CancellationToken) -> 
 	loop {
 		tokio::select! {
 			_ = shutdown.cancelled() => {
-				info!("Daemon sink shutting down");
 				break;
 			}
 
@@ -44,10 +46,10 @@ pub async fn _run_daemon_sink(rx: Rx<AppEvent>, shutdown: CancellationToken) -> 
 					Ok(evt) => {
 						match evt {
 							AppEvent::CerberusEvaluated(e) => {
-								info!(target: "matched_rule", "{:?}", e);
+								print_alert(&e);
 							}
 							AppEvent::Cerberus(e) => {
-								info!(target: "event", "{:?}", e);
+								print_event(&e);
 							}
 							_ => {}
 						}
@@ -64,69 +66,75 @@ pub async fn _run_daemon_sink(rx: Rx<AppEvent>, shutdown: CancellationToken) -> 
 	Ok(())
 }
 
-pub async fn install_signal_handlers(token: CancellationToken) -> Result<()> {
-	let t = token.clone();
-	tokio::spawn(async move {
-		let _ = tokio::signal::ctrl_c().await;
-		t.cancel();
-	});
-
-	#[cfg(unix)]
-	{
-		use tokio::signal::unix::{signal, SignalKind};
-
-		let t = token.clone();
-		tokio::spawn(async move {
-			let mut sigterm = signal(SignalKind::terminate()).unwrap();
-			sigterm.recv().await;
-			t.cancel();
-		});
-	}
-	Ok(())
-}
-
-pub fn daemonize_process(log_path: &str) -> Result<()> {
-	let log_file = File::create(Path::new(log_path))?;
-
-	let daemonize = Daemonize::new()
-		.working_directory("/")
-		.umask(0o027)
-		.stdout(log_file.try_clone()?)
-		.stderr(log_file);
-
-	daemonize
-		.start()
-		.map_err(|err| Error::DaemonStartFail { cause: err.to_string() })?;
-
-	Ok(())
-}
-
-pub fn init_tracing(log_path: &str) -> WorkerGuard {
+pub fn init_tracing(log_path: &str) -> (WorkerGuard, WorkerGuard) {
 	let path = Path::new(log_path);
 
-	let dir = path.parent().unwrap_or(Path::new("/var/log"));
-	let file = path.file_name().unwrap_or_default();
+	let dir = path.parent().unwrap_or(Path::new("."));
+	let file = path.file_name().unwrap_or_else(|| std::ffi::OsStr::new("cerberus.log"));
 
 	let file_appender = rolling::daily(dir, file);
 	let (non_blocking_writer, guard) = tracing_appender::non_blocking(file_appender);
 
+	let (non_blocking_stdout, stdout_guard) = tracing_appender::non_blocking(std::io::stdout());
+
+	let env_filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"));
+
 	tracing_subscriber::fmt()
 		.with_writer(non_blocking_writer)
-		.with_target(false)
-		.with_env_filter(EnvFilter::from_default_env())
+		.with_writer(non_blocking_stdout)
+		.with_target(true)
+		.with_thread_names(true)
+		.with_env_filter(env_filter)
 		.init();
 
-	guard
+	(guard, stdout_guard)
+}
+pub async fn start_daemon(app_rx: Rx<AppEvent>, shutdown: CancellationToken, run_time: Duration) -> Result<()> {
+	let sink_shutdown = shutdown.clone();
+	let sink_handle = tokio::spawn(async move {
+		let _ = _run_daemon_sink(app_rx, sink_shutdown).await;
+	});
+
+	tokio::time::sleep(run_time).await;
+	shutdown.cancel();
+	let _ = sink_handle.await;
+
+	Ok(())
 }
 
-pub async fn start_daemon(app_rx: Rx<AppEvent>, shutdown: CancellationToken, run_time: Duration) -> Result<()> {
-	tokio::select! {
-		_ = tokio::time::sleep(run_time) => {
-			shutdown.cancel();
+fn print_alert(e: &EvaluatedEvent) {
+	info!(
+		"[{}] {} (PID: {}, UID: {})",
+		e.rule_type, e.rule_id, e.event_meta.pid, e.event_meta.uid
+	);
+}
+
+fn print_event(e: &CerberusEvent) {
+	match e {
+		CerberusEvent::Generic(g) => {
+			info!("{}: {} (PID: {}, UID: {})", g.name, g.comm, g.pid, g.uid);
 		}
-		result = _run_daemon_sink(app_rx, shutdown.clone()) => {
-			result?;
+		CerberusEvent::InetSock(i) => {
+			info!(
+				"{} → {} ({}:{} → {}:{})",
+				i.old_state,
+				i.new_state,
+				ip_to_string(i.saddr),
+				i.sport,
+				ip_to_string(i.daddr),
+				i.dport
+			);
+		}
+		CerberusEvent::Module(m) => {
+			info!("{} loaded by {} (PID: {})", m.module_name, m.comm, m.pid);
+		}
+		CerberusEvent::Bprm(b) => {
+			info!("{} executed {} (PID: {})", b.comm, b.filepath, b.pid);
 		}
 	}
-	Ok(())
+}
+
+pub fn ip_to_string(ip: u32) -> String {
+	let octets = ip.to_le_bytes();
+	format!("{}.{}.{}.{}", octets[0], octets[1], octets[2], octets[3])
 }

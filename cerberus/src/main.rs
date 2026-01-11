@@ -29,6 +29,7 @@ use daemon::*;
 use lib_event::{app_evt_types::AppEvent, trx::new_channel};
 use lib_rules::engine::RuleEngine;
 use std::sync::Arc;
+use tracing::info;
 #[rustfmt::skip]
 use tracing::{debug, warn};
 use tokio::io::unix::AsyncFd;
@@ -37,15 +38,11 @@ use tokio::io::unix::AsyncFd;
 async fn main() -> Result<()> {
 	let args = Cli::parse();
 
-	if args.time.is_some() && args.mode != RunMode::Daemon {
+	let _tracing_guard = init_tracing(&args.log_file);
+
+	if args.time.is_some() && args.mode != RunMode::Agent {
 		return Err(Error::InvalidTimeMode);
 	}
-
-	if let RunMode::Daemon = args.mode {
-		daemonize_process(&args.log_file)?;
-	}
-
-	let _tracing_guard = init_tracing(&args.log_file);
 
 	// Bump the memlock rlimit. This is needed for older kernels that don't use the
 	// new memcg based accounting, see https://lwn.net/Articles/837122/
@@ -74,10 +71,11 @@ async fn main() -> Result<()> {
 	let (exit_tx, exit_rx) = new_channel::<()>("exit");
 	let exit_tx = ExitTx::from(exit_tx);
 
+	let ringbuf_fd = load_hooks(&mut ebpf)?;
+
 	let mut supervisor = Supervisor::new();
 	// install_signal_handlers(supervisor.token()).await?;
 
-	let ringbuf_fd = load_hooks(&mut ebpf)?;
 	let worker = RingBufWorker::start(ringbuf_fd, rule_engine.clone(), app_tx.clone(), supervisor.token());
 	supervisor.spawn(worker._run());
 
@@ -93,7 +91,7 @@ async fn main() -> Result<()> {
 			));
 		}
 
-		RunMode::Daemon => {
+		RunMode::Agent => {
 			let duration = args.time.ok_or(Error::NoTimeSpecified)?;
 			supervisor.spawn(start_daemon(app_rx, supervisor.token(), duration.into()));
 		}

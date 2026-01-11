@@ -17,6 +17,7 @@ use notify_debouncer_full::{new_debouncer, DebounceEventResult, Debouncer, NoCac
 use ratatui::DefaultTerminal;
 use tokio::task::JoinHandle;
 use tokio_util::sync::CancellationToken;
+use tracing::info;
 
 use super::event_handler::handle_app_event;
 use super::{process_app_state, AppState, AppTx, ExitTx};
@@ -53,7 +54,10 @@ pub async fn _rule_watch_worker(
 ) -> Result<()> {
 	loop {
 		tokio::select! {
-			_ = shutdown.cancelled() => break,
+			_ = shutdown.cancelled() => {
+				info!("rule watch worker cancel");
+				break;
+			},
 			evt = rx.recv() => {
 				if let Ok(_) = evt {
 					engine.reload_ruleset(RULES_DIR)?;
@@ -135,18 +139,22 @@ pub fn _run_ui_loop(
 			let _ = terminal_draw(&mut term, &mut appstate);
 
 			let app_event = tokio::select! {
-				_ = shutdown.cancelled() => break,
+				_ = shutdown.cancelled() => {
+						break;
+				},
 				evt = app_rx.recv() => match evt {
 					Ok(r) => r,
 					Err(_) => break,
 				},
 			};
 
-			if let AppEvent::Action(ActionEvent::Quit) = &app_event {
-				let _ = term.clear();
-				shutdown.cancel();
-				break;
-			}
+			// if let AppEvent::Action(ActionEvent::Quit) = &app_event {
+			// 	let _ = term.clear();
+			// 	info!("tui loop cancel 3");
+
+			// 	shutdown.cancel();
+			// 	break;
+			// }
 
 			let _ = _handle_app_event(
 				&mut term,

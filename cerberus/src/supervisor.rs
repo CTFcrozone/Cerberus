@@ -2,6 +2,7 @@ use std::future::Future;
 
 use tokio::task::JoinSet;
 use tokio_util::sync::CancellationToken;
+use tracing::info;
 
 use crate::Result;
 
@@ -34,11 +35,13 @@ impl Supervisor {
 	}
 
 	pub async fn shutdown(mut self) -> Result<()> {
+		info!("Supervisor shutdown starting");
 		self.shutdown.cancel();
 
 		while let Some(res) = self.tasks.join_next().await {
 			res??;
 		}
+		info!("Supervisor shutdown complete");
 
 		Ok(())
 	}

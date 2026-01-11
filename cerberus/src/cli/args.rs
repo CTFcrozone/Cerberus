@@ -1,7 +1,7 @@
 use clap::{Parser, ValueEnum};
 use humantime::Duration;
 
-#[derive(Parser)]
+#[derive(Parser, Debug)]
 #[command(name = "cerberus")]
 pub struct Cli {
 	#[arg(long, value_enum, default_value = "tui")]
@@ -17,5 +17,5 @@ pub struct Cli {
 #[derive(Copy, Clone, Debug, ValueEnum, PartialEq, Eq)]
 pub enum RunMode {
 	Tui,
-	Daemon,
+	Agent,
 }

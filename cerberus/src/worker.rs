@@ -39,10 +39,11 @@ impl RingBufWorker {
 	}
 
 	pub async fn _run(mut self) -> Result<()> {
+		tracing::info!("RingBufWorker start");
+
 		loop {
 			tokio::select! {
 				_ = self.shutdown.cancelled() => {
-					tracing::info!("RingBufWorker shutting down");
 					break;
 				}
 
@@ -51,6 +52,7 @@ impl RingBufWorker {
 					let ring_buf = guard.get_inner_mut();
 
 					while let Some(item) = ring_buf.next() {
+
 						let data = item.as_ref();
 
 						if let Ok(evt) = parse_event_from_bytes(data) {

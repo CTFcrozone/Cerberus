@@ -18,6 +18,7 @@ use ratatui::DefaultTerminal;
 use lib_event::app_evt_types::AppEvent;
 use lib_event::trx::{Rx, Tx};
 use tokio_util::sync::CancellationToken;
+use tracing::info;
 
 use super::{term_reader::run_term_read, tui_loop::run_ui_loop};
 
@@ -92,7 +93,8 @@ async fn _exec_app(
 
 	tokio::select! {
 		_ = _tui_handle.ui_handle => {},
-		_ = shutdown.cancelled() => {},
+		_ = shutdown.cancelled() => {
+		},
 	}
 
 	Ok(())
