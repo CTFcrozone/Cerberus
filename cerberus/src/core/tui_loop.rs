@@ -3,6 +3,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
 
+use crate::core::event_handler::_handle_app_event;
 use crate::core::View;
 use crate::event::LastAppEvent;
 use crate::views::{render_rule_popup, MainView, SummaryView};
@@ -15,6 +16,7 @@ use notify::{INotifyWatcher, RecursiveMode};
 use notify_debouncer_full::{new_debouncer, DebounceEventResult, Debouncer, NoCache};
 use ratatui::DefaultTerminal;
 use tokio::task::JoinHandle;
+use tokio_util::sync::CancellationToken;
 
 use super::event_handler::handle_app_event;
 use super::{process_app_state, AppState, AppTx, ExitTx};
@@ -40,6 +42,24 @@ pub fn rule_watcher(dir: impl AsRef<Path>, tx: Tx<RuleWatchEvent>) -> Result<Deb
 pub async fn rule_watch_worker(rx: Rx<RuleWatchEvent>, engine: Arc<RuleEngine>) -> Result<()> {
 	while let Ok(_) = rx.recv().await {
 		engine.reload_ruleset(RULES_DIR)?;
+	}
+	Ok(())
+}
+
+pub async fn _rule_watch_worker(
+	rx: Rx<RuleWatchEvent>,
+	engine: Arc<RuleEngine>,
+	shutdown: CancellationToken,
+) -> Result<()> {
+	loop {
+		tokio::select! {
+			_ = shutdown.cancelled() => break,
+			evt = rx.recv() => {
+				if let Ok(_) = evt {
+					engine.reload_ruleset(RULES_DIR)?;
+				}
+			}
+		}
 	}
 	Ok(())
 }
@@ -77,6 +97,66 @@ pub fn run_ui_loop(
 
 			let _ = handle_app_event(&mut term, &app_tx, &exit_tx, &app_event, &mut appstate).await;
 
+			appstate.last_app_event = app_event.into();
+		}
+	});
+
+	let (rule_tx, rule_rx) = new_channel::<RuleWatchEvent>("rules");
+	let _watcher = rule_watcher(RULES_DIR, rule_tx)?;
+	tokio::spawn(rule_watch_worker(rule_rx, rule_engine));
+
+	Ok(UiRuntime {
+		ui_handle: handle,
+		_rule_watcher: _watcher,
+	})
+}
+
+pub fn _run_ui_loop(
+	mut term: DefaultTerminal,
+	ebpf: Ebpf,
+	app_tx: AppTx,
+	rule_engine: Arc<RuleEngine>,
+	app_rx: Rx<AppEvent>,
+	exit_tx: ExitTx,
+	shutdown: CancellationToken,
+) -> Result<UiRuntime> {
+	let mut appstate = AppState::new(ebpf, LastAppEvent::default())?;
+
+	appstate.rule_engine = Some(rule_engine.clone());
+
+	let handle = tokio::spawn(async move {
+		loop {
+			if shutdown.is_cancelled() {
+				let _ = term.clear();
+				break;
+			}
+
+			process_app_state(&mut appstate);
+			let _ = terminal_draw(&mut term, &mut appstate);
+
+			let app_event = tokio::select! {
+				_ = shutdown.cancelled() => break,
+				evt = app_rx.recv() => match evt {
+					Ok(r) => r,
+					Err(_) => break,
+				},
+			};
+
+			if let AppEvent::Action(ActionEvent::Quit) = &app_event {
+				let _ = term.clear();
+				shutdown.cancel();
+				break;
+			}
+
+			let _ = _handle_app_event(
+				&mut term,
+				&app_tx,
+				&exit_tx,
+				&app_event,
+				&mut appstate,
+				shutdown.clone(),
+			)
+			.await;
 			appstate.last_app_event = app_event.into();
 		}
 	});

@@ -9,6 +9,7 @@ use crate::{
 use crossterm::event::{Event, KeyCode, KeyEventKind, KeyModifiers};
 use lib_event::app_evt_types::{ActionEvent, AppEvent, CerberusEvent, EvaluatedEvent};
 use ratatui::DefaultTerminal;
+use tokio_util::sync::CancellationToken;
 
 const MAX_EVENTS: usize = 250; // Reduced from 1000
 
@@ -22,6 +23,32 @@ pub async fn handle_app_event(
 	match app_event {
 		AppEvent::Term(term_event) => {
 			handle_term_event(&term_event, app_tx).await?;
+		}
+		AppEvent::Action(action_event) => {
+			handle_action_event(&action_event, terminal, exit_tx).await?;
+		}
+		AppEvent::Cerberus(cerberus_evt) => {
+			handle_cerberus_event(cerberus_evt, app_state);
+		}
+		AppEvent::CerberusEvaluated(evt) => handle_cerberus_eval_event(evt, app_state),
+
+		_ => {}
+	};
+
+	Ok(())
+}
+
+pub async fn _handle_app_event(
+	terminal: &mut DefaultTerminal,
+	app_tx: &AppTx,
+	exit_tx: &ExitTx,
+	app_event: &AppEvent,
+	app_state: &mut AppState,
+	shutdown: CancellationToken,
+) -> Result<()> {
+	match app_event {
+		AppEvent::Term(term_event) => {
+			_handle_term_event(&term_event, shutdown).await?;
 		}
 		AppEvent::Action(action_event) => {
 			handle_action_event(&action_event, terminal, exit_tx).await?;
@@ -84,6 +111,21 @@ async fn handle_term_event(term_event: &Event, app_tx: &AppTx) -> Result<()> {
 			let mod_ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
 			match (key.code, mod_ctrl) {
 				(KeyCode::Char('c'), true) => app_tx.send(ActionEvent::Quit).await?,
+				_ => (),
+			}
+		}
+	}
+	Ok(())
+}
+
+async fn _handle_term_event(term_event: &Event, shutdown: CancellationToken) -> Result<()> {
+	if let Event::Key(key) = term_event {
+		if let KeyEventKind::Press = key.kind {
+			let mod_ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
+			match (key.code, mod_ctrl) {
+				(KeyCode::Char('c'), true) | (KeyCode::Char('q'), false) => {
+					shutdown.cancel();
+				}
 				_ => (),
 			}
 		}

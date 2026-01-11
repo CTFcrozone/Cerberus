@@ -12,6 +12,8 @@ mod worker;
 
 use crate::{
 	cli::args::{Cli, RunMode},
+	core::_start_tui,
+	supervisor::Supervisor,
 	worker::RingBufWorker,
 };
 
@@ -39,11 +41,11 @@ async fn main() -> Result<()> {
 		return Err(Error::InvalidTimeMode);
 	}
 
-	let _tracing_guard = init_tracing(&args.log_file);
-
 	if let RunMode::Daemon = args.mode {
 		daemonize_process(&args.log_file)?;
 	}
+
+	let _tracing_guard = init_tracing(&args.log_file);
 
 	// Bump the memlock rlimit. This is needed for older kernels that don't use the
 	// new memcg based accounting, see https://lwn.net/Articles/837122/
@@ -72,26 +74,33 @@ async fn main() -> Result<()> {
 	let (exit_tx, exit_rx) = new_channel::<()>("exit");
 	let exit_tx = ExitTx::from(exit_tx);
 
+	let mut supervisor = Supervisor::new();
+	// install_signal_handlers(supervisor.token()).await?;
+
+	let ringbuf_fd = load_hooks(&mut ebpf)?;
+	let worker = RingBufWorker::start(ringbuf_fd, rule_engine.clone(), app_tx.clone(), supervisor.token());
+	supervisor.spawn(worker._run());
+
 	match args.mode {
 		RunMode::Tui => {
-			let ringbuf_fd = load_hooks(&mut ebpf)?;
-			RingBufWorker::start(ringbuf_fd, rule_engine.clone(), app_tx.clone()).await?;
-			start_tui(ebpf, rule_engine, app_tx, app_rx, exit_tx).await?;
+			supervisor.spawn(_start_tui(
+				ebpf,
+				rule_engine,
+				app_tx,
+				app_rx,
+				exit_tx,
+				supervisor.token(),
+			));
 		}
 
 		RunMode::Daemon => {
-			let Some(duration) = args.time else {
-				return Err(Error::NoTimeSpecified);
-			};
-			start_daemon(ebpf, rule_engine, app_tx, app_rx, exit_tx, duration.into()).await?;
+			let duration = args.time.ok_or(Error::NoTimeSpecified)?;
+			supervisor.spawn(start_daemon(app_rx, supervisor.token(), duration.into()));
 		}
 	}
 
-	let _ = exit_rx.recv().await;
-
-	// if let Err(err) = tui_handle.await {
-	// 	eprintln!("TUI task panicked or failed: {err}");
-	// }
+	supervisor.token().cancelled().await;
+	supervisor.shutdown().await?;
 
 	Ok(())
 }

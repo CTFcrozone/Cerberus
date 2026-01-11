@@ -1,6 +1,9 @@
 use std::{io::stdout, sync::Arc};
 
-use crate::Result;
+use crate::{
+	core::{term_reader::_run_term_read, tui_loop::_run_ui_loop},
+	Result,
+};
 use aya::Ebpf;
 use crossterm::{
 	cursor,
@@ -14,6 +17,7 @@ use ratatui::DefaultTerminal;
 
 use lib_event::app_evt_types::AppEvent;
 use lib_event::trx::{Rx, Tx};
+use tokio_util::sync::CancellationToken;
 
 use super::{term_reader::run_term_read, tui_loop::run_ui_loop};
 
@@ -44,6 +48,53 @@ pub async fn start_tui(
 
 	ratatui::restore();
 	execute!(stdout(), LeaveAlternateScreen, DisableMouseCapture, cursor::Show)?;
+	Ok(())
+}
+
+pub async fn _start_tui(
+	ebpf: Ebpf,
+	rule_engine: Arc<RuleEngine>,
+	app_tx: AppTx,
+	app_rx: Rx<AppEvent>,
+	exit_tx: ExitTx,
+	shutdown: CancellationToken,
+) -> Result<()> {
+	let terminal = ratatui::init();
+
+	execute!(
+		stdout(),
+		EnterAlternateScreen,
+		EnableMouseCapture,
+		cursor::Hide,
+		DisableLineWrap
+	)?;
+
+	let _ = _exec_app(terminal, ebpf, app_tx, rule_engine, app_rx, exit_tx, shutdown).await;
+
+	ratatui::restore();
+	execute!(stdout(), LeaveAlternateScreen, DisableMouseCapture, cursor::Show)?;
+	Ok(())
+}
+
+async fn _exec_app(
+	mut terminal: DefaultTerminal,
+	ebpf: Ebpf,
+	app_tx: AppTx,
+	rule_engine: Arc<RuleEngine>,
+	app_rx: Rx<AppEvent>,
+	exit_tx: ExitTx,
+	shutdown: CancellationToken,
+) -> Result<()> {
+	terminal.clear()?;
+
+	let _tin_read_handle = _run_term_read(app_tx.clone(), shutdown.clone())?;
+	let _tui_handle = _run_ui_loop(terminal, ebpf, app_tx, rule_engine, app_rx, exit_tx, shutdown.clone())?;
+
+	tokio::select! {
+		_ = _tui_handle.ui_handle => {},
+		_ = shutdown.cancelled() => {},
+	}
+
 	Ok(())
 }
 

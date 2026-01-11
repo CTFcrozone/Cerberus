@@ -12,6 +12,7 @@ use lib_common::{
 use lib_event::app_evt_types::{AppEvent, BprmSecurityEvent, CerberusEvent, InetSockEvent, ModuleEvent, RingBufEvent};
 use lib_rules::engine::RuleEngine;
 use tokio::io::unix::AsyncFd;
+use tokio_util::sync::CancellationToken;
 use tracing::info;
 use zerocopy::FromBytes;
 
@@ -19,23 +20,57 @@ pub struct RingBufWorker {
 	pub ringbuf_fd: AsyncFd<RingBuf<MapData>>,
 	pub tx: AppTx,
 	pub rule_engine: Arc<RuleEngine>,
+	pub shutdown: CancellationToken,
 }
 
 impl RingBufWorker {
-	pub async fn start(ringbuf_fd: AsyncFd<RingBuf<MapData>>, rule_engine: Arc<RuleEngine>, tx: AppTx) -> Result<()> {
-		let mut worker = RingBufWorker {
+	pub fn start(
+		ringbuf_fd: AsyncFd<RingBuf<MapData>>,
+		rule_engine: Arc<RuleEngine>,
+		tx: AppTx,
+		shutdown: CancellationToken,
+	) -> Self {
+		RingBufWorker {
 			ringbuf_fd,
 			tx,
 			rule_engine,
-		};
-		tokio::spawn(async move {
-			let res = worker.start_worker().await;
-			res
-		});
+			shutdown,
+		}
+	}
+
+	pub async fn _run(mut self) -> Result<()> {
+		loop {
+			tokio::select! {
+				_ = self.shutdown.cancelled() => {
+					tracing::info!("RingBufWorker shutting down");
+					break;
+				}
+
+				ready = self.ringbuf_fd.readable_mut() => {
+					let mut guard = ready?;
+					let ring_buf = guard.get_inner_mut();
+
+					while let Some(item) = ring_buf.next() {
+						let data = item.as_ref();
+
+						if let Ok(evt) = parse_event_from_bytes(data) {
+							let cerb = parse_cerberus_event(evt)?;
+							for e in self.rule_engine.process_event(&cerb)? {
+								self.tx.send(AppEvent::CerberusEvaluated(e)).await?;
+							}
+							self.tx.send(AppEvent::Cerberus(cerb)).await?;
+						}
+					}
+
+					guard.clear_ready();
+				}
+			}
+		}
+
 		Ok(())
 	}
 
-	async fn start_worker(&mut self) -> Result<()> {
+	async fn run(&mut self) -> Result<()> {
 		loop {
 			let mut guard = self.ringbuf_fd.readable_mut().await?;
 			let ring_buf = guard.get_inner_mut();
