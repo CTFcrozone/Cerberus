@@ -8,7 +8,7 @@ use ratatui::{
 
 use crate::{core::AppState, styles};
 
-use super::{splash_view::SplashView, EvaluatedEventView, GeneralEventView, LoadedHooksView, NetworkEventView};
+use super::{EvaluatedEventView, GeneralEventView, LoadedHooksView, NetworkEventView};
 
 pub struct MainView;
 
@@ -19,11 +19,6 @@ impl StatefulWidget for MainView {
 			.style(Style::default().bg(styles::CLR_BKG_GRAY_DARKER))
 			.render(area, buf);
 
-		if !state.worker_up() {
-			let splash = SplashView {};
-			splash.render(area, buf, state);
-			return;
-		}
 		let [tabs_area, main, sys_info] = Layout::default()
 			.direction(Direction::Vertical)
 			.constraints([

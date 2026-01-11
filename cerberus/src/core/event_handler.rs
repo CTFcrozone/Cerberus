@@ -30,23 +30,9 @@ pub async fn handle_app_event(
 			handle_cerberus_event(cerberus_evt, app_state);
 		}
 		AppEvent::CerberusEvaluated(evt) => handle_cerberus_eval_event(evt, app_state),
-		AppEvent::LoadedHooks => {
-			handle_hooks_loaded(app_state, app_tx).await?;
-		}
+
 		_ => {}
 	};
-
-	Ok(())
-}
-
-async fn handle_hooks_loaded(app_state: &mut AppState, app_tx: &AppTx) -> Result<()> {
-	if let Some(fd) = app_state.ringbuf_fd() {
-		if let Some(engine) = &app_state.rule_engine {
-			RingBufWorker::start(fd, engine.clone(), app_tx.clone()).await?;
-			app_state.worker_up = true;
-			app_state.set_view(crate::core::View::Main);
-		}
-	}
 
 	Ok(())
 }

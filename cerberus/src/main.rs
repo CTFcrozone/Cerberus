@@ -1,10 +1,15 @@
+// region:    --- Modules
 mod cli;
 mod core;
+mod daemon;
 mod error;
 mod event;
 mod styles;
+mod supervisor;
 mod views;
 mod worker;
+// endregion: --- Modules
+
 use crate::{
 	cli::args::{Cli, RunMode},
 	worker::RingBufWorker,
@@ -18,85 +23,13 @@ use aya::{
 };
 use clap::Parser;
 use core::{start_tui, AppTx, ExitTx};
-use daemonize::Daemonize;
-use lib_event::{
-	app_evt_types::AppEvent,
-	trx::{new_channel, Rx},
-};
+use daemon::*;
+use lib_event::{app_evt_types::AppEvent, trx::new_channel};
 use lib_rules::engine::RuleEngine;
-use std::{fs::File, path::Path, sync::Arc, time::Duration};
-use tracing::info;
-use tracing_appender::{non_blocking::WorkerGuard, rolling};
+use std::sync::Arc;
 #[rustfmt::skip]
 use tracing::{debug, warn};
 use tokio::io::unix::AsyncFd;
-use tracing_subscriber::EnvFilter;
-
-pub fn daemonize_process(log_path: &str) -> Result<()> {
-	let log_file = File::create(Path::new(log_path))?;
-
-	let daemonize = Daemonize::new()
-		.working_directory("/")
-		.umask(0o027)
-		.stdout(log_file.try_clone()?)
-		.stderr(log_file);
-
-	daemonize
-		.start()
-		.map_err(|err| Error::DaemonStartFail { cause: err.to_string() })?;
-
-	Ok(())
-}
-
-pub async fn start_daemon(
-	mut ebpf: Ebpf,
-	rule_engine: Arc<RuleEngine>,
-	app_tx: AppTx,
-	app_rx: Rx<AppEvent>,
-	exit_tx: ExitTx,
-	run_time: Duration,
-) -> Result<()> {
-	let ringbuf_fd = load_hooks(&mut ebpf)?;
-
-	RingBufWorker::start(ringbuf_fd, rule_engine, app_tx).await?;
-
-	tokio::spawn(async move {
-		tokio::time::sleep(run_time).await;
-		let _ = exit_tx.send(()).await;
-	});
-
-	run_daemon_sink(app_rx).await?;
-
-	Ok(())
-}
-
-fn init_tracing(log_path: &str) -> WorkerGuard {
-	let file_appender = rolling::daily("/var/log/cerberus", log_path);
-	let (non_blocking_writer, guard) = tracing_appender::non_blocking(file_appender);
-
-	tracing_subscriber::fmt()
-		.with_writer(non_blocking_writer)
-		.with_target(false)
-		.with_env_filter(EnvFilter::from_default_env())
-		.init();
-
-	guard
-}
-
-pub async fn run_daemon_sink(rx: Rx<AppEvent>) -> Result<()> {
-	while let Ok(evt) = rx.recv().await {
-		match evt {
-			AppEvent::CerberusEvaluated(alert) => {
-				info!(target: "Matched rule", "{:?}", alert);
-			}
-			AppEvent::Cerberus(evt) => {
-				info!(target: "event", "{:?}", evt);
-			}
-			_ => {}
-		}
-	}
-	Ok(())
-}
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -141,6 +74,8 @@ async fn main() -> Result<()> {
 
 	match args.mode {
 		RunMode::Tui => {
+			let ringbuf_fd = load_hooks(&mut ebpf)?;
+			RingBufWorker::start(ringbuf_fd, rule_engine.clone(), app_tx.clone()).await?;
 			start_tui(ebpf, rule_engine, app_tx, app_rx, exit_tx).await?;
 		}
 

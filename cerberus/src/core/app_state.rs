@@ -26,7 +26,6 @@ pub struct EvaluatedKey {
 }
 
 pub enum View {
-	Splash,
 	Main,
 	Summary,
 }
@@ -67,13 +66,11 @@ pub struct AppState {
 	pub(in crate::core) cerberus_evts_matched: HashMap<EvaluatedKey, EvaluatedEntry>,
 	pub(in crate::core) rule_type_counts: HashMap<Arc<str>, u64>,
 	pub(in crate::core) severity_counts: HashMap<Arc<str>, u64>,
-	pub(in crate::core) hooks_loaded: bool,
 	pub current_view: View,
 	pub tab: Tab,
 	pub event_scroll: u16,
 	pub rule_engine: Option<Arc<RuleEngine>>,
 	pub ringbuf_fd: Option<AsyncFd<RingBuf<MapData>>>,
-	pub worker_up: bool,
 	pub popup_show: bool,
 	pub selected_rule: usize,
 }
@@ -93,12 +90,10 @@ impl AppState {
 			cerberus_evts_matched: HashMap::new(),
 			rule_type_counts: HashMap::new(),
 			severity_counts: HashMap::new(),
-			hooks_loaded: false,
-			current_view: View::Splash,
+			current_view: View::Main,
 			rule_engine: None,
 			tab: Tab::General,
 			ringbuf_fd: None,
-			worker_up: false,
 			popup_show: false,
 			selected_rule: 0,
 		})
@@ -171,10 +166,6 @@ impl AppState {
 	}
 	pub fn last_app_event(&self) -> &LastAppEvent {
 		&self.last_app_event
-	}
-
-	pub fn worker_up(&self) -> bool {
-		self.worker_up
 	}
 
 	pub fn ringbuf_fd(&mut self) -> Option<AsyncFd<RingBuf<MapData>>> {

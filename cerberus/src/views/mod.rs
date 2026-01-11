@@ -4,7 +4,6 @@ mod general_event_view;
 mod loaded_hooks_view;
 mod main_view;
 mod network_event_view;
-mod splash_view;
 mod summary_view;
 mod support;
 

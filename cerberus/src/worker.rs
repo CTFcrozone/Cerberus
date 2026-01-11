@@ -45,49 +45,7 @@ impl RingBufWorker {
 
 				match parse_event_from_bytes(data) {
 					Ok(evt) => {
-						let cerberus_evt = match evt {
-							EbpfEvent::Generic(ref e) => CerberusEvent::Generic(RingBufEvent {
-								name: match e.header.event_type {
-									1 => "KILL",
-									2 => "IO_URING",
-									3 => "SOCKET_CONNECT",
-									4 => "COMMIT_CREDS",
-									5 => "MODULE_INIT",
-									6 => "INET_SOCK_SET_STATE",
-									7 => "ENTER_PTRACE",
-									8 => "BPRM_CHECK",
-									_ => "UNKNOWN",
-								},
-								pid: e.pid,
-								uid: e.uid,
-								tgid: e.tgid,
-								comm: Arc::from(String::from_utf8_lossy(&e.comm).trim_end_matches('\0')),
-								meta: e.meta,
-							}),
-							EbpfEvent::ModuleInit(ref e) => CerberusEvent::Module(ModuleEvent {
-								pid: e.pid,
-								uid: e.uid,
-								tgid: e.tgid,
-								comm: Arc::from(String::from_utf8_lossy(&e.comm).trim_end_matches('\0')),
-								module_name: Arc::from(String::from_utf8_lossy(&e.module_name).trim_end_matches('\0')),
-							}),
-							EbpfEvent::BprmSecurityCheck(ref e) => CerberusEvent::Bprm(BprmSecurityEvent {
-								pid: e.pid,
-								uid: e.uid,
-								tgid: e.tgid,
-								comm: Arc::from(String::from_utf8_lossy(&e.comm).trim_end_matches('\0')),
-								filepath: Arc::from(String::from_utf8_lossy(&e.filepath).trim_end_matches('\0')),
-							}),
-							EbpfEvent::InetSock(ref e) => CerberusEvent::InetSock(InetSockEvent {
-								old_state: Arc::from(state_to_str(e.oldstate)),
-								new_state: Arc::from(state_to_str(e.newstate)),
-								sport: e.sport,
-								dport: e.dport,
-								protocol: Arc::from(protocol_to_str(e.protocol)),
-								saddr: e.saddr,
-								daddr: e.daddr,
-							}),
-						};
+						let cerberus_evt = parse_cerberus_event(evt)?;
 
 						for evt in self.rule_engine.process_event(&cerberus_evt)? {
 							self.tx.send(AppEvent::CerberusEvaluated(evt)).await?;
@@ -102,6 +60,57 @@ impl RingBufWorker {
 			guard.clear_ready();
 		}
 	}
+}
+
+fn parse_cerberus_event(evt: EbpfEvent) -> Result<CerberusEvent> {
+	let cerberus_evt = match evt {
+		EbpfEvent::Generic(ref e) => CerberusEvent::Generic(RingBufEvent {
+			name: match e.header.event_type {
+				1 => "KILL",
+				2 => "IO_URING",
+				3 => "SOCKET_CONNECT",
+				4 => "COMMIT_CREDS",
+				5 => "MODULE_INIT",
+				6 => "INET_SOCK_SET_STATE",
+				7 => "ENTER_PTRACE",
+				8 => "BPRM_CHECK",
+				_ => "UNKNOWN",
+			},
+			pid: e.pid,
+			uid: e.uid,
+			tgid: e.tgid,
+			comm: Arc::from(String::from_utf8_lossy(&e.comm).trim_end_matches('\0')),
+			meta: e.meta,
+		}),
+
+		EbpfEvent::ModuleInit(ref e) => CerberusEvent::Module(ModuleEvent {
+			pid: e.pid,
+			uid: e.uid,
+			tgid: e.tgid,
+			comm: Arc::from(String::from_utf8_lossy(&e.comm).trim_end_matches('\0')),
+			module_name: Arc::from(String::from_utf8_lossy(&e.module_name).trim_end_matches('\0')),
+		}),
+
+		EbpfEvent::BprmSecurityCheck(ref e) => CerberusEvent::Bprm(BprmSecurityEvent {
+			pid: e.pid,
+			uid: e.uid,
+			tgid: e.tgid,
+			comm: Arc::from(String::from_utf8_lossy(&e.comm).trim_end_matches('\0')),
+			filepath: Arc::from(String::from_utf8_lossy(&e.filepath).trim_end_matches('\0')),
+		}),
+
+		EbpfEvent::InetSock(ref e) => CerberusEvent::InetSock(InetSockEvent {
+			old_state: Arc::from(state_to_str(e.oldstate)),
+			new_state: Arc::from(state_to_str(e.newstate)),
+			sport: e.sport,
+			dport: e.dport,
+			protocol: Arc::from(protocol_to_str(e.protocol)),
+			saddr: e.saddr,
+			daddr: e.daddr,
+		}),
+	};
+
+	Ok(cerberus_evt)
 }
 
 fn parse_event_from_bytes(data: &[u8]) -> Result<EbpfEvent> {

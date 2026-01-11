@@ -58,7 +58,7 @@ pub fn run_ui_loop(
 
 	let handle = tokio::spawn(async move {
 		loop {
-			process_app_state(&mut appstate, &app_tx);
+			process_app_state(&mut appstate);
 			let _ = terminal_draw(&mut term, &mut appstate);
 
 			let app_event = match app_rx.recv().await {
@@ -101,10 +101,6 @@ fn terminal_draw(terminal: &mut DefaultTerminal, app_state: &mut AppState) -> Re
 			}
 			View::Summary => {
 				frame.render_stateful_widget(SummaryView {}, area, app_state);
-			}
-			View::Splash => {
-				// Splash is rendered internally by MainView
-				frame.render_stateful_widget(MainView {}, area, app_state);
 			}
 		}
 

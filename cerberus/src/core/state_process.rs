@@ -1,15 +1,11 @@
-use crate::load_hooks;
-use lib_event::app_evt_types::AppEvent;
-
 use crossterm::event::{KeyCode, MouseEventKind};
 
+use super::Tab;
 use super::{app_state::View, AppState};
-use super::{AppTx, Tab};
 
-pub fn process_app_state(state: &mut AppState, app_tx: &AppTx) {
+pub fn process_app_state(state: &mut AppState) {
 	match state.current_view() {
 		View::Main | View::Summary => handle_main_view(state),
-		View::Splash => handle_splash_view(state, app_tx),
 	}
 }
 
@@ -26,7 +22,6 @@ fn handle_main_input(state: &mut AppState) {
 			KeyCode::Char('s') | KeyCode::Char('S') => match state.current_view() {
 				View::Main => state.set_view(View::Summary),
 				View::Summary => state.set_view(View::Main),
-				_ => {}
 			},
 
 			KeyCode::Enter => match state.current_tab() {
@@ -83,21 +78,6 @@ fn handle_scroll(state: &mut AppState) {
 
 		if let Some(scroll) = new_scroll {
 			state.set_event_scroll(scroll);
-		}
-	}
-}
-
-fn handle_splash_view(state: &mut AppState, app_tx: &AppTx) {
-	if let Some(KeyCode::Enter) = state.last_app_event().as_key_code() {
-		match load_hooks(&mut state.ebpf) {
-			Ok(fd) => {
-				state.hooks_loaded = true;
-				state.ringbuf_fd = Some(fd);
-				let _ = app_tx.send_sync(AppEvent::LoadedHooks);
-			}
-			Err(err) => {
-				eprintln!("Error while loading hooks: {err}");
-			}
 		}
 	}
 }
