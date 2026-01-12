@@ -1,0 +1,47 @@
+[package]
+name = "lib-container"
+version = "0.1.0"
+edition = "2021"
+
+license.workspace = true
+
+[dependencies]
+lib-common = { path = "../lib-common", features = ["user"] }
+lib-event = { path = "../lib-event" }
+
+derive_more = { version = "2.0.0", features = [
+    "from",
+    "display",
+    "debug",
+    "into",
+    "deref",
+] }
+aya = { workspace = true }
+aya-log = { workspace = true }
+libc = { workspace = true }
+regex = "1"
+humantime-serde = "1"
+flume = { workspace = true }
+tracing = { workspace = true }
+futures-timer = "3.0.3"
+futures = "0.3.31"
+strum = "0.27"
+strum_macros = "0.27"
+tracing-subscriber = { workspace = true }
+# tokio = { workspace = true, features = [
+#     "macros",
+#     "rt",
+#     "sync",
+#     "rt-multi-thread",
+#     "net",
+#     "signal",
+# ] }
+toml = "0.9.5"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+glob = "0.3.2"
+simple-fs = { version = "0.7.1", features = ["with-json"] }
+arc-swap = "1.8.0"
+blake3 = "1.8.2"
+hex = "0.4.3"
+humantime = "2.3.0"

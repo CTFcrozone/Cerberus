@@ -1,7 +1,7 @@
 // region:    --- Modules
+mod agent;
 mod cli;
 mod core;
-mod daemon;
 mod error;
 mod event;
 mod styles;
@@ -18,6 +18,7 @@ use crate::{
 };
 
 pub use self::error::{Error, Result};
+use agent::*;
 use aya::{
 	maps::{MapData, RingBuf},
 	programs::{KProbe, Lsm, TracePoint},
@@ -25,7 +26,6 @@ use aya::{
 };
 use clap::Parser;
 use core::{AppTx, ExitTx};
-use daemon::*;
 use lib_event::{app_evt_types::AppEvent, trx::new_channel};
 use lib_rules::engine::RuleEngine;
 use std::sync::Arc;
@@ -92,7 +92,7 @@ async fn main() -> Result<()> {
 
 		RunMode::Agent => {
 			let duration = args.time.ok_or(Error::NoTimeSpecified)?;
-			supervisor.spawn(start_daemon(app_rx, supervisor.token(), duration.into()));
+			supervisor.spawn(start_agent(app_rx, supervisor.token(), duration.into()));
 		}
 	}
 

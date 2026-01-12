@@ -353,6 +353,7 @@ dependencies = [
  "futures-timer",
  "humantime",
  "lib-common",
+ "lib-container",
  "lib-ebpf",
  "lib-event",
  "lib-rules",
@@ -980,6 +981,36 @@ dependencies = [
  "aya",
  "zerocopy",
  "zerocopy-derive",
+]
+
+[[package]]
+name = "lib-container"
+version = "0.1.0"
+dependencies = [
+ "arc-swap",
+ "aya",
+ "aya-log",
+ "blake3",
+ "derive_more",
+ "flume",
+ "futures",
+ "futures-timer",
+ "glob",
+ "hex",
+ "humantime",
+ "humantime-serde",
+ "lib-common",
+ "lib-event",
+ "libc",
+ "regex",
+ "serde",
+ "serde_json",
+ "simple-fs",
+ "strum 0.27.2",
+ "strum_macros 0.27.2",
+ "toml",
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]

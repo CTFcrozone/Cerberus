@@ -12,30 +12,27 @@ use tokio_util::sync::CancellationToken;
 
 const MAX_EVENTS: usize = 250; // Reduced from 1000
 
-pub async fn handle_app_event(
-	terminal: &mut DefaultTerminal,
-	app_tx: &AppTx,
-	exit_tx: &ExitTx,
-	app_event: &AppEvent,
-	app_state: &mut AppState,
-) -> Result<()> {
-	match app_event {
-		AppEvent::Term(term_event) => {
-			handle_term_event(&term_event, app_tx).await?;
-		}
-		AppEvent::Action(action_event) => {
-			handle_action_event(&action_event, terminal, exit_tx).await?;
-		}
-		AppEvent::Cerberus(cerberus_evt) => {
-			handle_cerberus_event(cerberus_evt, app_state);
-		}
-		AppEvent::Engine(evt) => handle_engine_event(evt, app_state),
+// pub async fn handle_app_event(
+// 	app_tx: &AppTx,
+// 	exit_tx: &ExitTx,
+// 	app_event: &AppEvent,
+// 	app_state: &mut AppState,
+// ) -> Result<()> {
+// 	match app_event {
+// 		AppEvent::Term(term_event) => {
+// 			handle_term_event(&term_event, app_tx).await?;
+// 		}
+// 		AppEvent::Cerberus(cerberus_evt) => {
+// 			handle_cerberus_event(cerberus_evt, app_state);
+// 		}
+// 		AppEvent::Engine(evt) => handle_engine_event(evt, app_state),
 
-		_ => {}
-	};
+// 		_ => {}
+// 	};
 
-	Ok(())
-}
+// 	Ok(())
+// }
+
 fn handle_engine_event(event: &EngineEvent, app_state: &mut AppState) {
 	match event {
 		EngineEvent::Matched(evt) => {
@@ -49,7 +46,6 @@ fn handle_engine_event(event: &EngineEvent, app_state: &mut AppState) {
 }
 
 pub async fn _handle_app_event(
-	terminal: &mut DefaultTerminal,
 	// app_tx: &AppTx,
 	app_event: &AppEvent,
 	app_state: &mut AppState,
@@ -58,9 +54,6 @@ pub async fn _handle_app_event(
 	match app_event {
 		AppEvent::Term(term_event) => {
 			_handle_term_event(&term_event, shutdown).await?;
-		}
-		AppEvent::Action(action_event) => {
-			_handle_action_event(&action_event, terminal).await?;
 		}
 		AppEvent::Cerberus(cerberus_evt) => {
 			handle_cerberus_event(cerberus_evt, app_state);
@@ -81,19 +74,10 @@ fn handle_cerberus_event(event: &CerberusEvent, app_state: &mut AppState) {
 		CerberusEvent::InetSock(_) => &mut app_state.cerberus_evts_network,
 	};
 
-	if events.len() >= MAX_EVENTS {
-		events.pop_front();
-	}
 	push_bounded(events, event);
 }
 
 fn handle_correlation_event(event: &CorrelatedEvent, app_state: &mut AppState) {
-	app_state.correlated_count += 1;
-
-	if app_state.cerberus_evts_correlated.len() >= MAX_EVENTS {
-		app_state.cerberus_evts_correlated.pop_front();
-	}
-
 	push_bounded(&mut app_state.cerberus_evts_correlated, event);
 }
 
@@ -124,18 +108,18 @@ fn handle_cerberus_eval_event(event: &EvaluatedEvent, app_state: &mut AppState) 
 	}
 }
 
-async fn handle_term_event(term_event: &Event, app_tx: &AppTx) -> Result<()> {
-	if let Event::Key(key) = term_event {
-		if let KeyEventKind::Press = key.kind {
-			let mod_ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
-			match (key.code, mod_ctrl) {
-				(KeyCode::Char('c'), true) => app_tx.send(ActionEvent::Quit).await?,
-				_ => (),
-			}
-		}
-	}
-	Ok(())
-}
+// async fn handle_term_event(term_event: &Event, app_tx: &AppTx) -> Result<()> {
+// 	if let Event::Key(key) = term_event {
+// 		if let KeyEventKind::Press = key.kind {
+// 			let mod_ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
+// 			match (key.code, mod_ctrl) {
+// 				(KeyCode::Char('c'), true) => app_tx.send(ActionEvent::Quit).await?,
+// 				_ => (),
+// 			}
+// 		}
+// 	}
+// 	Ok(())
+// }
 
 async fn _handle_term_event(term_event: &Event, shutdown: CancellationToken) -> Result<()> {
 	if let Event::Key(key) = term_event {
@@ -147,15 +131,6 @@ async fn _handle_term_event(term_event: &Event, shutdown: CancellationToken) -> 
 				}
 				_ => (),
 			}
-		}
-	}
-	Ok(())
-}
-
-async fn _handle_action_event(action_event: &ActionEvent, _terminal: &mut DefaultTerminal) -> Result<()> {
-	match action_event {
-		ActionEvent::Quit => {
-			// Handled at the main loop
 		}
 	}
 	Ok(())

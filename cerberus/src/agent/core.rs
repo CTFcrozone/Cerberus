@@ -9,22 +9,7 @@ use lib_event::{
 use tokio_util::sync::CancellationToken;
 use tracing::{info, warn};
 
-// pub async fn run_daemon_sink(rx: Rx<AppEvent>) -> Result<()> {
-// 	while let Ok(evt) = rx.recv().await {
-// 		match evt {
-// 			AppEvent::CerberusEvaluated(alert) => {
-// 				info!(target: "Matched rule", "{:?}", alert);
-// 			}
-// 			AppEvent::Cerberus(evt) => {
-// 				info!(target: "event", "{:?}", evt);
-// 			}
-// 			_ => {}
-// 		}
-// 	}
-// 	Ok(())
-// }
-
-pub async fn _run_daemon_sink(rx: Rx<AppEvent>, shutdown: CancellationToken) -> Result<()> {
+pub async fn _run_agent_sink(rx: Rx<AppEvent>, shutdown: CancellationToken) -> Result<()> {
 	loop {
 		tokio::select! {
 			_ = shutdown.cancelled() => {
@@ -56,10 +41,10 @@ pub async fn _run_daemon_sink(rx: Rx<AppEvent>, shutdown: CancellationToken) -> 
 	Ok(())
 }
 
-pub async fn start_daemon(app_rx: Rx<AppEvent>, shutdown: CancellationToken, run_time: Duration) -> Result<()> {
+pub async fn start_agent(app_rx: Rx<AppEvent>, shutdown: CancellationToken, run_time: Duration) -> Result<()> {
 	let sink_shutdown = shutdown.clone();
 	let sink_handle = tokio::spawn(async move {
-		let _ = _run_daemon_sink(app_rx, sink_shutdown).await;
+		let _ = _run_agent_sink(app_rx, sink_shutdown).await;
 	});
 
 	tokio::time::sleep(run_time).await;

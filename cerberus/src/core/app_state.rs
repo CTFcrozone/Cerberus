@@ -68,7 +68,6 @@ pub struct AppState {
 	pub(in crate::core) cerberus_evts_matched: HashMap<EvaluatedKey, EvaluatedEntry>,
 	pub(in crate::core) rule_type_counts: HashMap<Arc<str>, u64>,
 	pub(in crate::core) severity_counts: HashMap<Arc<str>, u64>,
-	pub(in crate::core) correlated_count: u64,
 
 	pub current_view: View,
 	pub tab: Tab,
@@ -94,7 +93,6 @@ impl AppState {
 			cerberus_evts_matched: HashMap::new(),
 			rule_type_counts: HashMap::new(),
 			severity_counts: HashMap::new(),
-			correlated_count: 0,
 			current_view: View::Main,
 			rule_engine: None,
 			tab: Tab::General,
@@ -149,10 +147,6 @@ impl AppState {
 
 	pub fn cerberus_evts_correlated(&self) -> impl Iterator<Item = &CorrelatedEvent> {
 		self.cerberus_evts_correlated.iter()
-	}
-
-	pub fn correlated_count(&self) -> u64 {
-		self.correlated_count
 	}
 
 	pub fn cerberus_evts_general(&self) -> impl Iterator<Item = &CerberusEvent> {

@@ -9,6 +9,8 @@ license.workspace = true
 lib-common = { path = "../lib-common", features = ["user"] }
 lib-rules = { path = "../lib-rules" }
 lib-event = { path="../lib-event" }
+lib-container = { path="../lib-container" }
+
 
 derive_more = { version = "2.0.0", features = [
     "from",

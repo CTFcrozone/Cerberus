@@ -1,3 +1,5 @@
 pub mod app_evt_types;
-pub mod error;
+mod error;
 pub mod trx;
+
+pub use error::Error;

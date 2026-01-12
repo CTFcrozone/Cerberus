@@ -61,7 +61,7 @@ fn render_tabs(area: Rect, buf: &mut Buffer, state: &AppState) {
 			Constraint::Length(2),
 			Constraint::Length(17),
 			Constraint::Length(2),
-			Constraint::Length(17),
+			Constraint::Length(20),
 		])
 		.areas(area);
 

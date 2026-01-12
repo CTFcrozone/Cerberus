@@ -16,13 +16,9 @@ pub enum Error {
 	EbpfProgNotFound,
 	InvalidEventAlign,
 	InvalidEventSize,
-	#[display("Timed run is only possible in 'daemon' mode")]
+	#[display("Timed run is only possible in 'agent' mode")]
 	InvalidTimeMode,
 	NoTimeSpecified,
-	#[display("Cerberus daemon failed to start.\nCause {cause}")]
-	DaemonStartFail {
-		cause: String,
-	},
 
 	HomeDirNotFound,
 	UnknownEventType(u8),
@@ -46,9 +42,9 @@ pub enum Error {
 	#[from]
 	AyaProgram(aya::programs::ProgramError),
 	#[from]
-	Event(lib_event::error::Error),
+	Event(lib_event::Error),
 	#[from]
-	RuleEngine(lib_rules::error::Error),
+	RuleEngine(lib_rules::Error),
 	#[from]
 	Io(std::io::Error), // as example
 	#[from]
