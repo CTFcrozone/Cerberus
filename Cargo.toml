@@ -6,6 +6,7 @@ members = [
     "lib-ebpf",
     "lib-rules",
     "lib-event",
+    "lib-container",
     "cerberus",
 ]
 default-members = ["cerberus", "lib-common"]

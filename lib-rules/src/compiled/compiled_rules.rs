@@ -1,7 +1,32 @@
 use regex::Regex;
+use serde::Deserialize;
 
 use crate::error::{Error, Result};
 use std::sync::Arc;
+
+pub struct Rule {
+	pub inner: RuleInner,
+	pub hash: [u8; 32],
+}
+
+struct RuleRaw {
+	rule: RuleInner,
+}
+
+pub struct RuleInner {
+	pub id: String,
+	pub description: String,
+	pub r#type: String,
+	pub severity: Option<String>,
+	pub category: Option<String>,
+	pub conditions: Vec<Condition>,
+}
+
+pub struct Condition {
+	pub field: Field,
+	pub op: Op,
+	pub value: ConditionValue,
+}
 
 #[derive(Clone, Copy)]
 pub enum Op {
@@ -46,6 +71,7 @@ pub enum CompiledValue {
 	StrSet(Vec<Arc<str>>),
 }
 
+#[derive(Clone)]
 pub enum ConditionValue {
 	Plain(toml::Value),
 	Regex(Regex),

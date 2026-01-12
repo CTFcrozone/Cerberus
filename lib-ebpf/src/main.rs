@@ -43,13 +43,13 @@ macro_rules! try_read {
 	};
 }
 
-// #[lsm(hook = "socket_connect")]
-// pub fn socket_connect(ctx: LsmContext) -> i32 {
-// 	match try_socket_connect(ctx) {
-// 		Ok(ret) => ret,
-// 		Err(ret) => ret,
-// 	}
-// }
+#[lsm(hook = "socket_connect")]
+pub fn socket_connect(ctx: LsmContext) -> i32 {
+	match try_socket_connect(ctx) {
+		Ok(ret) => ret,
+		Err(ret) => ret,
+	}
+}
 
 #[tracepoint]
 pub fn inet_sock_set_state(ctx: TracePointContext) -> u32 {
@@ -141,10 +141,9 @@ fn try_commit_creds(ctx: ProbeContext) -> Result<u32, u32> {
 		let event = GenericEvent {
 			header: EventHeader {
 				event_type: 4,
-				_padding: [0u8; 7],
 				cgroup_id,
 				mnt_ns,
-				_pad: [0u8; 4],
+				_pad0: [0u8; 3],
 			},
 			pid,
 			uid: old_uid,
@@ -175,10 +174,9 @@ fn try_sys_enter_ptrace(ctx: TracePointContext) -> Result<u32, u32> {
 	let event = GenericEvent {
 		header: EventHeader {
 			event_type: 7,
-			_padding: [0u8; 7],
 			cgroup_id,
 			mnt_ns,
-			_pad: [0u8; 4],
+			_pad0: [0u8; 3],
 		},
 		pid,
 		uid,
@@ -196,11 +194,17 @@ fn try_sys_enter_ptrace(ctx: TracePointContext) -> Result<u32, u32> {
 }
 
 fn try_do_init_module(ctx: ProbeContext) -> Result<u32, u32> {
+	let module: *const module = ctx.arg(0).ok_or(1u32)?;
+
+	if module.is_null() {
+		return Err(1u32);
+	}
+
 	let uid = bpf_get_current_uid_gid() as u32;
 	let pid = bpf_get_current_pid_tgid() as u32;
 	let tgid = (bpf_get_current_pid_tgid() >> 32) as u32;
 	let comm_raw = bpf_get_current_comm().unwrap_or([0u8; 16]);
-	let module: *const module = ctx.arg(0).ok_or(1u32)?;
+
 	let cgroup_id = unsafe { bpf_get_current_cgroup_id() };
 	let mnt_ns = unsafe { get_mnt_ns() };
 	let name_i8 = unsafe { bpf_probe_read_kernel(&(*module).name).map_err(|_| 2u32)? };
@@ -210,17 +214,16 @@ fn try_do_init_module(ctx: ProbeContext) -> Result<u32, u32> {
 	let event = ModuleInitEvent {
 		header: EventHeader {
 			event_type: 5,
-			_padding: [0u8; 7],
 			cgroup_id,
 			mnt_ns,
-			_pad: [0u8; 4],
+			_pad0: [0u8; 3],
 		},
 		pid,
 		uid,
 		tgid,
 		comm: comm_raw,
 		module_name,
-		_pad: [0u8; 4],
+		_pad0: [0u8; 4],
 	};
 
 	match EVT_MAP.output(&event, 0) {
@@ -231,9 +234,13 @@ fn try_do_init_module(ctx: ProbeContext) -> Result<u32, u32> {
 	Ok(0)
 }
 
-fn _try_socket_connect(ctx: LsmContext) -> Result<i32, i32> {
+fn try_socket_connect(ctx: LsmContext) -> Result<i32, i32> {
 	let addr: *const sockaddr = unsafe { ctx.arg(1) };
 	let ret: i32 = unsafe { ctx.arg(3) };
+
+	if addr.is_null() {
+		return Ok(0);
+	}
 
 	if ret != 0 {
 		return Ok(ret);
@@ -245,6 +252,11 @@ fn _try_socket_connect(ctx: LsmContext) -> Result<i32, i32> {
 	}
 
 	let addr_in = addr as *const sockaddr_in;
+
+	if addr_in.is_null() {
+		return Ok(0);
+	}
+
 	let dest_ip = unsafe { (*addr_in).sin_addr.s_addr };
 
 	let uid = bpf_get_current_uid_gid() as u32;
@@ -252,32 +264,28 @@ fn _try_socket_connect(ctx: LsmContext) -> Result<i32, i32> {
 	let tgid = (bpf_get_current_pid_tgid() >> 32) as u32;
 	let comm_raw = bpf_get_current_comm().unwrap_or([0u8; 16]);
 
-	if match_comm!(comm_raw, [TOKIO_RUNTIME, SYSTEMD_RESOLVE]) {
-		return Ok(0);
-	}
-
 	let cgroup_id = unsafe { bpf_get_current_cgroup_id() };
 	let mnt_ns = unsafe { get_mnt_ns() };
 
-	let event = GenericEvent {
-		header: EventHeader {
-			event_type: 3,
-			_padding: [0u8; 7],
-			cgroup_id,
-			mnt_ns,
-			_pad: [0u8; 4],
-		},
-		pid,
-		uid,
-		tgid,
-		comm: comm_raw,
-		meta: dest_ip,
-	};
+	// let event = GenericEvent {
+	// 	header: EventHeader {
+	// 		event_type: 3,
+	// 		_padding: [0u8; 7],
+	// 		cgroup_id,
+	// 		mnt_ns,
+	// 		_pad: [0u8; 4],
+	// 	},
+	// 	pid,
+	// 	uid,
+	// 	tgid,
+	// 	comm: comm_raw,
+	// 	meta: dest_ip,
+	// };
 
-	match EVT_MAP.output(&event, 0) {
-		Ok(_) => (),
-		Err(e) => error!(&ctx, "Couldn't write to the ring buffer ->> ERROR: {}", e),
-	}
+	// match EVT_MAP.output(&event, 0) {
+	// 	Ok(_) => (),
+	// 	Err(e) => error!(&ctx, "Couldn't write to the ring buffer ->> ERROR: {}", e),
+	// }
 	Ok(0)
 }
 
@@ -299,17 +307,16 @@ fn try_inet_sock_set_state(ctx: TracePointContext) -> Result<u32, u32> {
 	let event = InetSockSetStateEvent {
 		header: EventHeader {
 			event_type: 6,
-			_padding: [0u8; 7],
 			cgroup_id,
 			mnt_ns,
-			_pad: [0u8; 4],
+			_pad0: [0u8; 3],
 		},
 		oldstate,
 		newstate,
 		sport,
 		dport,
 		protocol,
-		_padding: 0,
+		_pad0: [0u8; 2],
 		saddr,
 		daddr,
 	};
@@ -331,10 +338,19 @@ fn try_bprm_check_security(ctx: LsmContext) -> Result<i32, i32> {
 	let mnt_ns = unsafe { get_mnt_ns() };
 	let bprm: *const linux_binprm = unsafe { ctx.arg(0) };
 
+	if bprm.is_null() {
+		return Ok(0);
+	}
+
 	let buf = unsafe { FPATH.get_ptr_mut(0).ok_or(0)? };
 
 	unsafe {
 		let file = (*bprm).file;
+
+		if file.is_null() {
+			return Ok(0);
+		}
+
 		let f_path = &(*file).__bindgen_anon_1.f_path as *const _ as *mut path;
 		let ret = bpf_d_path(f_path, buf as *mut i8, PATH_LEN);
 
@@ -346,10 +362,9 @@ fn try_bprm_check_security(ctx: LsmContext) -> Result<i32, i32> {
 	let event = BprmSecurityCheckEvent {
 		header: EventHeader {
 			event_type: 8,
-			_padding: [0u8; 7],
 			cgroup_id,
 			mnt_ns,
-			_pad: [0u8; 4],
+			_pad0: [0u8; 3],
 		},
 		pid,
 		uid,
@@ -367,6 +382,11 @@ fn try_bprm_check_security(ctx: LsmContext) -> Result<i32, i32> {
 
 fn try_sys_enter_kill(ctx: LsmContext) -> Result<i32, i32> {
 	let task: *const task_struct = unsafe { ctx.arg(0) };
+
+	if task.is_null() {
+		return Ok(0);
+	}
+
 	let sig: u32 = unsafe { ctx.arg(2) };
 	let pid = unsafe { (*task).pid };
 
@@ -379,10 +399,9 @@ fn try_sys_enter_kill(ctx: LsmContext) -> Result<i32, i32> {
 	let event = GenericEvent {
 		header: EventHeader {
 			event_type: 1,
-			_padding: [0u8; 7],
 			cgroup_id,
 			mnt_ns,
-			_pad: [0u8; 4],
+			_pad0: [0u8; 3],
 		},
 		pid: pid as u32,
 		uid,
