@@ -1,11 +1,11 @@
-use std::env;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
 
 use crate::core::event_handler::_handle_app_event;
-use crate::core::View;
+use crate::core::{Tab, View};
 use crate::event::LastAppEvent;
+use crate::views::correlated_event_view::render_correlation_popup;
 use crate::views::{render_rule_popup, MainView, SummaryView};
 use crate::Result;
 use aya::Ebpf;
@@ -17,7 +17,6 @@ use notify_debouncer_full::{new_debouncer, DebounceEventResult, Debouncer, NoCac
 use ratatui::DefaultTerminal;
 use tokio::task::JoinHandle;
 use tokio_util::sync::CancellationToken;
-use tracing::info;
 
 use super::event_handler::handle_app_event;
 use super::{process_app_state, AppState, AppTx, ExitTx};
@@ -55,7 +54,6 @@ pub async fn _rule_watch_worker(
 	loop {
 		tokio::select! {
 			_ = shutdown.cancelled() => {
-				info!("rule watch worker cancel");
 				break;
 			},
 			evt = rx.recv() => {
@@ -118,10 +116,9 @@ pub fn run_ui_loop(
 pub fn _run_ui_loop(
 	mut term: DefaultTerminal,
 	ebpf: Ebpf,
-	app_tx: AppTx,
+	// app_tx: AppTx,
 	rule_engine: Arc<RuleEngine>,
 	app_rx: Rx<AppEvent>,
-	exit_tx: ExitTx,
 	shutdown: CancellationToken,
 ) -> Result<UiRuntime> {
 	let mut appstate = AppState::new(ebpf, LastAppEvent::default())?;
@@ -158,8 +155,7 @@ pub fn _run_ui_loop(
 
 			let _ = _handle_app_event(
 				&mut term,
-				&app_tx,
-				&exit_tx,
+				// &app_tx,
 				&app_event,
 				&mut appstate,
 				shutdown.clone(),
@@ -193,7 +189,11 @@ fn terminal_draw(terminal: &mut DefaultTerminal, app_state: &mut AppState) -> Re
 		}
 
 		if app_state.popup_show {
-			render_rule_popup(frame, &app_state);
+			match app_state.current_tab() {
+				Tab::MatchedRules => render_rule_popup(frame, app_state),
+				Tab::CorrelatedRules => render_correlation_popup(frame, app_state),
+				_ => {}
+			}
 		}
 	})?;
 

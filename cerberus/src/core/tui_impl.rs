@@ -18,7 +18,6 @@ use ratatui::DefaultTerminal;
 use lib_event::app_evt_types::AppEvent;
 use lib_event::trx::{Rx, Tx};
 use tokio_util::sync::CancellationToken;
-use tracing::info;
 
 use super::{term_reader::run_term_read, tui_loop::run_ui_loop};
 
@@ -57,7 +56,6 @@ pub async fn _start_tui(
 	rule_engine: Arc<RuleEngine>,
 	app_tx: AppTx,
 	app_rx: Rx<AppEvent>,
-	exit_tx: ExitTx,
 	shutdown: CancellationToken,
 ) -> Result<()> {
 	let terminal = ratatui::init();
@@ -70,7 +68,7 @@ pub async fn _start_tui(
 		DisableLineWrap
 	)?;
 
-	let _ = _exec_app(terminal, ebpf, app_tx, rule_engine, app_rx, exit_tx, shutdown).await;
+	let _ = _exec_app(terminal, ebpf, app_tx, rule_engine, app_rx, shutdown).await;
 
 	ratatui::restore();
 	execute!(stdout(), LeaveAlternateScreen, DisableMouseCapture, cursor::Show)?;
@@ -83,13 +81,12 @@ async fn _exec_app(
 	app_tx: AppTx,
 	rule_engine: Arc<RuleEngine>,
 	app_rx: Rx<AppEvent>,
-	exit_tx: ExitTx,
 	shutdown: CancellationToken,
 ) -> Result<()> {
 	terminal.clear()?;
 
 	let _tin_read_handle = _run_term_read(app_tx.clone(), shutdown.clone())?;
-	let _tui_handle = _run_ui_loop(terminal, ebpf, app_tx, rule_engine, app_rx, exit_tx, shutdown.clone())?;
+	let _tui_handle = _run_ui_loop(terminal, ebpf, /* app_tx, */ rule_engine, app_rx, shutdown.clone())?;
 
 	tokio::select! {
 		_ = _tui_handle.ui_handle => {},

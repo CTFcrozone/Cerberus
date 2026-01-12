@@ -1,15 +1,13 @@
 use std::collections::{HashMap, VecDeque};
 use std::sync::Arc;
 
-use aya::maps::{MapData, RingBuf};
 use aya::Ebpf;
 use lib_rules::engine::RuleEngine;
-use tokio::io::unix::AsyncFd;
 
 use crate::core::sys_state::SysState;
 use crate::event::LastAppEvent;
 use crate::Result;
-use lib_event::app_evt_types::{CerberusEvent, EvaluatedEvent};
+use lib_event::app_evt_types::{CerberusEvent, CorrelatedEvent, EvaluatedEvent};
 
 use super::format_size_xfixed;
 
@@ -35,6 +33,7 @@ pub enum Tab {
 	Network,
 	General,
 	MatchedRules,
+	CorrelatedRules,
 }
 
 impl Tab {
@@ -42,7 +41,8 @@ impl Tab {
 		match self {
 			Tab::General => Tab::Network,
 			Tab::Network => Tab::MatchedRules,
-			Tab::MatchedRules => Tab::General,
+			Tab::MatchedRules => Tab::CorrelatedRules,
+			Tab::CorrelatedRules => Tab::General,
 		}
 	}
 
@@ -51,6 +51,7 @@ impl Tab {
 			Tab::General => 0,
 			Tab::Network => 1,
 			Tab::MatchedRules => 2,
+			Tab::CorrelatedRules => 3,
 		}
 	}
 }
@@ -62,15 +63,17 @@ pub struct AppState {
 	pub(in crate::core) loaded_hooks: Vec<String>,
 	pub(in crate::core) last_app_event: LastAppEvent,
 	pub(in crate::core) cerberus_evts_general: VecDeque<CerberusEvent>,
+	pub(in crate::core) cerberus_evts_correlated: VecDeque<CorrelatedEvent>,
 	pub(in crate::core) cerberus_evts_network: VecDeque<CerberusEvent>,
 	pub(in crate::core) cerberus_evts_matched: HashMap<EvaluatedKey, EvaluatedEntry>,
 	pub(in crate::core) rule_type_counts: HashMap<Arc<str>, u64>,
 	pub(in crate::core) severity_counts: HashMap<Arc<str>, u64>,
+	pub(in crate::core) correlated_count: u64,
+
 	pub current_view: View,
 	pub tab: Tab,
 	pub event_scroll: u16,
 	pub rule_engine: Option<Arc<RuleEngine>>,
-	pub ringbuf_fd: Option<AsyncFd<RingBuf<MapData>>>,
 	pub popup_show: bool,
 	pub selected_rule: usize,
 }
@@ -85,15 +88,16 @@ impl AppState {
 			loaded_hooks: Vec::new(),
 			event_scroll: 0,
 			last_app_event,
+			cerberus_evts_correlated: VecDeque::with_capacity(250),
 			cerberus_evts_general: VecDeque::with_capacity(250),
 			cerberus_evts_network: VecDeque::with_capacity(250),
 			cerberus_evts_matched: HashMap::new(),
 			rule_type_counts: HashMap::new(),
 			severity_counts: HashMap::new(),
+			correlated_count: 0,
 			current_view: View::Main,
 			rule_engine: None,
 			tab: Tab::General,
-			ringbuf_fd: None,
 			popup_show: false,
 			selected_rule: 0,
 		})
@@ -143,6 +147,14 @@ impl AppState {
 		self.severity_counts.iter().map(|(k, v)| (k.as_ref(), *v)).collect()
 	}
 
+	pub fn cerberus_evts_correlated(&self) -> impl Iterator<Item = &CorrelatedEvent> {
+		self.cerberus_evts_correlated.iter()
+	}
+
+	pub fn correlated_count(&self) -> u64 {
+		self.correlated_count
+	}
+
 	pub fn cerberus_evts_general(&self) -> impl Iterator<Item = &CerberusEvent> {
 		self.cerberus_evts_general.iter()
 	}
@@ -166,10 +178,6 @@ impl AppState {
 	}
 	pub fn last_app_event(&self) -> &LastAppEvent {
 		&self.last_app_event
-	}
-
-	pub fn ringbuf_fd(&mut self) -> Option<AsyncFd<RingBuf<MapData>>> {
-		self.ringbuf_fd.take()
 	}
 }
 

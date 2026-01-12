@@ -24,12 +24,12 @@ use aya::{
 	Btf, Ebpf,
 };
 use clap::Parser;
-use core::{start_tui, AppTx, ExitTx};
+use core::{AppTx, ExitTx};
 use daemon::*;
 use lib_event::{app_evt_types::AppEvent, trx::new_channel};
 use lib_rules::engine::RuleEngine;
 use std::sync::Arc;
-use tracing::info;
+use tracing_subscriber::EnvFilter;
 #[rustfmt::skip]
 use tracing::{debug, warn};
 use tokio::io::unix::AsyncFd;
@@ -38,7 +38,13 @@ use tokio::io::unix::AsyncFd;
 async fn main() -> Result<()> {
 	let args = Cli::parse();
 
-	let _tracing_guard = init_tracing(&args.log_file);
+	let (non_blocking_stdout, _stdout_guard) = tracing_appender::non_blocking(std::io::stdout());
+
+	tracing_subscriber::fmt()
+		.with_writer(non_blocking_stdout)
+		.with_target(true)
+		.with_env_filter(EnvFilter::from_default_env())
+		.init();
 
 	if args.time.is_some() && args.mode != RunMode::Agent {
 		return Err(Error::InvalidTimeMode);
@@ -68,8 +74,8 @@ async fn main() -> Result<()> {
 	let (app_tx, app_rx) = new_channel::<AppEvent>("app_event");
 	let app_tx = AppTx::from(app_tx);
 
-	let (exit_tx, exit_rx) = new_channel::<()>("exit");
-	let exit_tx = ExitTx::from(exit_tx);
+	// let (exit_tx, _exit_rx) = new_channel::<()>("exit");
+	// let exit_tx = ExitTx::from(exit_tx);
 
 	let ringbuf_fd = load_hooks(&mut ebpf)?;
 
@@ -81,14 +87,7 @@ async fn main() -> Result<()> {
 
 	match args.mode {
 		RunMode::Tui => {
-			supervisor.spawn(_start_tui(
-				ebpf,
-				rule_engine,
-				app_tx,
-				app_rx,
-				exit_tx,
-				supervisor.token(),
-			));
+			supervisor.spawn(_start_tui(ebpf, rule_engine, app_tx, app_rx, supervisor.token()));
 		}
 
 		RunMode::Agent => {

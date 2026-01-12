@@ -1,13 +1,12 @@
-use std::sync::Arc;
+use std::{collections::VecDeque, sync::Arc};
 
 use super::{AppState, AppTx, ExitTx};
 use crate::{
 	core::app_state::{EvaluatedEntry, EvaluatedKey},
-	worker::RingBufWorker,
 	Result,
 };
 use crossterm::event::{Event, KeyCode, KeyEventKind, KeyModifiers};
-use lib_event::app_evt_types::{ActionEvent, AppEvent, CerberusEvent, EvaluatedEvent};
+use lib_event::app_evt_types::{ActionEvent, AppEvent, CerberusEvent, CorrelatedEvent, EngineEvent, EvaluatedEvent};
 use ratatui::DefaultTerminal;
 use tokio_util::sync::CancellationToken;
 
@@ -30,18 +29,28 @@ pub async fn handle_app_event(
 		AppEvent::Cerberus(cerberus_evt) => {
 			handle_cerberus_event(cerberus_evt, app_state);
 		}
-		AppEvent::CerberusEvaluated(evt) => handle_cerberus_eval_event(evt, app_state),
+		AppEvent::Engine(evt) => handle_engine_event(evt, app_state),
 
 		_ => {}
 	};
 
 	Ok(())
 }
+fn handle_engine_event(event: &EngineEvent, app_state: &mut AppState) {
+	match event {
+		EngineEvent::Matched(evt) => {
+			handle_cerberus_eval_event(evt, app_state);
+		}
+
+		EngineEvent::Correlated(evt) => {
+			handle_correlation_event(evt, app_state);
+		}
+	}
+}
 
 pub async fn _handle_app_event(
 	terminal: &mut DefaultTerminal,
-	app_tx: &AppTx,
-	exit_tx: &ExitTx,
+	// app_tx: &AppTx,
 	app_event: &AppEvent,
 	app_state: &mut AppState,
 	shutdown: CancellationToken,
@@ -51,12 +60,12 @@ pub async fn _handle_app_event(
 			_handle_term_event(&term_event, shutdown).await?;
 		}
 		AppEvent::Action(action_event) => {
-			handle_action_event(&action_event, terminal, exit_tx).await?;
+			_handle_action_event(&action_event, terminal).await?;
 		}
 		AppEvent::Cerberus(cerberus_evt) => {
 			handle_cerberus_event(cerberus_evt, app_state);
 		}
-		AppEvent::CerberusEvaluated(evt) => handle_cerberus_eval_event(evt, app_state),
+		AppEvent::Engine(evt) => handle_engine_event(evt, app_state),
 
 		_ => {}
 	};
@@ -75,7 +84,17 @@ fn handle_cerberus_event(event: &CerberusEvent, app_state: &mut AppState) {
 	if events.len() >= MAX_EVENTS {
 		events.pop_front();
 	}
-	events.push_back(event.clone());
+	push_bounded(events, event);
+}
+
+fn handle_correlation_event(event: &CorrelatedEvent, app_state: &mut AppState) {
+	app_state.correlated_count += 1;
+
+	if app_state.cerberus_evts_correlated.len() >= MAX_EVENTS {
+		app_state.cerberus_evts_correlated.pop_front();
+	}
+
+	push_bounded(&mut app_state.cerberus_evts_correlated, event);
 }
 
 fn handle_cerberus_eval_event(event: &EvaluatedEvent, app_state: &mut AppState) {
@@ -133,6 +152,15 @@ async fn _handle_term_event(term_event: &Event, shutdown: CancellationToken) -> 
 	Ok(())
 }
 
+async fn _handle_action_event(action_event: &ActionEvent, _terminal: &mut DefaultTerminal) -> Result<()> {
+	match action_event {
+		ActionEvent::Quit => {
+			// Handled at the main loop
+		}
+	}
+	Ok(())
+}
+
 async fn handle_action_event(
 	action_event: &ActionEvent,
 	_terminal: &mut DefaultTerminal,
@@ -144,4 +172,11 @@ async fn handle_action_event(
 		}
 	}
 	Ok(())
+}
+
+fn push_bounded<T: Clone>(buf: &mut VecDeque<T>, item: &T) {
+	if buf.len() >= MAX_EVENTS {
+		buf.pop_front();
+	}
+	buf.push_back(item.clone());
 }

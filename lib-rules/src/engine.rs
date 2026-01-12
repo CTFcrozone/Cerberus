@@ -3,7 +3,7 @@ use std::sync::Mutex;
 use std::time::Instant;
 use std::{collections::HashMap, path::Path, sync::Arc};
 
-use lib_event::app_evt_types::{CerberusEvent, EvaluatedEvent, EventMeta};
+use lib_event::app_evt_types::{CerberusEvent, CorrelatedEvent, EngineEvent, EvaluatedEvent, EventMeta};
 
 use crate::correlation::Correlator;
 use crate::rule::Rule;
@@ -90,7 +90,7 @@ impl RuleEngine {
 		now: Instant,
 		ruleset: &RuleSet,
 		index: &RuleIndex,
-		out: &mut Vec<EvaluatedEvent>,
+		out: &mut Vec<EngineEvent>,
 		event: &CerberusEvent,
 	) {
 		let key: Arc<str> = matched_rule.inner.id.as_str().into();
@@ -111,24 +111,26 @@ impl RuleEngine {
 				.on_rule_match(&matched_rule.inner.id, seq, &root_rule.inner.id, now)
 				.is_some()
 			{
-				out.push(EvaluatedEvent {
-					rule_id: Arc::from(format!(
-						"CORRELATION - {} - {}",
-						root_rule.inner.id, matched_rule.inner.id
-					)),
-					rule_hash: root_rule.hash_hex(),
-					severity: Arc::from(root_rule.inner.severity.as_deref().unwrap_or("unknown")),
-					rule_type: "correlation".into(),
-					event_meta: Self::event_meta(event),
-				});
+				out.push(
+					CorrelatedEvent {
+						base_rule_id: root_rule.inner.id.as_str().into(),
+						seq_rule_id: matched_rule.inner.id.as_str().into(),
+						base_rule_hash: root_rule.hash_hex(),
+						seq_rule_hash: matched_rule.hash_hex(),
+
+						event_meta: Self::event_meta(event),
+					}
+					.into(),
+				);
 			}
 		}
 	}
 
-	pub fn process_event(&self, event: &CerberusEvent) -> Result<Vec<EvaluatedEvent>> {
+	pub fn process_event(&self, event: &CerberusEvent) -> Result<Vec<EngineEvent>> {
 		let ctx = Self::event_to_ctx(event);
 		let ruleset = self.ruleset.load();
-		let mut matches = Vec::new();
+
+		let mut out = Vec::<EngineEvent>::new();
 		let index = self.index.load();
 		let now = Instant::now();
 		let mut corr = self.correlator.lock()?;
@@ -144,16 +146,16 @@ impl RuleEngine {
 					continue;
 				}
 
-				matches.push(Self::rule_to_eval_event(rule, Self::event_meta(event)));
+				out.push(Self::rule_to_eval_event(rule, Self::event_meta(event)).into());
 
 				if let Some(seq) = &rule.inner.sequence {
 					corr.on_root_match(&rule.inner.id, seq, now);
 				}
-				self.advance_sequences(&mut corr, rule, now, &ruleset, &index, &mut matches, event);
+				self.advance_sequences(&mut corr, rule, now, &ruleset, &index, &mut out, event);
 			}
 		}
 
-		Ok(matches)
+		Ok(out)
 	}
 
 	fn event_to_ctx(event: &CerberusEvent) -> EvalCtx {
@@ -213,6 +215,13 @@ mod tests {
 	use std::sync::Arc;
 	use toml::Value;
 
+	fn expect_matched(ev: &EngineEvent) -> &EvaluatedEvent {
+		match ev {
+			EngineEvent::Matched(e) => e,
+			_ => panic!("expected EngineEvent::Matched"),
+		}
+	}
+
 	#[test]
 	fn process_event_matches_rule() -> Result<()> {
 		// -- Setup & Fixtures
@@ -236,7 +245,7 @@ mod tests {
 
 		// -- Check
 		assert!(!res.is_empty());
-		let matched = &res[0];
+		let matched = expect_matched(&res[0]);
 		assert_eq!(matched.rule_id, "pid-exists".into());
 		assert_eq!(matched.severity, "low".into());
 		assert_eq!(matched.rule_type, "exec".into());
@@ -336,7 +345,7 @@ mod tests {
 		// -- Check
 
 		assert_eq!(res.len(), 1);
-		let matched = &res[0];
+		let matched = expect_matched(&res[0]);
 
 		assert_eq!(matched.rule_id, "tcp-state-change".into());
 		assert_eq!(matched.rule_type, "network".into());

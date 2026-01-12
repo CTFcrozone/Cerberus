@@ -1,4 +1,4 @@
-use crate::views::ActionView;
+use crate::views::{correlated_event_view::CorrelatedEventView, ActionView};
 use ratatui::{
 	buffer::Buffer,
 	layout::{Constraint, Direction, Layout, Rect},
@@ -39,6 +39,7 @@ impl StatefulWidget for MainView {
 			crate::core::Tab::General => GeneralEventView {}.render(events_tbl, buf, state),
 			crate::core::Tab::Network => NetworkEventView {}.render(events_tbl, buf, state),
 			crate::core::Tab::MatchedRules => EvaluatedEventView {}.render(events_tbl, buf, state),
+			crate::core::Tab::CorrelatedRules => CorrelatedEventView {}.render(events_tbl, buf, state),
 		}
 
 		let right = LoadedHooksView {};
@@ -50,13 +51,15 @@ impl StatefulWidget for MainView {
 }
 
 fn render_tabs(area: Rect, buf: &mut Buffer, state: &AppState) {
-	let [_, tab_general_a, _, tab_network_a, _, tab_evaluated_a] = Layout::default()
+	let [_, tab_general_a, _, tab_network_a, _, tab_evaluated_a, _, tabs_correlated_a] = Layout::default()
 		.direction(Direction::Horizontal)
 		.constraints([
 			Constraint::Length(1),
 			Constraint::Length(11),
 			Constraint::Length(2),
 			Constraint::Length(11),
+			Constraint::Length(2),
+			Constraint::Length(17),
 			Constraint::Length(2),
 			Constraint::Length(17),
 		])
@@ -82,6 +85,12 @@ fn render_tabs(area: Rect, buf: &mut Buffer, state: &AppState) {
 		styles::STL_TAB_DEFAULT
 	};
 
+	let tab_correlated_style = if current_tab.as_index() == 3 {
+		styles::STL_TAB_ACTIVE
+	} else {
+		styles::STL_TAB_DEFAULT
+	};
+
 	Paragraph::new("General")
 		.centered()
 		.style(tab_general_style)
@@ -96,4 +105,9 @@ fn render_tabs(area: Rect, buf: &mut Buffer, state: &AppState) {
 		.centered()
 		.style(tab_eval_style)
 		.render(tab_evaluated_a, buf);
+
+	Paragraph::new("Correlated rules")
+		.centered()
+		.style(tab_correlated_style)
+		.render(tabs_correlated_a, buf);
 }

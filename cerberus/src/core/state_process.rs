@@ -26,16 +26,21 @@ fn handle_main_input(state: &mut AppState) {
 
 			KeyCode::Enter => match state.current_tab() {
 				Tab::MatchedRules => state.toggle_rule_popup(),
+				Tab::CorrelatedRules => state.toggle_rule_popup(),
+
 				_ => {}
 			},
 
 			KeyCode::Up => match state.current_tab() {
 				Tab::MatchedRules => state.next_rule(state.cerberus_evts_matched().count()),
+				Tab::CorrelatedRules => state.next_rule(state.cerberus_evts_correlated().count()),
 				_ => {}
 			},
 
 			KeyCode::Down => match state.current_tab() {
 				Tab::MatchedRules => state.prev_rule(state.cerberus_evts_matched().count()),
+				Tab::CorrelatedRules => state.prev_rule(state.cerberus_evts_correlated().count()),
+
 				_ => {}
 			},
 
@@ -50,6 +55,10 @@ fn handle_main_input(state: &mut AppState) {
 				}
 				Tab::MatchedRules => {
 					state.cerberus_evts_matched.clear();
+					state.set_event_scroll(0);
+				}
+				Tab::CorrelatedRules => {
+					state.cerberus_evts_correlated.clear();
 					state.set_event_scroll(0);
 				}
 			},

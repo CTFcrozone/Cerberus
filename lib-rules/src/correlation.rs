@@ -1,15 +1,15 @@
-use std::{collections::HashMap, time::Instant, usize};
+use std::{collections::HashMap, sync::Arc, time::Instant, usize};
 
 use crate::sequence::{Sequence, SequenceProgress};
 
 pub struct Correlator {
 	// root rule_id -> progress sequence
-	active: HashMap<String, Vec<SequenceProgress>>,
+	active: HashMap<Arc<str>, Vec<SequenceProgress>>,
 }
 
 #[derive(Debug, Clone)]
 pub struct CorrelatedMatch {
-	pub root_rule_id: String,
+	pub root_rule_id: Arc<str>,
 	pub steps: usize,
 }
 
@@ -23,7 +23,7 @@ impl Correlator {
 			return;
 		}
 
-		self.active.entry(root_rule_id.to_string()).or_default().push(SequenceProgress {
+		self.active.entry(root_rule_id.into()).or_default().push(SequenceProgress {
 			step_idx: 0,
 			last_match: now,
 		});
@@ -58,7 +58,7 @@ impl Correlator {
 
 				if prog.step_idx == seq.steps.len() {
 					return Some(CorrelatedMatch {
-						root_rule_id: root_rule_id.to_string(),
+						root_rule_id: root_rule_id.into(),
 						steps: seq.steps.len(),
 					});
 				}
@@ -122,7 +122,7 @@ mod tests {
 
 		// -- Check
 		let alert = res.expect("correlation should complete");
-		assert_eq!(alert.root_rule_id, "kernel-module-loader");
+		assert_eq!(alert.root_rule_id, "kernel-module-loader".into());
 		assert_eq!(alert.steps, 2);
 
 		Ok(())

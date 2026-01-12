@@ -13,7 +13,6 @@ use lib_event::app_evt_types::{AppEvent, BprmSecurityEvent, CerberusEvent, InetS
 use lib_rules::engine::RuleEngine;
 use tokio::io::unix::AsyncFd;
 use tokio_util::sync::CancellationToken;
-use tracing::info;
 use zerocopy::FromBytes;
 
 pub struct RingBufWorker {
@@ -39,8 +38,6 @@ impl RingBufWorker {
 	}
 
 	pub async fn _run(mut self) -> Result<()> {
-		tracing::info!("RingBufWorker start");
-
 		loop {
 			tokio::select! {
 				_ = self.shutdown.cancelled() => {
@@ -58,7 +55,7 @@ impl RingBufWorker {
 						if let Ok(evt) = parse_event_from_bytes(data) {
 							let cerb = parse_cerberus_event(evt)?;
 							for e in self.rule_engine.process_event(&cerb)? {
-								self.tx.send(AppEvent::CerberusEvaluated(e)).await?;
+								self.tx.send(AppEvent::Engine(e)).await?;
 							}
 							self.tx.send(AppEvent::Cerberus(cerb)).await?;
 						}
@@ -72,31 +69,31 @@ impl RingBufWorker {
 		Ok(())
 	}
 
-	async fn run(&mut self) -> Result<()> {
-		loop {
-			let mut guard = self.ringbuf_fd.readable_mut().await?;
-			let ring_buf = guard.get_inner_mut();
+	// async fn run(&mut self) -> Result<()> {
+	// 	loop {
+	// 		let mut guard = self.ringbuf_fd.readable_mut().await?;
+	// 		let ring_buf = guard.get_inner_mut();
 
-			while let Some(item) = ring_buf.next() {
-				let data = item.as_ref();
+	// 		while let Some(item) = ring_buf.next() {
+	// 			let data = item.as_ref();
 
-				match parse_event_from_bytes(data) {
-					Ok(evt) => {
-						let cerberus_evt = parse_cerberus_event(evt)?;
+	// 			match parse_event_from_bytes(data) {
+	// 				Ok(evt) => {
+	// 					let cerberus_evt = parse_cerberus_event(evt)?;
 
-						for evt in self.rule_engine.process_event(&cerberus_evt)? {
-							self.tx.send(AppEvent::CerberusEvaluated(evt)).await?;
-						}
+	// 					for evt in self.rule_engine.process_event(&cerberus_evt)? {
+	// 						self.tx.send(AppEvent::Engine(evt)).await?;
+	// 					}
 
-						self.tx.send(AppEvent::Cerberus(cerberus_evt)).await?;
-					}
-					Err(e) => info!("Failed to parse event: {:?}", e),
-				}
-			}
+	// 					self.tx.send(AppEvent::Cerberus(cerberus_evt)).await?;
+	// 				}
+	// 				Err(e) => info!("Failed to parse event: {:?}", e),
+	// 			}
+	// 		}
 
-			guard.clear_ready();
-		}
-	}
+	// 		guard.clear_ready();
+	// 	}
+	// }
 }
 
 fn parse_cerberus_event(evt: EbpfEvent) -> Result<CerberusEvent> {
