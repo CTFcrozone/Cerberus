@@ -117,7 +117,6 @@ impl RuleEngine {
 						seq_rule_id: matched_rule.inner.id.as_str().into(),
 						base_rule_hash: root_rule.hash_hex(),
 						seq_rule_hash: matched_rule.hash_hex(),
-
 						event_meta: Self::event_meta(event),
 					}
 					.into(),

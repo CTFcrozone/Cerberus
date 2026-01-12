@@ -3,7 +3,7 @@ use std::time::Duration;
 use crate::error::Result;
 
 use lib_event::{
-	app_evt_types::{AppEvent, CerberusEvent, EvaluatedEvent},
+	app_evt_types::{AppEvent, CerberusEvent, EngineEvent, EvaluatedEvent},
 	trx::Rx,
 };
 use tokio_util::sync::CancellationToken;
@@ -35,7 +35,7 @@ pub async fn _run_daemon_sink(rx: Rx<AppEvent>, shutdown: CancellationToken) -> 
 				match evt {
 					Ok(evt) => {
 						match evt {
-							AppEvent::CerberusEvaluated(e) => {
+							AppEvent::Engine(e) => {
 								print_alert(&e);
 							}
 							AppEvent::Cerberus(e) => {
@@ -69,11 +69,21 @@ pub async fn start_daemon(app_rx: Rx<AppEvent>, shutdown: CancellationToken, run
 	Ok(())
 }
 
-fn print_alert(e: &EvaluatedEvent) {
-	warn!(
-		"[{}] {} (PID: {}, UID: {})",
-		e.rule_type, e.rule_id, e.event_meta.pid, e.event_meta.uid
-	);
+fn print_alert(e: &EngineEvent) {
+	match e {
+		EngineEvent::Matched(ev) => {
+			warn!(
+				"[{}] {} (PID: {}, UID: {})",
+				ev.rule_type, ev.rule_id, ev.event_meta.pid, ev.event_meta.uid
+			);
+		}
+		EngineEvent::Correlated(ev) => {
+			warn!(
+				"[{} -> {}] {} (PID: {}, UID: {})",
+				ev.base_rule_id, ev.seq_rule_id, ev.base_rule_hash, ev.event_meta.pid, ev.event_meta.uid
+			);
+		}
+	}
 }
 
 fn print_event(e: &CerberusEvent) {

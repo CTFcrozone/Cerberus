@@ -13,7 +13,10 @@ use zerocopy_derive::{FromBytes, Immutable, KnownLayout};
 #[derive(Clone, Copy, Debug, FromBytes, Immutable, KnownLayout)]
 pub struct EventHeader {
 	pub event_type: u8,
-	pub _padding: [u8; 3],
+	pub _padding: [u8; 7],
+	pub cgroup_id: u64,
+	pub mnt_ns: u32,
+	pub _pad: [u8; 4],
 }
 
 #[repr(C)]
@@ -36,6 +39,7 @@ pub struct ModuleInitEvent {
 	pub tgid: u32,
 	pub comm: [u8; 16],
 	pub module_name: [u8; 56],
+	pub _pad: [u8; 4],
 }
 
 #[repr(C)]
@@ -46,7 +50,7 @@ pub struct BprmSecurityCheckEvent {
 	pub uid: u32,
 	pub tgid: u32,
 	pub comm: [u8; 16],
-	pub filepath: [u8; 128],
+	pub filepath: [u8; 132],
 }
 
 #[repr(C)]

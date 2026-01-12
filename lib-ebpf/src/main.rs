@@ -5,7 +5,7 @@ use aya_ebpf::{
 	bindings::path,
 	helpers::{
 		bpf_get_current_comm, bpf_get_current_pid_tgid, bpf_get_current_uid_gid, bpf_probe_read_kernel,
-		r#gen::{bpf_d_path, bpf_send_signal},
+		r#gen::{bpf_d_path, bpf_get_current_cgroup_id, bpf_get_current_task, bpf_send_signal},
 	},
 	macros::{kprobe, lsm, map, tracepoint},
 	maps::{PerCpuArray, RingBuf},
@@ -16,10 +16,12 @@ use lib_common::{BprmSecurityCheckEvent, EventHeader, GenericEvent, InetSockSetS
 mod vmlinux;
 use vmlinux::{linux_binprm, module, sockaddr, sockaddr_in, task_struct};
 
+use crate::vmlinux::{cgroup_namespace, mnt_namespace, nsproxy};
+
 #[map]
 static EVT_MAP: RingBuf = RingBuf::with_byte_size(32 * 1024, 0);
 #[map(name = "FPATH")]
-static mut FPATH: PerCpuArray<[u8; 128]> = PerCpuArray::with_max_entries(1, 0);
+static mut FPATH: PerCpuArray<[u8; 132]> = PerCpuArray::with_max_entries(1, 0);
 
 const SYSTEMD_RESOLVE: &[u8; 16] = b"systemd-resolve\0";
 const TOKIO_RUNTIME: &[u8; 16] = b"tokio-runtime-w\0";
@@ -97,11 +99,41 @@ pub fn do_init_module(ctx: ProbeContext) -> u32 {
 	}
 }
 
+unsafe fn get_mnt_ns() -> u32 {
+	let task = bpf_get_current_task() as *const task_struct;
+	if task.is_null() {
+		return 0;
+	}
+
+	let nsproxy: *const nsproxy = match bpf_probe_read_kernel(&(*task).nsproxy) {
+		Ok(p) => p,
+		Err(_) => return 0,
+	};
+	if nsproxy.is_null() {
+		return 0;
+	}
+
+	let mnt_ns: *const mnt_namespace = match bpf_probe_read_kernel(&(*nsproxy).mnt_ns) {
+		Ok(p) => p,
+		Err(_) => return 0,
+	};
+	if mnt_ns.is_null() {
+		return 0;
+	}
+
+	match bpf_probe_read_kernel(&(*mnt_ns).ns.inum) {
+		Ok(inum) => inum,
+		Err(_) => 0,
+	}
+}
+
 fn try_commit_creds(ctx: ProbeContext) -> Result<u32, u32> {
 	let old_uid = bpf_get_current_uid_gid() as u32;
 	let pid = bpf_get_current_pid_tgid() as u32;
 	let tgid = (bpf_get_current_pid_tgid() >> 32) as u32;
 	let comm_raw = bpf_get_current_comm().unwrap_or([0u8; 16]);
+	let cgroup_id = unsafe { bpf_get_current_cgroup_id() };
+	let mnt_ns = unsafe { get_mnt_ns() };
 
 	let new_uid = ctx.arg(1).unwrap_or(0) as u32;
 
@@ -109,7 +141,10 @@ fn try_commit_creds(ctx: ProbeContext) -> Result<u32, u32> {
 		let event = GenericEvent {
 			header: EventHeader {
 				event_type: 4,
-				_padding: [0u8; 3],
+				_padding: [0u8; 7],
+				cgroup_id,
+				mnt_ns,
+				_pad: [0u8; 4],
 			},
 			pid,
 			uid: old_uid,
@@ -132,13 +167,18 @@ fn try_sys_enter_ptrace(ctx: TracePointContext) -> Result<u32, u32> {
 	let pid = bpf_get_current_pid_tgid() as u32;
 	let tgid = (bpf_get_current_pid_tgid() >> 32) as u32;
 	let comm_raw = bpf_get_current_comm().unwrap_or([0u8; 16]);
+	let cgroup_id = unsafe { bpf_get_current_cgroup_id() };
+	let mnt_ns = unsafe { get_mnt_ns() };
 
 	let ret = unsafe { bpf_send_signal(9) };
 
 	let event = GenericEvent {
 		header: EventHeader {
 			event_type: 7,
-			_padding: [0u8; 3],
+			_padding: [0u8; 7],
+			cgroup_id,
+			mnt_ns,
+			_pad: [0u8; 4],
 		},
 		pid,
 		uid,
@@ -161,7 +201,8 @@ fn try_do_init_module(ctx: ProbeContext) -> Result<u32, u32> {
 	let tgid = (bpf_get_current_pid_tgid() >> 32) as u32;
 	let comm_raw = bpf_get_current_comm().unwrap_or([0u8; 16]);
 	let module: *const module = ctx.arg(0).ok_or(1u32)?;
-
+	let cgroup_id = unsafe { bpf_get_current_cgroup_id() };
+	let mnt_ns = unsafe { get_mnt_ns() };
 	let name_i8 = unsafe { bpf_probe_read_kernel(&(*module).name).map_err(|_| 2u32)? };
 
 	let module_name: [u8; 56] = unsafe { core::mem::transmute(name_i8) };
@@ -169,13 +210,17 @@ fn try_do_init_module(ctx: ProbeContext) -> Result<u32, u32> {
 	let event = ModuleInitEvent {
 		header: EventHeader {
 			event_type: 5,
-			_padding: [0u8; 3],
+			_padding: [0u8; 7],
+			cgroup_id,
+			mnt_ns,
+			_pad: [0u8; 4],
 		},
 		pid,
 		uid,
 		tgid,
 		comm: comm_raw,
 		module_name,
+		_pad: [0u8; 4],
 	};
 
 	match EVT_MAP.output(&event, 0) {
@@ -211,10 +256,16 @@ fn _try_socket_connect(ctx: LsmContext) -> Result<i32, i32> {
 		return Ok(0);
 	}
 
+	let cgroup_id = unsafe { bpf_get_current_cgroup_id() };
+	let mnt_ns = unsafe { get_mnt_ns() };
+
 	let event = GenericEvent {
 		header: EventHeader {
 			event_type: 3,
-			_padding: [0u8; 3],
+			_padding: [0u8; 7],
+			cgroup_id,
+			mnt_ns,
+			_pad: [0u8; 4],
 		},
 		pid,
 		uid,
@@ -238,6 +289,8 @@ fn try_inet_sock_set_state(ctx: TracePointContext) -> Result<u32, u32> {
 	let protocol: u16 = unsafe { try_read!(ctx, 30) };
 	let saddr: u32 = unsafe { try_read!(ctx, 32) };
 	let daddr: u32 = unsafe { try_read!(ctx, 36) };
+	let cgroup_id = unsafe { bpf_get_current_cgroup_id() };
+	let mnt_ns = unsafe { get_mnt_ns() };
 
 	if protocol != 6 {
 		return Ok(0);
@@ -246,7 +299,10 @@ fn try_inet_sock_set_state(ctx: TracePointContext) -> Result<u32, u32> {
 	let event = InetSockSetStateEvent {
 		header: EventHeader {
 			event_type: 6,
-			_padding: [0u8; 3],
+			_padding: [0u8; 7],
+			cgroup_id,
+			mnt_ns,
+			_pad: [0u8; 4],
 		},
 		oldstate,
 		newstate,
@@ -271,6 +327,8 @@ fn try_bprm_check_security(ctx: LsmContext) -> Result<i32, i32> {
 	let pid = bpf_get_current_pid_tgid() as u32;
 	let tgid = (bpf_get_current_pid_tgid() >> 32) as u32;
 	let comm = bpf_get_current_comm().unwrap_or([0u8; 16]);
+	let cgroup_id = unsafe { bpf_get_current_cgroup_id() };
+	let mnt_ns = unsafe { get_mnt_ns() };
 	let bprm: *const linux_binprm = unsafe { ctx.arg(0) };
 
 	let buf = unsafe { FPATH.get_ptr_mut(0).ok_or(0)? };
@@ -288,7 +346,10 @@ fn try_bprm_check_security(ctx: LsmContext) -> Result<i32, i32> {
 	let event = BprmSecurityCheckEvent {
 		header: EventHeader {
 			event_type: 8,
-			_padding: [0; 3],
+			_padding: [0u8; 7],
+			cgroup_id,
+			mnt_ns,
+			_pad: [0u8; 4],
 		},
 		pid,
 		uid,
@@ -312,11 +373,16 @@ fn try_sys_enter_kill(ctx: LsmContext) -> Result<i32, i32> {
 	let tgid = (bpf_get_current_pid_tgid() >> 32) as u32;
 	let comm_raw = bpf_get_current_comm().unwrap_or([0u8; 16]);
 	let uid = bpf_get_current_uid_gid() as u32;
+	let cgroup_id = unsafe { bpf_get_current_cgroup_id() };
+	let mnt_ns = unsafe { get_mnt_ns() };
 
 	let event = GenericEvent {
 		header: EventHeader {
 			event_type: 1,
-			_padding: [0u8; 3],
+			_padding: [0u8; 7],
+			cgroup_id,
+			mnt_ns,
+			_pad: [0u8; 4],
 		},
 		pid: pid as u32,
 		uid,
