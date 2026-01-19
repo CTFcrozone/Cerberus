@@ -15,5 +15,6 @@ pub enum ContainerRuntime {
 	Docker,
 	Containerd,
 	Crio,
+	Kubernetes,
 	Unknown,
 }
