@@ -59,7 +59,6 @@ impl Tab {
 pub struct AppState {
 	pub(in crate::core) ebpf: Ebpf,
 	pub(in crate::core) sys_state: SysState,
-	pub(in crate::core) memory: u64,
 	pub(in crate::core) loaded_hooks: Vec<String>,
 	pub(in crate::core) last_app_event: LastAppEvent,
 	pub(in crate::core) cerberus_evts_general: VecDeque<CerberusEvent>,
@@ -83,7 +82,6 @@ impl AppState {
 		Ok(Self {
 			ebpf,
 			sys_state,
-			memory: 0,
 			loaded_hooks: Vec::new(),
 			event_scroll: 0,
 			last_app_event,
@@ -99,16 +97,6 @@ impl AppState {
 			popup_show: false,
 			selected_rule: 0,
 		})
-	}
-
-	pub(in crate::core) fn refresh_sys_state(&mut self) {
-		if self.memory != self.sys_state.memory() {
-			self.memory = self.sys_state.memory();
-		}
-	}
-
-	pub fn memory(&self) -> u64 {
-		self.memory
 	}
 }
 
@@ -210,12 +198,5 @@ impl AppState {
 
 	pub fn set_view(&mut self, view: View) {
 		self.current_view = view;
-	}
-}
-
-impl AppState {
-	pub fn memory_fmt(&self) -> String {
-		let mem = self.memory();
-		format_size_xfixed(mem)
 	}
 }

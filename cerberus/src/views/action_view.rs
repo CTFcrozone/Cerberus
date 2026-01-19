@@ -11,11 +11,11 @@ pub struct ActionView;
 impl StatefulWidget for ActionView {
 	type State = AppState;
 
-	fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+	fn render(self, area: Rect, buf: &mut Buffer, _state: &mut Self::State) {
 		Block::new().style(Style::default().bg(Color::Black)).render(area, buf);
-		let [actions_a, mem_lbl_a, mem_val_a] = Layout::default()
+		let [actions_a] = Layout::default()
 			.direction(Direction::Horizontal)
-			.constraints(vec![Constraint::Fill(1), Constraint::Length(5), Constraint::Length(10)])
+			.constraints(vec![Constraint::Fill(1)])
 			.spacing(1)
 			.areas(area);
 
@@ -32,10 +32,5 @@ impl StatefulWidget for ActionView {
 		]);
 
 		Paragraph::new(line).render(actions_a, buf);
-
-		Paragraph::new("Mem:").right_aligned().style(STL_TXT_LBL).render(mem_lbl_a, buf);
-		Paragraph::new(state.memory_fmt())
-			.style(styles::STL_TXT_VAL)
-			.render(mem_val_a, buf);
 	}
 }

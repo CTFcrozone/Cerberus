@@ -16,10 +16,13 @@ use notify::{INotifyWatcher, RecursiveMode};
 use notify_debouncer_full::{new_debouncer, DebounceEventResult, Debouncer, NoCache};
 use ratatui::DefaultTerminal;
 use tokio::task::JoinHandle;
+use tokio::time::{sleep, Instant};
 use tokio_util::sync::CancellationToken;
 
 // use super::event_handler::handle_app_event;
 use super::{process_app_state, AppState, AppTx, ExitTx};
+
+const FRAME_TIME: Duration = Duration::from_millis(16);
 
 pub struct UiRuntime {
 	pub ui_handle: JoinHandle<()>,
@@ -116,7 +119,6 @@ pub async fn _rule_watch_worker(
 pub fn _run_ui_loop(
 	mut term: DefaultTerminal,
 	ebpf: Ebpf,
-	// app_tx: AppTx,
 	rule_engine: Arc<RuleEngine>,
 	app_rx: Rx<AppEvent>,
 	shutdown: CancellationToken,
@@ -127,6 +129,8 @@ pub fn _run_ui_loop(
 
 	let handle = tokio::spawn(async move {
 		loop {
+			let frame_start = Instant::now();
+
 			if shutdown.is_cancelled() {
 				let _ = term.clear();
 				break;
@@ -145,22 +149,12 @@ pub fn _run_ui_loop(
 				},
 			};
 
-			// if let AppEvent::Action(ActionEvent::Quit) = &app_event {
-			// 	let _ = term.clear();
-			// 	info!("tui loop cancel 3");
-
-			// 	shutdown.cancel();
-			// 	break;
-			// }
-
-			let _ = _handle_app_event(
-				// &app_tx,
-				&app_event,
-				&mut appstate,
-				shutdown.clone(),
-			)
-			.await;
+			let _ = _handle_app_event(&app_event, &mut appstate, shutdown.clone()).await;
 			appstate.last_app_event = app_event.into();
+			let elapsed = frame_start.elapsed();
+			if elapsed < FRAME_TIME {
+				sleep(FRAME_TIME - elapsed).await;
+			}
 		}
 	});
 

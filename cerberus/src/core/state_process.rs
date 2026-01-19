@@ -10,7 +10,6 @@ pub fn process_app_state(state: &mut AppState) {
 }
 
 fn handle_main_view(state: &mut AppState) {
-	state.refresh_sys_state();
 	handle_main_input(state);
 	update_loaded_hooks(state);
 	handle_scroll(state);
