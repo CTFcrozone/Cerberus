@@ -2,14 +2,11 @@ use std::collections::{HashMap, VecDeque};
 use std::sync::Arc;
 
 use aya::Ebpf;
-use lib_rules::engine::RuleEngine;
+use lib_rules::RuleEngine;
 
-use crate::core::sys_state::SysState;
 use crate::event::LastAppEvent;
 use crate::Result;
 use lib_event::app_evt_types::{CerberusEvent, CorrelatedEvent, EvaluatedEvent};
-
-use super::format_size_xfixed;
 
 #[derive(Clone, Debug)]
 pub struct EvaluatedEntry {
@@ -58,7 +55,6 @@ impl Tab {
 
 pub struct AppState {
 	pub(in crate::core) ebpf: Ebpf,
-	pub(in crate::core) sys_state: SysState,
 	pub(in crate::core) loaded_hooks: Vec<String>,
 	pub(in crate::core) last_app_event: LastAppEvent,
 	pub(in crate::core) cerberus_evts_general: VecDeque<CerberusEvent>,
@@ -78,10 +74,8 @@ pub struct AppState {
 
 impl AppState {
 	pub fn new(ebpf: Ebpf, last_app_event: LastAppEvent) -> Result<Self> {
-		let sys_state = SysState::new()?;
 		Ok(Self {
 			ebpf,
-			sys_state,
 			loaded_hooks: Vec::new(),
 			event_scroll: 0,
 			last_app_event,

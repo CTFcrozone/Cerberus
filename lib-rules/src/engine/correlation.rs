@@ -1,6 +1,6 @@
 use std::{collections::HashMap, sync::Arc, time::Instant, usize};
 
-use crate::sequence::{Sequence, SequenceProgress};
+use crate::rule::{Sequence, SequenceProgress};
 
 pub struct Correlator {
 	// root rule_id -> progress sequence
@@ -83,7 +83,7 @@ mod tests {
 
 	use std::time::Duration;
 
-	use crate::sequence::{SequenceKind, Step};
+	use crate::rule::{SequenceKind, Step};
 
 	use super::*;
 

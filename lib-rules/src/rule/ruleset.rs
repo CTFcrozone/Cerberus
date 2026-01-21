@@ -1,6 +1,7 @@
 use std::path::Path;
 
-use crate::{error::Result, rule::Rule};
+use crate::error::Result;
+use crate::Rule;
 use glob::glob;
 use serde::Deserialize;
 use tracing::warn;

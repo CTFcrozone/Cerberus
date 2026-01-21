@@ -12,14 +12,12 @@ use crossterm::{
 	terminal::{DisableLineWrap, EnterAlternateScreen, LeaveAlternateScreen},
 };
 use derive_more::{Deref, From};
-use lib_rules::engine::RuleEngine;
+use lib_rules::RuleEngine;
 use ratatui::DefaultTerminal;
 
 use lib_event::app_evt_types::AppEvent;
 use lib_event::trx::{Rx, Tx};
 use tokio_util::sync::CancellationToken;
-
-use super::term_reader::run_term_read;
 
 #[derive(Clone, From, Deref)]
 pub struct ExitTx(Tx<()>);

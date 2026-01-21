@@ -5,11 +5,10 @@ use std::{collections::HashMap, path::Path, sync::Arc};
 
 use lib_event::app_evt_types::{CerberusEvent, CorrelatedEvent, EngineEvent, EvaluatedEvent, EventMeta};
 
-use crate::correlation::Correlator;
+use crate::engine::{Correlator, EvalCtx, Evaluator, EventKind, RuleIndex};
+use crate::error::Result;
 use crate::rule::Rule;
-use crate::rule_index::{EventKind, RuleIndex};
-use crate::{ctx::EvalCtx, error::Result};
-use crate::{evaluator::Evaluator, ruleset::RuleSet};
+use crate::RuleSet;
 
 pub struct RuleEngine {
 	pub ruleset: ArcSwap<RuleSet>,

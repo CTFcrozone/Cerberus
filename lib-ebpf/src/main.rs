@@ -16,7 +16,7 @@ use lib_common::{BprmSecurityCheckEvent, EventHeader, GenericEvent, InetSockSetS
 mod vmlinux;
 use vmlinux::{linux_binprm, module, sockaddr, sockaddr_in, task_struct};
 
-use crate::vmlinux::{cgroup_namespace, mnt_namespace, nsproxy};
+use crate::vmlinux::{mnt_namespace, nsproxy};
 
 #[map]
 static EVT_MAP: RingBuf = RingBuf::with_byte_size(32 * 1024, 0);

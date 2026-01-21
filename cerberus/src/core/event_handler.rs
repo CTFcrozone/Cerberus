@@ -1,6 +1,6 @@
 use std::{collections::VecDeque, sync::Arc};
 
-use super::{AppState, AppTx, ExitTx};
+use super::{AppState, ExitTx};
 use crate::{
 	core::app_state::{EvaluatedEntry, EvaluatedKey},
 	Result,

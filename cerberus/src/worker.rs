@@ -10,7 +10,7 @@ use lib_common::{
 	BprmSecurityCheckEvent, EbpfEvent, EventHeader, GenericEvent, InetSockSetStateEvent, ModuleInitEvent,
 };
 use lib_event::app_evt_types::{AppEvent, BprmSecurityEvent, CerberusEvent, InetSockEvent, ModuleEvent, RingBufEvent};
-use lib_rules::engine::RuleEngine;
+use lib_rules::RuleEngine;
 use tokio::io::unix::AsyncFd;
 use tokio_util::sync::CancellationToken;
 use zerocopy::FromBytes;

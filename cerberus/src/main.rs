@@ -25,9 +25,9 @@ use aya::{
 	Btf, Ebpf,
 };
 use clap::Parser;
-use core::{AppTx, ExitTx};
+use core::AppTx;
 use lib_event::{app_evt_types::AppEvent, trx::new_channel};
-use lib_rules::engine::RuleEngine;
+use lib_rules::RuleEngine;
 use std::sync::Arc;
 use tracing_subscriber::EnvFilter;
 #[rustfmt::skip]

@@ -3,7 +3,7 @@ use std::{path::Path, sync::Arc};
 use crate::{
 	error::{Error, Result},
 	hash_utils,
-	sequence::Sequence,
+	rule::Sequence,
 };
 use serde::Deserialize;
 use simple_fs::SPath;

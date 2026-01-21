@@ -9,9 +9,9 @@ use crate::views::correlated_event_view::render_correlation_popup;
 use crate::views::{render_rule_popup, MainView, SummaryView};
 use crate::Result;
 use aya::Ebpf;
-use lib_event::app_evt_types::{ActionEvent, AppEvent, RuleWatchEvent};
+use lib_event::app_evt_types::{AppEvent, RuleWatchEvent};
 use lib_event::trx::{new_channel, Rx, Tx};
-use lib_rules::engine::RuleEngine;
+use lib_rules::RuleEngine;
 use notify::{INotifyWatcher, RecursiveMode};
 use notify_debouncer_full::{new_debouncer, DebounceEventResult, Debouncer, NoCache};
 use ratatui::DefaultTerminal;
@@ -20,7 +20,7 @@ use tokio::time::{sleep, Instant};
 use tokio_util::sync::CancellationToken;
 
 // use super::event_handler::handle_app_event;
-use super::{process_app_state, AppState, AppTx, ExitTx};
+use super::{process_app_state, AppState};
 
 const FRAME_TIME: Duration = Duration::from_millis(16);
 
