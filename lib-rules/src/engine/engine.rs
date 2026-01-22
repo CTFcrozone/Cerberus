@@ -7,8 +7,8 @@ use lib_event::app_evt_types::{CerberusEvent, CorrelatedEvent, EngineEvent, Eval
 
 use crate::engine::{Correlator, EvalCtx, Evaluator, EventKind, RuleIndex};
 use crate::error::Result;
-use crate::rule::Rule;
-use crate::RuleSet;
+use crate::rule::{Response, Rule};
+use crate::{Error, RuleSet};
 
 pub struct RuleEngine {
 	pub ruleset: ArcSwap<RuleSet>,
@@ -122,6 +122,32 @@ impl RuleEngine {
 				);
 			}
 		}
+	}
+
+	fn exec_response(&self, response: &Response, event: &CerberusEvent, eval: &EvaluatedEvent) -> Result<()> {
+		match response {
+			Response::KillProcess => {
+				let pid = eval.event_meta.pid;
+
+				if pid == 0 {
+					return Ok(());
+				}
+
+				unsafe {
+					let res = libc::kill(pid as libc::pid_t, libc::SIGKILL);
+
+					if res != 0 {
+						let errno = std::io::Error::last_os_error();
+						return Err(Error::custom(format!("Failed to kill process {}: {}", pid, errno)));
+					}
+				}
+			}
+
+			// todo
+			_ => {}
+		}
+
+		Ok(())
 	}
 
 	pub fn process_event(&self, event: &CerberusEvent) -> Result<Vec<EngineEvent>> {
@@ -268,6 +294,7 @@ mod tests {
 					value: Value::Integer(0),
 				}],
 				sequence: None,
+				response: None,
 			},
 
 			hash: [0u8; 32],
@@ -317,6 +344,7 @@ mod tests {
 					},
 				],
 				sequence: None,
+				response: None,
 			},
 			hash: [0u8; 32],
 		};

@@ -204,6 +204,7 @@ mod tests {
 				cond("comm", "==", Value::String("bash".into())),
 			],
 			sequence: None,
+			response: None,
 		};
 
 		let ctx_ok = ctx(&[("pid", Value::Integer(123)), ("comm", Value::String("bash".into()))]);
@@ -219,6 +220,7 @@ mod tests {
 				cond("uid", "equals", Value::Integer(0)),
 			],
 			sequence: None,
+			response: None,
 		};
 
 		let ctx_fail = ctx(&[("pid", Value::Integer(123)), ("uid", Value::Integer(1000))]);

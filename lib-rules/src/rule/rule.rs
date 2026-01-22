@@ -31,6 +31,8 @@ pub struct RuleInner {
 	pub conditions: Vec<Condition>,
 	#[serde(default)]
 	pub sequence: Option<Sequence>,
+	#[serde(default)]
+	pub response: Option<Response>,
 }
 
 #[cfg_attr(test, derive(PartialEq))]
@@ -39,6 +41,19 @@ pub struct Condition {
 	pub field: String,
 	pub op: String,
 	pub value: toml::Value,
+}
+
+#[cfg_attr(test, derive(PartialEq))]
+#[derive(Debug, Deserialize, Clone)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum Response {
+	KillProcess,
+	DenyExec,
+	IsolateContainer,
+	ThrottleNetwork,
+	EmitSignal { signal: i32 },
+	LogOnly,
+	Notify { message: String },
 }
 
 impl Rule {
@@ -107,6 +122,7 @@ mod tests {
 				},
 			],
 			sequence: None,
+			response: None,
 		};
 		let fx_rule = Rule {
 			inner: fx_rule_inner,
