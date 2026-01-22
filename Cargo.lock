@@ -355,6 +355,7 @@ dependencies = [
  "lib-common",
  "lib-container",
  "lib-ebpf",
+ "lib-ebpf-common",
  "lib-event",
  "lib-rules",
  "libc",
@@ -978,9 +979,8 @@ checksum = "bbd2bcb4c963f2ddae06a2efc7e9f3591312473c50c6685e1f298068316e66fe"
 name = "lib-common"
 version = "0.1.0"
 dependencies = [
- "aya",
- "zerocopy",
- "zerocopy-derive",
+ "crossterm",
+ "derive_more",
 ]
 
 [[package]]
@@ -1019,8 +1019,17 @@ version = "0.1.0"
 dependencies = [
  "aya-ebpf",
  "aya-log-ebpf",
- "lib-common",
+ "lib-ebpf-common",
  "which",
+ "zerocopy",
+ "zerocopy-derive",
+]
+
+[[package]]
+name = "lib-ebpf-common"
+version = "0.1.0"
+dependencies = [
+ "aya",
  "zerocopy",
  "zerocopy-derive",
 ]
