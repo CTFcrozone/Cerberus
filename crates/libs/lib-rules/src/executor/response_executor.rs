@@ -12,6 +12,8 @@ impl ResponseExecutor {
 			crate::Response::EmitSignal { signal } => unsafe {
 				libc::kill(req.event_meta.pid as i32, signal);
 			},
+
+			// TODO
 			_ => {}
 		}
 		Ok(())

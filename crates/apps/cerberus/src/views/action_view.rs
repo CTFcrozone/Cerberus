@@ -1,5 +1,5 @@
 use crate::core::AppState;
-use crate::styles::{self, STL_TXT_LBL};
+use crate::styles::{self};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::style::{Color, Style};

@@ -1,7 +1,5 @@
 use std::{
 	collections::{hash_map::Entry, HashMap},
-	fs,
-	hash::Hash,
 	sync::Arc,
 };
 

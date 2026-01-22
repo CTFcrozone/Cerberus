@@ -4,7 +4,7 @@ mod general_event_view;
 mod loaded_hooks_view;
 mod main_view;
 mod network_event_view;
-mod splash_view;
+// mod splash_view;
 mod summary_view;
 mod support;
 
@@ -14,6 +14,6 @@ pub use general_event_view::*;
 pub use loaded_hooks_view::*;
 pub use main_view::*;
 pub use network_event_view::*;
-pub use splash_view::*;
+// pub use splash_view::*;
 pub use summary_view::*;
 pub mod correlated_event_view;

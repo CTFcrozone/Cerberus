@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use crate::error::Result;
 
-use lib_common::event::{AppEvent, CerberusEvent, EngineEvent, EvaluatedEvent};
+use lib_common::event::{AppEvent, CerberusEvent, EngineEvent};
 use lib_event::trx::Rx;
 use tokio_util::sync::CancellationToken;
 use tracing::{info, warn};

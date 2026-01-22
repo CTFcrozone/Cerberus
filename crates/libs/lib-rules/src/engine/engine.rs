@@ -130,32 +130,6 @@ impl RuleEngine {
 		}
 	}
 
-	fn exec_response(&self, response: &Response, event: &CerberusEvent, eval: &EvaluatedEvent) -> Result<()> {
-		match response {
-			Response::KillProcess => {
-				let pid = eval.event_meta.pid;
-
-				if pid == 0 {
-					return Ok(());
-				}
-
-				unsafe {
-					let res = libc::kill(pid as libc::pid_t, libc::SIGKILL);
-
-					if res != 0 {
-						let errno = std::io::Error::last_os_error();
-						return Err(Error::custom(format!("Failed to kill process {}: {}", pid, errno)));
-					}
-				}
-			}
-
-			// todo
-			_ => {}
-		}
-
-		Ok(())
-	}
-
 	pub fn process_event(&self, event: &CerberusEvent) -> Result<Vec<EngineEvent>> {
 		let ctx = Self::event_to_ctx(event);
 		let ruleset = self.ruleset.load();
