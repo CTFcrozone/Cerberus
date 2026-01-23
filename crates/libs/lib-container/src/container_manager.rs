@@ -1,5 +1,7 @@
+use crate::error::{Error, Result};
 use std::{
 	collections::{hash_map::Entry, HashMap},
+	path::PathBuf,
 	sync::Arc,
 };
 
@@ -7,13 +9,22 @@ use crate::container::{ContainerInfo, ContainerRuntime};
 
 pub struct ContainerManager {
 	cache: HashMap<u64, ContainerInfo>,
+	cgroup_root: PathBuf,
 }
 
+const CGROUP_DIR: &str = "/sys/fs/cgroup";
 impl ContainerManager {
-	pub fn new() -> Self {
-		Self {
-			cache: HashMap::with_capacity(1024),
+	pub fn new() -> Result<Self> {
+		let cgroup_root = PathBuf::from(CGROUP_DIR);
+
+		if !cgroup_root.exists() {
+			return Err(Error::CgroupFsNotMounted);
 		}
+
+		Ok(Self {
+			cache: HashMap::with_capacity(1024),
+			cgroup_root,
+		})
 	}
 
 	pub fn resolve(&mut self, cgroup_id: u64) -> Option<&ContainerInfo> {

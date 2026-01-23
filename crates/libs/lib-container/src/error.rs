@@ -8,6 +8,8 @@ pub enum Error {
 	#[from(String, &String, &str)]
 	Custom(String),
 
+	CgroupFsNotMounted,
+
 	// -- Externals
 	#[from]
 	Io(std::io::Error), // as example
