@@ -1,9 +1,10 @@
 use std::time::Duration;
 
-use crate::error::Result;
+use crate::{error::Result, event::AppEvent};
 
-use lib_common::event::{AppEvent, CerberusEvent, EngineEvent};
+use lib_common::event::CerberusEvent;
 use lib_event::trx::Rx;
+use lib_rules::EngineEvent;
 use tokio_util::sync::CancellationToken;
 use tracing::{info, warn};
 
@@ -66,6 +67,7 @@ fn print_alert(e: &EngineEvent) {
 				ev.base_rule_id, ev.seq_rule_id, ev.base_rule_hash, ev.event_meta.pid, ev.event_meta.uid
 			);
 		}
+		_ => {}
 	}
 }
 

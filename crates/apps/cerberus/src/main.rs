@@ -13,6 +13,7 @@ mod worker;
 use crate::{
 	cli::args::{Cli, RunMode},
 	core::_start_tui,
+	event::AppEvent,
 	supervisor::Supervisor,
 	worker::RingBufWorker,
 };
@@ -26,7 +27,6 @@ use aya::{
 };
 use clap::Parser;
 use core::AppTx;
-use lib_common::event::AppEvent;
 use lib_event::trx::new_channel;
 use lib_rules::RuleEngine;
 use std::sync::Arc;

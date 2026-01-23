@@ -1,6 +1,6 @@
 use derive_more::From;
-
-use crate::event::{CerberusEvent, EngineEvent, EvaluatedEvent};
+use lib_common::event::CerberusEvent;
+use lib_rules::EngineEvent;
 
 #[derive(From)]
 pub enum AppEvent {
@@ -8,8 +8,6 @@ pub enum AppEvent {
 	Term(crossterm::event::Event),
 	#[from]
 	Cerberus(CerberusEvent),
-	#[from]
-	CerberusEvaluated(EvaluatedEvent),
 	#[from]
 	Engine(EngineEvent),
 	#[from]

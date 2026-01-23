@@ -1,6 +1,7 @@
 use derive_more::From;
-use lib_common::event::AppEvent;
 use std::sync::Arc;
+
+use crate::event::AppEvent;
 
 #[derive(Clone, Default, From)]
 pub struct LastAppEvent {

@@ -1,12 +1,14 @@
 use std::{collections::VecDeque, sync::Arc};
 
 use super::{AppState, ExitTx};
+use crate::event::{ActionEvent, AppEvent};
 use crate::{
 	core::app_state::{EvaluatedEntry, EvaluatedKey},
 	Result,
 };
 use crossterm::event::{Event, KeyCode, KeyEventKind, KeyModifiers};
-use lib_common::event::{ActionEvent, AppEvent, CerberusEvent, CorrelatedEvent, EngineEvent, EvaluatedEvent};
+use lib_common::event::CerberusEvent;
+use lib_rules::{CorrelatedEvent, EngineEvent, EvaluatedEvent};
 use ratatui::DefaultTerminal;
 use tokio_util::sync::CancellationToken;
 
@@ -42,6 +44,7 @@ fn handle_engine_event(event: &EngineEvent, app_state: &mut AppState) {
 		EngineEvent::Correlated(evt) => {
 			handle_correlation_event(evt, app_state);
 		}
+		_ => {}
 	}
 }
 

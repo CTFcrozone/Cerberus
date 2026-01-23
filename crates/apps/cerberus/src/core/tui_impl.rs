@@ -15,7 +15,7 @@ use derive_more::{Deref, From};
 use lib_rules::RuleEngine;
 use ratatui::DefaultTerminal;
 
-use lib_common::event::AppEvent;
+use crate::event::AppEvent;
 use lib_event::trx::{Rx, Tx};
 use tokio_util::sync::CancellationToken;
 

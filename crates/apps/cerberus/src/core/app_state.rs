@@ -2,11 +2,11 @@ use std::collections::{HashMap, VecDeque};
 use std::sync::Arc;
 
 use aya::Ebpf;
-use lib_rules::RuleEngine;
+use lib_rules::{CorrelatedEvent, EvaluatedEvent, RuleEngine};
 
 use crate::event::LastAppEvent;
 use crate::Result;
-use lib_common::event::{CerberusEvent, CorrelatedEvent, EvaluatedEvent};
+use lib_common::event::CerberusEvent;
 
 #[derive(Clone, Debug)]
 pub struct EvaluatedEntry {

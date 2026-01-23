@@ -1,25 +1,20 @@
 use arc_swap::ArcSwap;
-use lib_common::event::{CerberusEvent, CorrelatedEvent, EngineEvent, EvaluatedEvent, EventMeta};
+use lib_common::event::{CerberusEvent, EventMeta};
 use std::sync::Mutex;
 use std::time::Instant;
 use std::{collections::HashMap, path::Path, sync::Arc};
 
-use crate::engine::{Correlator, EvalCtx, Evaluator, EventKind, RuleIndex};
+use crate::engine::{
+	CorrelatedEvent, Correlator, EngineEvent, EvalCtx, EvaluatedEvent, Evaluator, EventKind, RuleIndex,
+};
 use crate::error::Result;
 use crate::rule::{Response, Rule};
-use crate::{Error, RuleSet};
+use crate::RuleSet;
 
 pub struct RuleEngine {
 	pub ruleset: ArcSwap<RuleSet>,
 	pub index: ArcSwap<RuleIndex>,
 	correlator: Mutex<Correlator>,
-}
-
-#[derive(Debug, Clone)]
-pub struct ResponseRequest {
-	pub rule_id: Arc<str>,
-	pub response: Response,
-	pub event_meta: EventMeta,
 }
 
 impl RuleEngine {

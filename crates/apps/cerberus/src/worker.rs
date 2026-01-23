@@ -3,10 +3,11 @@ use std::sync::Arc;
 use crate::{
 	core::AppTx,
 	error::{Error, Result},
+	event::AppEvent,
 };
 
 use aya::maps::{MapData, RingBuf};
-use lib_common::event::{AppEvent, BprmSecurityEvent, CerberusEvent, InetSockEvent, ModuleEvent, RingBufEvent};
+use lib_common::event::{BprmSecurityEvent, CerberusEvent, InetSockEvent, ModuleEvent, RingBufEvent};
 use lib_ebpf_common::{
 	BprmSecurityCheckEvent, EbpfEvent, EventHeader, GenericEvent, InetSockSetStateEvent, ModuleInitEvent,
 };

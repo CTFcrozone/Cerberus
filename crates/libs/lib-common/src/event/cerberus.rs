@@ -15,13 +15,6 @@ pub enum CerberusEvent {
 }
 
 #[derive(Debug, Clone)]
-pub struct EventMeta {
-	pub comm: Arc<str>,
-	pub uid: u32,
-	pub pid: u32,
-}
-
-#[derive(Debug, Clone)]
 pub struct InetSockEvent {
 	pub old_state: Arc<str>,
 	pub new_state: Arc<str>,

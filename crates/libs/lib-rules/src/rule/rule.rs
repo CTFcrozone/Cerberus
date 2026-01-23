@@ -52,7 +52,6 @@ pub enum Response {
 	IsolateContainer,
 	ThrottleNetwork,
 	EmitSignal { signal: i32 },
-	LogOnly,
 	Notify { message: String },
 }
 
