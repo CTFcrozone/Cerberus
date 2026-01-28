@@ -9,7 +9,7 @@ license.workspace = true
 lib-common = { path = "../../libs/lib-common"}
 lib-rules = { path = "../../libs/lib-rules" }
 lib-event = { path="../../libs/lib-event" }
-lib-ebpf-common = { path="../../libs/lib-ebpf-common", features=["user"] }
+lib-ebpf-common = { path="../../libs/lib-ebpf-common" }
 
 lib-container = { path="../../libs/lib-container" }
 

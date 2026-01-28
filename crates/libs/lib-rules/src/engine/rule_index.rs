@@ -10,6 +10,7 @@ use crate::RuleSet;
 pub enum EventKind {
 	Generic,
 	InetSock,
+	SocketConnect,
 	Module,
 	Bprm,
 }
@@ -21,6 +22,7 @@ impl From<&CerberusEvent> for EventKind {
 			CerberusEvent::Bprm(_) => EventKind::Bprm,
 			CerberusEvent::InetSock(_) => EventKind::InetSock,
 			CerberusEvent::Module(_) => EventKind::Module,
+			CerberusEvent::SocketConnect(_) => EventKind::SocketConnect,
 		}
 	}
 }
@@ -31,6 +33,7 @@ fn field_in(kind: EventKind, field: &str) -> bool {
 		EventKind::InetSock => matches!(field, "old_state" | "new_state" | "sport" | "dport" | "protocol"),
 		EventKind::Bprm => matches!(field, "uid" | "pid" | "tgid" | "comm" | "filepath"),
 		EventKind::Module => matches!(field, "uid" | "pid" | "tgid" | "comm" | "module_name"),
+		EventKind::SocketConnect => matches!(field, "port" | "family"),
 	}
 }
 

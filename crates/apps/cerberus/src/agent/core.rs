@@ -93,6 +93,7 @@ fn print_event(e: &CerberusEvent) {
 		CerberusEvent::Bprm(b) => {
 			info!("{} executed {} (PID: {})", b.comm, b.filepath, b.pid);
 		}
+		_ => {}
 	}
 }
 

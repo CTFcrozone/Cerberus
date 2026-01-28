@@ -50,6 +50,7 @@ impl RuleEngine {
 		})
 	}
 
+	// TODO: add uid, pid, comm to network events
 	fn event_meta(event: &CerberusEvent) -> EventMeta {
 		match event {
 			CerberusEvent::Generic(evt) => EventMeta {
@@ -58,6 +59,11 @@ impl RuleEngine {
 				comm: Arc::clone(&evt.comm),
 			},
 			CerberusEvent::InetSock(_) => EventMeta {
+				uid: 0,
+				pid: 0,
+				comm: "".into(),
+			},
+			CerberusEvent::SocketConnect(_) => EventMeta {
 				uid: 0,
 				pid: 0,
 				comm: "".into(),
@@ -180,6 +186,12 @@ impl RuleEngine {
 				fields.insert("sport".into(), toml::Value::Integer(e.sport as i64));
 				fields.insert("dport".into(), toml::Value::Integer(e.dport as i64));
 				fields.insert("protocol".into(), toml::Value::String(e.protocol.to_string()));
+			}
+			CerberusEvent::SocketConnect(e) => {
+				// TODO: add IP string
+				// fields.insert("addr".into(), toml::Value::String(e.addr.to_string()));
+				fields.insert("port".into(), toml::Value::Integer(e.port as i64));
+				fields.insert("family".into(), toml::Value::Integer(e.family as i64));
 			}
 			CerberusEvent::Bprm(e) => {
 				fields.insert("uid".into(), toml::Value::Integer(e.uid as i64));

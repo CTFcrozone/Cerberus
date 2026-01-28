@@ -66,16 +66,20 @@ pub struct InetSockSetStateEvent {
 	pub _pad0: [u8; 2],      // 38..40
 }
 
-#[derive(Clone, Copy, Debug)]
-pub enum NetworkEbpfEvent {
-	InetSock(InetSockSetStateEvent),
-	SocketConnect(),
+#[repr(C)]
+#[derive(Clone, Copy, Debug, FromBytes, Immutable, KnownLayout)]
+pub struct SocketConnectEvent {
+	pub header: EventHeader, // 0..16
+	pub addr: u32,           // 16..20
+	pub port: u16,           // 20..22
+	pub family: u16,         // 22..24
 }
 
 #[derive(Clone, Copy, Debug)]
 pub enum EbpfEvent {
 	Generic(GenericEvent),
 	InetSock(InetSockSetStateEvent),
+	SocketConnect(SocketConnectEvent),
 	ModuleInit(ModuleInitEvent),
 	BprmSecurityCheck(BprmSecurityCheckEvent),
 }

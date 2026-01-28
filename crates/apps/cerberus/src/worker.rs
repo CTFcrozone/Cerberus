@@ -10,6 +10,7 @@ use aya::maps::{MapData, RingBuf};
 use lib_common::event::{BprmSecurityEvent, CerberusEvent, InetSockEvent, ModuleEvent, RingBufEvent};
 use lib_ebpf_common::{
 	BprmSecurityCheckEvent, EbpfEvent, EventHeader, GenericEvent, InetSockSetStateEvent, ModuleInitEvent,
+	SocketConnectEvent,
 };
 use lib_rules::RuleEngine;
 use tokio::io::unix::AsyncFd;
@@ -143,6 +144,11 @@ fn parse_cerberus_event(evt: EbpfEvent) -> Result<CerberusEvent> {
 			saddr: e.saddr,
 			daddr: e.daddr,
 		}),
+		EbpfEvent::SocketConnect(ref e) => CerberusEvent::SocketConnect(lib_common::event::SocketConnectEvent {
+			addr: e.addr,
+			port: e.port,
+			family: e.family,
+		}),
 	};
 
 	Ok(cerberus_evt)
@@ -152,10 +158,18 @@ fn parse_event_from_bytes(data: &[u8]) -> Result<EbpfEvent> {
 	let header = EventHeader::ref_from_prefix(data).map_err(|_| Error::InvalidEventSize)?.0;
 
 	match header.event_type {
-		1 | 3 | 4 => {
+		1 | 4 => {
 			let evt = GenericEvent::ref_from_prefix(data).map_err(|_| Error::InvalidEventSize)?.0;
 			Ok(EbpfEvent::Generic(*evt))
 		}
+
+		3 => {
+			let evt = SocketConnectEvent::ref_from_prefix(data)
+				.map_err(|_| Error::InvalidEventSize)?
+				.0;
+			Ok(EbpfEvent::SocketConnect(*evt))
+		}
+
 		5 => {
 			let evt = ModuleInitEvent::ref_from_prefix(data).map_err(|_| Error::InvalidEventSize)?.0;
 			Ok(EbpfEvent::ModuleInit(*evt))

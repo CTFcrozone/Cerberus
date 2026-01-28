@@ -75,6 +75,7 @@ fn handle_cerberus_event(event: &CerberusEvent, app_state: &mut AppState) {
 		CerberusEvent::Bprm(_) => &mut app_state.cerberus_evts_general,
 		CerberusEvent::Module(_) => &mut app_state.cerberus_evts_general,
 		CerberusEvent::InetSock(_) => &mut app_state.cerberus_evts_network,
+		CerberusEvent::SocketConnect(_) => &mut app_state.cerberus_evts_network,
 	};
 
 	push_bounded(events, event);

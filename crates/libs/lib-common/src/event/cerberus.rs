@@ -9,6 +9,8 @@ pub enum CerberusEvent {
 	#[from]
 	InetSock(InetSockEvent),
 	#[from]
+	SocketConnect(SocketConnectEvent),
+	#[from]
 	Module(ModuleEvent),
 	#[from]
 	Bprm(BprmSecurityEvent),
@@ -23,6 +25,13 @@ pub struct InetSockEvent {
 	pub daddr: u32,
 	pub sport: u16,
 	pub dport: u16,
+}
+
+#[derive(Debug, Clone)]
+pub struct SocketConnectEvent {
+	pub addr: u32,
+	pub port: u16,
+	pub family: u16,
 }
 
 #[derive(Debug, Clone)]
