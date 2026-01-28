@@ -34,7 +34,7 @@ pub fn line_from_event(evt: &CerberusEvent) -> Line<'static> {
 	}
 }
 
-pub fn ip_to_string(ip: u32) -> String {
+fn ip_to_string(ip: u32) -> String {
 	let octets = ip.to_le_bytes();
 	format!("{}.{}.{}.{}", octets[0], octets[1], octets[2], octets[3])
 }
