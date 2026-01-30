@@ -13,17 +13,10 @@ pub enum AppEvent {
 	#[from]
 	LoadedHooks,
 	#[from]
-	Action(ActionEvent),
-	#[from]
 	Watcher(RuleWatchEvent),
 }
 
 #[derive(Debug, Clone)]
 pub enum RuleWatchEvent {
 	Reload,
-}
-
-#[derive(Debug)]
-pub enum ActionEvent {
-	Quit,
 }

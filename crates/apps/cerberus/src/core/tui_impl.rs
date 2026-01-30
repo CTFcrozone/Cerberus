@@ -66,11 +66,12 @@ pub async fn _start_tui(
 		DisableLineWrap
 	)?;
 
-	let _ = _exec_app(terminal, ebpf, app_tx, rule_engine, app_rx, shutdown).await;
+	let result = _exec_app(terminal, ebpf, app_tx, rule_engine, app_rx, shutdown).await;
 
 	ratatui::restore();
 	execute!(stdout(), LeaveAlternateScreen, DisableMouseCapture, cursor::Show)?;
-	Ok(())
+
+	result
 }
 
 async fn _exec_app(
@@ -83,14 +84,14 @@ async fn _exec_app(
 ) -> Result<()> {
 	terminal.clear()?;
 
-	let _tin_read_handle = _run_term_read(app_tx.clone(), shutdown.clone())?;
-	let _tui_handle = _run_ui_loop(terminal, ebpf, /* app_tx, */ rule_engine, app_rx, shutdown.clone())?;
+	let term_handle = _run_term_read(app_tx.clone())?;
+	let ui = _run_ui_loop(terminal, ebpf, rule_engine, app_rx, shutdown.clone())?;
 
-	tokio::select! {
-		_ = _tui_handle.ui_handle => {},
-		_ = shutdown.cancelled() => {
-		},
-	}
+	shutdown.cancelled().await;
+
+	ui.ui_handle.await?;
+
+	term_handle.abort();
 
 	Ok(())
 }

@@ -1,7 +1,7 @@
 use std::{collections::VecDeque, sync::Arc};
 
-use super::{AppState, ExitTx};
-use crate::event::{ActionEvent, AppEvent};
+use super::AppState;
+use crate::event::AppEvent;
 use crate::{
 	core::app_state::{EvaluatedEntry, EvaluatedKey},
 	Result,
@@ -9,7 +9,6 @@ use crate::{
 use crossterm::event::{Event, KeyCode, KeyEventKind, KeyModifiers};
 use lib_common::event::CerberusEvent;
 use lib_rules::{CorrelatedEvent, EngineEvent, EvaluatedEvent};
-use ratatui::DefaultTerminal;
 use tokio_util::sync::CancellationToken;
 
 const MAX_EVENTS: usize = 250; // Reduced from 1000
@@ -130,24 +129,11 @@ async fn _handle_term_event(term_event: &Event, shutdown: CancellationToken) -> 
 		if let KeyEventKind::Press = key.kind {
 			let mod_ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
 			match (key.code, mod_ctrl) {
-				(KeyCode::Char('c'), true) | (KeyCode::Char('q'), false) => {
+				(KeyCode::Char('q'), false) => {
 					shutdown.cancel();
 				}
 				_ => (),
 			}
-		}
-	}
-	Ok(())
-}
-
-async fn handle_action_event(
-	action_event: &ActionEvent,
-	_terminal: &mut DefaultTerminal,
-	_exit_tx: &ExitTx,
-) -> Result<()> {
-	match action_event {
-		ActionEvent::Quit => {
-			// Handled at the main loop
 		}
 	}
 	Ok(())

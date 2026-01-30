@@ -8,7 +8,7 @@ use crate::engine::{
 	CorrelatedEvent, Correlator, EngineEvent, EvalCtx, EvaluatedEvent, Evaluator, EventKind, RuleIndex,
 };
 use crate::error::Result;
-use crate::rule::{Response, Rule};
+use crate::rule::Rule;
 use crate::RuleSet;
 
 pub struct RuleEngine {

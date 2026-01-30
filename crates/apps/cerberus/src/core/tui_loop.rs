@@ -131,22 +131,16 @@ pub fn _run_ui_loop(
 		loop {
 			let frame_start = Instant::now();
 
-			if shutdown.is_cancelled() {
-				let _ = term.clear();
-				break;
-			}
-
 			process_app_state(&mut appstate);
 			let _ = terminal_draw(&mut term, &mut appstate);
 
-			let app_event = tokio::select! {
-				_ = shutdown.cancelled() => {
-						break;
-				},
-				evt = app_rx.recv() => match evt {
-					Ok(r) => r,
-					Err(_) => break,
-				},
+			let app_event = match app_rx.recv().await {
+				Ok(r) => r,
+				Err(err) => {
+					println!("UI LOOP ERROR. Cause: {err}");
+					shutdown.cancel();
+					break;
+				}
 			};
 
 			let _ = _handle_app_event(&app_event, &mut appstate, shutdown.clone()).await;

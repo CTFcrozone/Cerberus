@@ -83,8 +83,8 @@ async fn main() -> Result<()> {
 	let mut supervisor = Supervisor::new();
 	// install_signal_handlers(supervisor.token()).await?;
 
-	let worker = RingBufWorker::start(ringbuf_fd, rule_engine.clone(), app_tx.clone(), supervisor.token());
-	supervisor.spawn(worker._run());
+	let worker = RingBufWorker::start(ringbuf_fd, rule_engine.clone(), app_tx.clone());
+	supervisor.spawn(worker.run());
 
 	match args.mode {
 		RunMode::Tui => {
