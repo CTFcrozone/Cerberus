@@ -12,7 +12,7 @@ mod worker;
 
 use crate::{
 	cli::args::{Cli, RunMode},
-	core::_start_tui,
+	core::start_tui,
 	event::AppEvent,
 	supervisor::Supervisor,
 	worker::RingBufWorker,
@@ -88,16 +88,17 @@ async fn main() -> Result<()> {
 
 	match args.mode {
 		RunMode::Tui => {
-			supervisor.spawn(_start_tui(ebpf, rule_engine, app_tx, app_rx, supervisor.token()));
+			start_tui(ebpf, rule_engine, app_tx, app_rx, supervisor.token()).await?;
 		}
 
 		RunMode::Agent => {
 			let duration = args.time.ok_or(Error::NoTimeSpecified)?;
-			supervisor.spawn(start_agent(app_rx, supervisor.token(), duration.into()));
+			start_agent(app_rx, supervisor.token(), duration.into()).await?;
 		}
 	}
 
 	supervisor.token().cancelled().await;
+
 	supervisor.shutdown().await?;
 
 	Ok(())

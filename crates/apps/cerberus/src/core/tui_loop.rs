@@ -116,7 +116,7 @@ pub async fn _rule_watch_worker(
 // 	})
 // }
 
-pub fn _run_ui_loop(
+pub fn run_ui_loop(
 	mut term: DefaultTerminal,
 	ebpf: Ebpf,
 	rule_engine: Arc<RuleEngine>,
@@ -129,6 +129,11 @@ pub fn _run_ui_loop(
 
 	let handle = tokio::spawn(async move {
 		loop {
+			if shutdown.is_cancelled() {
+				let _ = term.clear();
+				break;
+			}
+
 			let frame_start = Instant::now();
 
 			process_app_state(&mut appstate);
@@ -136,11 +141,7 @@ pub fn _run_ui_loop(
 
 			let app_event = match app_rx.recv().await {
 				Ok(r) => r,
-				Err(err) => {
-					println!("UI LOOP ERROR. Cause: {err}");
-					shutdown.cancel();
-					break;
-				}
+				Err(_) => break,
 			};
 
 			let _ = _handle_app_event(&app_event, &mut appstate, shutdown.clone()).await;
@@ -150,6 +151,7 @@ pub fn _run_ui_loop(
 				sleep(FRAME_TIME - elapsed).await;
 			}
 		}
+		let _ = term.clear();
 	});
 
 	let (rule_tx, rule_rx) = new_channel::<RuleWatchEvent>("rules");

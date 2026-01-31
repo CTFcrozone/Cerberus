@@ -30,9 +30,12 @@ impl Supervisor {
 	}
 
 	pub async fn shutdown(mut self) -> Result<()> {
+		self.shutdown.cancel();
+
 		self.tasks.abort_all();
 
 		while let Some(_) = self.tasks.join_next().await {}
+
 		Ok(())
 	}
 }
