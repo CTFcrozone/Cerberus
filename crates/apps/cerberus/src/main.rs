@@ -7,7 +7,7 @@ mod event;
 mod styles;
 mod supervisor;
 mod views;
-mod worker;
+mod workers;
 // endregion: --- Modules
 
 use crate::{
@@ -15,7 +15,7 @@ use crate::{
 	core::start_tui,
 	event::AppEvent,
 	supervisor::Supervisor,
-	worker::RingBufWorker,
+	workers::RingBufWorker,
 };
 
 pub use self::error::{Error, Result};
