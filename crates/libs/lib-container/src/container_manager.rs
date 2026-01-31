@@ -1,7 +1,8 @@
 use crate::error::{Error, Result};
 use std::{
 	collections::{hash_map::Entry, HashMap},
-	path::PathBuf,
+	os::unix::fs::MetadataExt,
+	path::{Path, PathBuf},
 	sync::Arc,
 };
 
@@ -13,6 +14,7 @@ pub struct ContainerManager {
 }
 
 const CGROUP_DIR: &str = "/sys/fs/cgroup";
+
 impl ContainerManager {
 	pub fn new() -> Result<Self> {
 		let cgroup_root = PathBuf::from(CGROUP_DIR);
@@ -49,7 +51,15 @@ impl ContainerManager {
 // private fns
 impl ContainerManager {
 	fn extract_container_id(cgroup_path: &str) -> Option<String> {
-		todo!();
+		for part in cgroup_path.split('/') {
+			if let Some(id) = part.strip_prefix("docker-") {
+				return Some(id.trim_end_matches(".scope").to_string());
+			}
+
+			if part.len() >= 32 && part.chars().all(|c| c.is_ascii_hexdigit()) {
+				return Some(part.to_string());
+			}
+		}
 
 		None
 	}
@@ -69,9 +79,28 @@ impl ContainerManager {
 		})
 	}
 
-	fn read_cgroup_path(cgroup_id: u64) -> Option<String> {
-		todo!();
+	fn walk(dir: &Path, target: u64) -> Option<String> {
+		for entry in std::fs::read_dir(dir).ok()? {
+			let entry = entry.ok()?;
+			let path = entry.path();
+			let meta = entry.metadata().ok()?;
+
+			if meta.ino() == target {
+				return Some(path.to_string_lossy().to_string());
+			}
+
+			if meta.is_dir() {
+				if let Some(found) = Self::walk(&path, target) {
+					return Some(found);
+				}
+			}
+		}
+
 		None
+	}
+
+	fn read_cgroup_path(cgroup_id: u64) -> Option<String> {
+		Self::walk(Path::new(CGROUP_DIR), cgroup_id)
 	}
 
 	fn detect_runtime(cgroup_path: &str) -> ContainerRuntime {

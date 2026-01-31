@@ -45,3 +45,16 @@ arc-swap = "1.8.0"
 blake3 = "1.8.2"
 hex = "0.4.3"
 humantime = "2.3.0"
+tonic = "0.14.3"
+prost = "0.14.3"
+tonic-prost = "0.14.3"
+
+[build-dependencies]
+tonic-prost-build = "0.14.3"
+derive_more = { version = "2.0.0", features = [
+    "from",
+    "display",
+    "debug",
+    "into",
+    "deref",
+] }
