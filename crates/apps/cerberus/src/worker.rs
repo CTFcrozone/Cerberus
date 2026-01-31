@@ -58,10 +58,10 @@ impl RingBufWorker {
 			let ring_buf = guard.get_inner_mut();
 
 			while let Some(item) = ring_buf.next() {
-				if self.limiter.check().is_err() {
-					self.dropped.fetch_add(1, Ordering::Relaxed);
-					continue;
-				}
+				// if self.limiter.check().is_err() {
+				// 	self.dropped.fetch_add(1, Ordering::Relaxed);
+				// 	continue;
+				// }
 
 				let data = item.as_ref();
 
@@ -69,8 +69,13 @@ impl RingBufWorker {
 					Ok(evt) => {
 						let cerberus_evt = parse_cerberus_event(evt)?;
 
-						for evt in self.rule_engine.process_event(&cerberus_evt)? {
-							self.tx.send(AppEvent::Engine(evt)).await?;
+						for alert in self.rule_engine.process_event(&cerberus_evt)? {
+							self.tx.send(AppEvent::Engine(alert)).await?;
+						}
+
+						if self.limiter.check().is_err() {
+							self.dropped.fetch_add(1, Ordering::Relaxed);
+							continue;
 						}
 
 						self.tx.send(AppEvent::Cerberus(cerberus_evt)).await?;
