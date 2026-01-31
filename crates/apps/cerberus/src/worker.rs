@@ -1,4 +1,10 @@
-use std::sync::Arc;
+use std::{
+	num::NonZeroU32,
+	sync::{
+		atomic::{AtomicU64, Ordering},
+		Arc,
+	},
+};
 
 use crate::{
 	core::AppTx,
@@ -7,6 +13,7 @@ use crate::{
 };
 
 use aya::maps::{MapData, RingBuf};
+use governor::{DefaultDirectRateLimiter, Quota};
 use lib_common::event::{BprmSecurityEvent, CerberusEvent, InetSockEvent, ModuleEvent, RingBufEvent};
 use lib_ebpf_common::{
 	BprmSecurityCheckEvent, EbpfEvent, EventHeader, GenericEvent, InetSockSetStateEvent, ModuleInitEvent,
@@ -21,15 +28,24 @@ pub struct RingBufWorker {
 	pub ringbuf_fd: AsyncFd<RingBuf<MapData>>,
 	pub tx: AppTx,
 	pub rule_engine: Arc<RuleEngine>,
+	limiter: DefaultDirectRateLimiter,
+	dropped: AtomicU64,
 }
 
 impl RingBufWorker {
-	pub fn start(ringbuf_fd: AsyncFd<RingBuf<MapData>>, rule_engine: Arc<RuleEngine>, tx: AppTx) -> Self {
-		RingBufWorker {
+	pub fn start(ringbuf_fd: AsyncFd<RingBuf<MapData>>, rule_engine: Arc<RuleEngine>, tx: AppTx) -> Result<Self> {
+		let rate = NonZeroU32::new(10).ok_or(Error::InvalidRate)?;
+		let burst = NonZeroU32::new(50).ok_or(Error::InvalidRate)?;
+
+		let limiter = DefaultDirectRateLimiter::direct(Quota::per_second(rate).allow_burst(burst));
+
+		Ok(RingBufWorker {
 			ringbuf_fd,
 			tx,
 			rule_engine,
-		}
+			limiter,
+			dropped: AtomicU64::new(0),
+		})
 	}
 
 	pub async fn run(mut self) -> Result<()> {
@@ -42,6 +58,11 @@ impl RingBufWorker {
 			let ring_buf = guard.get_inner_mut();
 
 			while let Some(item) = ring_buf.next() {
+				if self.limiter.check().is_err() {
+					self.dropped.fetch_add(1, Ordering::Relaxed);
+					continue;
+				}
+
 				let data = item.as_ref();
 
 				match parse_event_from_bytes(data) {

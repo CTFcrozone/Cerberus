@@ -19,6 +19,7 @@ pub enum Error {
 	#[display("Timed run is only possible in 'agent' mode")]
 	InvalidTimeMode,
 	NoTimeSpecified,
+	InvalidRate,
 
 	HomeDirNotFound,
 	UnknownEventType(u8),

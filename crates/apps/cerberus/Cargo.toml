@@ -56,6 +56,7 @@ arc-swap = "1.8.0"
 notify-debouncer-full = "0.6.0"
 tokio-util = "0.7.18"
 blake3 = "1.8.2"
+governor = "0.10.4"
 [build-dependencies]
 derive_more = { version = "2.0.0", features = [
     "from",
