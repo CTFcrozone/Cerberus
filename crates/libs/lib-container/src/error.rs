@@ -7,8 +7,12 @@ pub type Result<T> = core::result::Result<T, Error>;
 pub enum Error {
 	#[from(String, &String, &str)]
 	Custom(String),
-
+	#[from]
+	TonicTrx(tonic::transport::Error),
 	CgroupFsNotMounted,
+	TonicW {
+		status: String,
+	},
 
 	// -- Externals
 	#[from]

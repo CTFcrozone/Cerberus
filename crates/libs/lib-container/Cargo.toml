@@ -45,10 +45,12 @@ arc-swap = "1.8.0"
 blake3 = "1.8.2"
 hex = "0.4.3"
 humantime = "2.3.0"
-tonic = "0.14.3"
+tonic = {version="0.14.3", features=["transport"]}
 prost = "0.14.3"
 tonic-prost = "0.14.3"
-
+tower = "0.5.3"
+tokio = { workspace = true, features = ["full"] }
+hyper-util = "0.1.19"
 [build-dependencies]
 tonic-prost-build = "0.14.3"
 derive_more = { version = "2.0.0", features = [
