@@ -15,7 +15,7 @@ use crate::{
 	core::start_tui,
 	event::AppEvent,
 	supervisor::Supervisor,
-	workers::RingBufWorker,
+	workers::{RingBufWorker, RuleEngineWorker},
 };
 
 pub use self::error::{Error, Result};
@@ -27,6 +27,7 @@ use aya::{
 };
 use clap::Parser;
 use core::AppTx;
+use lib_common::event::CerberusEvent;
 use lib_event::trx::new_channel;
 use lib_rules::RuleEngine;
 use std::sync::Arc;
@@ -75,6 +76,8 @@ async fn main() -> Result<()> {
 	let (app_tx, app_rx) = new_channel::<AppEvent>("app_event");
 	let app_tx = AppTx::from(app_tx);
 
+	let (ringbuf_tx, ringbuf_rx) = new_channel::<CerberusEvent>("ringbuf");
+
 	// let (exit_tx, _exit_rx) = new_channel::<()>("exit");
 	// let exit_tx = ExitTx::from(exit_tx);
 
@@ -83,8 +86,10 @@ async fn main() -> Result<()> {
 	let mut supervisor = Supervisor::new();
 	// install_signal_handlers(supervisor.token()).await?;
 
-	let worker = RingBufWorker::start(ringbuf_fd, rule_engine.clone(), app_tx.clone())?;
-	supervisor.spawn(worker.run());
+	let ringbuf_worker = RingBufWorker::start(ringbuf_fd, ringbuf_tx.clone())?;
+	let rule_worker = RuleEngineWorker::start(rule_engine.clone(), app_tx.clone(), ringbuf_rx)?;
+	supervisor.spawn(ringbuf_worker.run());
+	supervisor.spawn(rule_worker.run());
 
 	match args.mode {
 		RunMode::Tui => {

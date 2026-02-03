@@ -1,51 +1,26 @@
-use std::{
-	num::NonZeroU32,
-	sync::{
-		atomic::{AtomicU64, Ordering},
-		Arc,
-	},
-};
+use std::sync::Arc;
 
-use crate::{
-	core::AppTx,
-	error::{Error, Result},
-	event::AppEvent,
-};
+use crate::error::{Error, Result};
 
 use aya::maps::{MapData, RingBuf};
-use governor::{DefaultDirectRateLimiter, Quota};
 use lib_common::event::{BprmSecurityEvent, CerberusEvent, InetSockEvent, ModuleEvent, RingBufEvent};
 use lib_ebpf_common::{
 	BprmSecurityCheckEvent, EbpfEvent, EventHeader, GenericEvent, InetSockSetStateEvent, ModuleInitEvent,
 	SocketConnectEvent,
 };
-use lib_rules::RuleEngine;
+use lib_event::trx::Tx;
 use tokio::io::unix::AsyncFd;
 
 use zerocopy::FromBytes;
 
 pub struct RingBufWorker {
 	pub ringbuf_fd: AsyncFd<RingBuf<MapData>>,
-	pub tx: AppTx,
-	pub rule_engine: Arc<RuleEngine>,
-	limiter: DefaultDirectRateLimiter,
-	dropped: AtomicU64,
+	pub tx: Tx<CerberusEvent>,
 }
 
 impl RingBufWorker {
-	pub fn start(ringbuf_fd: AsyncFd<RingBuf<MapData>>, rule_engine: Arc<RuleEngine>, tx: AppTx) -> Result<Self> {
-		let rate = NonZeroU32::new(10).ok_or(Error::InvalidRate)?;
-		let burst = NonZeroU32::new(50).ok_or(Error::InvalidRate)?;
-
-		let limiter = DefaultDirectRateLimiter::direct(Quota::per_second(rate).allow_burst(burst));
-
-		Ok(RingBufWorker {
-			ringbuf_fd,
-			tx,
-			rule_engine,
-			limiter,
-			dropped: AtomicU64::new(0),
-		})
+	pub fn start(ringbuf_fd: AsyncFd<RingBuf<MapData>>, tx: Tx<CerberusEvent>) -> Result<Self> {
+		Ok(RingBufWorker { ringbuf_fd, tx })
 	}
 
 	pub async fn run(mut self) -> Result<()> {
@@ -68,17 +43,7 @@ impl RingBufWorker {
 				match parse_event_from_bytes(data) {
 					Ok(evt) => {
 						let cerberus_evt = parse_cerberus_event(evt)?;
-
-						for alert in self.rule_engine.process_event(&cerberus_evt)? {
-							self.tx.send(AppEvent::Engine(alert)).await?;
-						}
-
-						if self.limiter.check().is_err() {
-							self.dropped.fetch_add(1, Ordering::Relaxed);
-							continue;
-						}
-
-						self.tx.send(AppEvent::Cerberus(cerberus_evt)).await?;
+						self.tx.send(cerberus_evt).await?;
 					}
 					Err(_) => continue,
 				}

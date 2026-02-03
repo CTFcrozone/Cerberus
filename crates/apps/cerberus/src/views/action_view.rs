@@ -21,7 +21,7 @@ impl StatefulWidget for ActionView {
 
 		let line = Line::from(vec![
 			Span::raw("["),
-			Span::styled("CTRL+C", styles::STL_TXT_ACTION),
+			Span::styled("Q", styles::STL_TXT_ACTION),
 			Span::raw("] Quit  "),
 			Span::raw("["),
 			Span::styled("X", styles::STL_TXT_ACTION),
