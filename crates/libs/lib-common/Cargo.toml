@@ -1,0 +1,17 @@
+[package]
+name = "lib-common"
+version = "0.1.0"
+edition = "2021"
+
+license.workspace = true
+
+[dependencies]
+
+derive_more = { version = "2.0.0", features = [
+    "from",
+    "display",
+    "debug",
+    "into",
+    "deref",
+] }
+crossterm = { version = "0.28", features = ["event-stream"] }
