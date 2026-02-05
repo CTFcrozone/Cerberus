@@ -18,10 +18,10 @@ pub enum Error {
 	InvalidEventSize,
 	#[display("Timed run is only possible in 'agent' mode")]
 	InvalidTimeMode,
+	#[display("No time specified for 'agent' mode")]
 	NoTimeSpecified,
 	InvalidRate,
 
-	HomeDirNotFound,
 	UnknownEventType(u8),
 	MutexPoison,
 	// -- Externals
@@ -44,6 +44,7 @@ pub enum Error {
 	AyaProgram(aya::programs::ProgramError),
 	#[from]
 	Event(lib_event::Error),
+	#[display("Rule engine error: {_0}")]
 	#[from]
 	RuleEngine(lib_rules::Error),
 	#[from]

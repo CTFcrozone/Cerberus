@@ -9,7 +9,7 @@ use crate::engine::{
 };
 use crate::error::Result;
 use crate::rule::Rule;
-use crate::RuleSet;
+use crate::{Error, RuleSet};
 
 pub struct RuleEngine {
 	pub ruleset: ArcSwap<RuleSet>,
@@ -19,7 +19,12 @@ pub struct RuleEngine {
 
 impl RuleEngine {
 	pub fn new(dir: impl AsRef<Path>) -> Result<Self> {
-		let ruleset = RuleSet::load_from_dir(dir)?;
+		let ruleset = RuleSet::load_from_dir(&dir)?;
+
+		if ruleset.rule_count() == 0 {
+			return Err(Error::NoRulesInDir(dir.as_ref().display().to_string()));
+		}
+
 		let index = RuleIndex::build(ruleset.clone());
 
 		Ok(Self {

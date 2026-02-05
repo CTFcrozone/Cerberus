@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -122,6 +122,7 @@ pub fn run_ui_loop(
 	rule_engine: Arc<RuleEngine>,
 	app_rx: Rx<AppEvent>,
 	shutdown: CancellationToken,
+	rule_dir: PathBuf,
 ) -> Result<UiRuntime> {
 	let mut appstate = AppState::new(ebpf, LastAppEvent::default())?;
 
@@ -155,7 +156,7 @@ pub fn run_ui_loop(
 	});
 
 	let (rule_tx, rule_rx) = new_channel::<RuleWatchEvent>("rules");
-	let _watcher = rule_watcher(RULES_DIR, rule_tx)?;
+	let _watcher = rule_watcher(rule_dir, rule_tx)?;
 	tokio::spawn(rule_watch_worker(rule_rx, rule_engine));
 
 	Ok(UiRuntime {

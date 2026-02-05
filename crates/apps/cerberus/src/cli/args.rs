@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use clap::{Parser, ValueEnum};
 use humantime::Duration;
 
@@ -8,10 +10,10 @@ pub struct Cli {
 	pub mode: RunMode,
 
 	#[arg(long)]
-	pub time: Option<Duration>,
+	pub rules: PathBuf,
 
-	#[arg(long, default_value = "/var/log/cerberus.log")]
-	pub log_file: String,
+	#[arg(long, help = "Time duration (e.g., 20s, 5m, 1h). REQUIRED when using --mode agent")]
+	pub time: Option<Duration>,
 }
 
 #[derive(Copy, Clone, Debug, ValueEnum, PartialEq, Eq)]

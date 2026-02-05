@@ -9,31 +9,27 @@ use tokio_util::sync::CancellationToken;
 use tracing::{info, warn};
 
 pub async fn _run_agent_sink(rx: Rx<AppEvent>, shutdown: CancellationToken) -> Result<()> {
+	info!("Agent sink started, waiting for events...");
 	loop {
-		tokio::select! {
-			_ = shutdown.cancelled() => {
+		if shutdown.is_cancelled() {
+			break;
+		}
+
+		let app_event = match rx.recv().await {
+			Ok(r) => r,
+			Err(_) => {
+				info!("AppEvent channel closed");
 				break;
 			}
-
-			evt = rx.recv() => {
-				match evt {
-					Ok(evt) => {
-						match evt {
-							AppEvent::Engine(e) => {
-								print_alert(&e);
-							}
-							AppEvent::Cerberus(e) => {
-								print_event(&e);
-							}
-							_ => {}
-						}
-					}
-					Err(e) => {
-						info!("Event channel closed: {:?}", e);
-						break;
-					}
-				}
+		};
+		match app_event {
+			AppEvent::Engine(e) => {
+				print_alert(&e);
 			}
+			AppEvent::Cerberus(e) => {
+				print_event(&e);
+			}
+			_ => {}
 		}
 	}
 

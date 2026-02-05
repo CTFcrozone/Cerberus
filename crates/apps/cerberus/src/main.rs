@@ -39,12 +39,8 @@ use tokio::io::unix::AsyncFd;
 #[tokio::main]
 async fn main() -> Result<()> {
 	let args = Cli::parse();
-
-	let (non_blocking_stdout, _stdout_guard) = tracing_appender::non_blocking(std::io::stdout());
-
 	tracing_subscriber::fmt()
-		.with_writer(non_blocking_stdout)
-		.with_target(true)
+		.with_target(false)
 		.with_env_filter(EnvFilter::from_default_env())
 		.init();
 
@@ -69,9 +65,8 @@ async fn main() -> Result<()> {
 		warn!("failed to initialize eBPF logger: {e}");
 	}
 
-	let home_dir = std::env::home_dir().ok_or(Error::HomeDirNotFound)?;
-	let rule_dir = home_dir.join(".cerberus/rules/");
-	let rule_engine = Arc::new(RuleEngine::new(rule_dir)?);
+	let rule_dir = args.rules;
+	let rule_engine = Arc::new(RuleEngine::new(&rule_dir)?);
 
 	let (app_tx, app_rx) = new_channel::<AppEvent>("app_event");
 	let app_tx = AppTx::from(app_tx);
@@ -93,7 +88,7 @@ async fn main() -> Result<()> {
 
 	match args.mode {
 		RunMode::Tui => {
-			start_tui(ebpf, rule_engine, app_tx, app_rx, supervisor.token()).await?;
+			start_tui(ebpf, rule_engine, app_tx, app_rx, supervisor.token(), rule_dir).await?;
 		}
 
 		RunMode::Agent => {
