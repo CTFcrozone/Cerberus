@@ -26,7 +26,7 @@ TUI version:
 cargo run -p cerberus --release --config 'target."cfg(all())".runner="sudo -E"' -- --mode tui --rules path/to/rule/dir
 ```
 
-Daemon version (WIP):
+Agent version:
 
 ```shell
 cargo run -p cerberus --release --config 'target."cfg(all())".runner="sudo -E"' -- --mode agent --rules path/to/rule/dir --time <time in humantime format e.g 5s>
