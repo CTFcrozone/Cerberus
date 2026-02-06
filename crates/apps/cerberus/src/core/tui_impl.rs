@@ -1,4 +1,4 @@
-use std::{io::stdout, path::PathBuf, sync::Arc};
+use std::{io::stdout, sync::Arc};
 
 use crate::{
 	core::{term_reader::run_term_read, tui_loop::run_ui_loop},
@@ -31,7 +31,6 @@ pub async fn start_tui(
 	app_tx: AppTx,
 	app_rx: Rx<AppEvent>,
 	shutdown: CancellationToken,
-	rule_dir: PathBuf,
 ) -> Result<()> {
 	let terminal = ratatui::init();
 
@@ -43,7 +42,7 @@ pub async fn start_tui(
 		DisableLineWrap
 	)?;
 
-	let result = exec_app(terminal, ebpf, app_tx, rule_engine, app_rx, shutdown, rule_dir).await;
+	let result = exec_app(terminal, ebpf, app_tx, rule_engine, app_rx, shutdown).await;
 
 	ratatui::restore();
 	execute!(stdout(), LeaveAlternateScreen, DisableMouseCapture, cursor::Show)?;
@@ -58,12 +57,11 @@ async fn exec_app(
 	rule_engine: Arc<RuleEngine>,
 	app_rx: Rx<AppEvent>,
 	shutdown: CancellationToken,
-	rule_dir: PathBuf,
 ) -> Result<()> {
 	terminal.clear()?;
 
 	let term_handle = run_term_read(app_tx.clone())?;
-	let ui = run_ui_loop(terminal, ebpf, rule_engine, app_rx, shutdown.clone(), rule_dir)?;
+	let ui = run_ui_loop(terminal, ebpf, rule_engine, app_rx, shutdown.clone())?;
 
 	let _ = ui.ui_handle.await;
 

@@ -15,7 +15,7 @@ use crate::{
 	core::start_tui,
 	event::AppEvent,
 	supervisor::Supervisor,
-	workers::{RingBufWorker, RuleEngineWorker},
+	workers::{RingBufWorker, RuleEngineWorker, RuleWatchWorker},
 };
 
 pub use self::error::{Error, Result};
@@ -83,12 +83,14 @@ async fn main() -> Result<()> {
 
 	let ringbuf_worker = RingBufWorker::start(ringbuf_fd, ringbuf_tx.clone())?;
 	let rule_worker = RuleEngineWorker::start(rule_engine.clone(), app_tx.clone(), ringbuf_rx)?;
+	let rule_watch_worker = RuleWatchWorker::start(rule_engine.clone(), rule_dir.clone(), supervisor.token())?;
 	supervisor.spawn(ringbuf_worker.run());
 	supervisor.spawn(rule_worker.run());
+	supervisor.spawn(rule_watch_worker.run());
 
 	match args.mode {
 		RunMode::Tui => {
-			start_tui(ebpf, rule_engine, app_tx, app_rx, supervisor.token(), rule_dir).await?;
+			start_tui(ebpf, rule_engine, app_tx, app_rx, supervisor.token()).await?;
 		}
 
 		RunMode::Agent => {
