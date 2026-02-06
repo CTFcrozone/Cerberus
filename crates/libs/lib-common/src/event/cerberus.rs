@@ -1,3 +1,4 @@
+use lib_container::container::ContainerInfo;
 use std::sync::Arc;
 
 use derive_more::From;
@@ -16,8 +17,29 @@ pub enum CerberusEvent {
 	Bprm(BprmSecurityEvent),
 }
 
+// TODO: add unified EventHeader struct
+
+impl CerberusEvent {
+	pub fn meta_mut(&mut self) -> &mut ContainerMeta {
+		match self {
+			CerberusEvent::Generic(e) => &mut e.container_meta,
+			CerberusEvent::Module(e) => &mut e.container_meta,
+			CerberusEvent::Bprm(e) => &mut e.container_meta,
+			CerberusEvent::InetSock(e) => &mut e.container_meta,
+			CerberusEvent::SocketConnect(e) => &mut e.container_meta,
+		}
+	}
+}
+
+#[derive(Debug, Clone)]
+pub struct ContainerMeta {
+	pub container: Option<ContainerInfo>,
+	pub cgroup_id: u64,
+}
+
 #[derive(Debug, Clone)]
 pub struct InetSockEvent {
+	pub container_meta: ContainerMeta,
 	pub old_state: Arc<str>,
 	pub new_state: Arc<str>,
 	pub protocol: Arc<str>,
@@ -29,6 +51,7 @@ pub struct InetSockEvent {
 
 #[derive(Debug, Clone)]
 pub struct SocketConnectEvent {
+	pub container_meta: ContainerMeta,
 	pub addr: u32,
 	pub port: u16,
 	pub family: u16,
@@ -36,6 +59,7 @@ pub struct SocketConnectEvent {
 
 #[derive(Debug, Clone)]
 pub struct ModuleEvent {
+	pub container_meta: ContainerMeta,
 	pub comm: Arc<str>,
 	pub module_name: Arc<str>,
 	pub pid: u32,
@@ -45,6 +69,7 @@ pub struct ModuleEvent {
 
 #[derive(Debug, Clone)]
 pub struct BprmSecurityEvent {
+	pub container_meta: ContainerMeta,
 	pub comm: Arc<str>,
 	pub filepath: Arc<str>,
 	pub pid: u32,
@@ -54,6 +79,7 @@ pub struct BprmSecurityEvent {
 
 #[derive(Debug, Clone)]
 pub struct RingBufEvent {
+	pub container_meta: ContainerMeta,
 	pub name: &'static str,
 	pub comm: Arc<str>,
 	pub uid: u32,

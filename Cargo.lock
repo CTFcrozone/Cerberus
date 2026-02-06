@@ -1255,6 +1255,7 @@ version = "0.1.0"
 dependencies = [
  "crossterm",
  "derive_more",
+ "lib-container",
 ]
 
 [[package]]
@@ -1274,7 +1275,6 @@ dependencies = [
  "humantime",
  "humantime-serde",
  "hyper-util",
- "lib-common",
  "lib-event",
  "libc",
  "prost",

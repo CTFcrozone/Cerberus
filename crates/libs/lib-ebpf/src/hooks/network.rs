@@ -1,7 +1,5 @@
 use aya_ebpf::{
-	helpers::{
-		bpf_get_current_comm, bpf_get_current_pid_tgid, bpf_get_current_uid_gid, r#gen::bpf_get_current_cgroup_id,
-	},
+	helpers::r#gen::bpf_get_current_cgroup_id,
 	programs::{LsmContext, TracePointContext},
 };
 use aya_log_ebpf::error;

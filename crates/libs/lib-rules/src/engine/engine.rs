@@ -227,7 +227,7 @@ mod tests {
 	type Result<T> = core::result::Result<T, Box<dyn std::error::Error>>; // For tests.
 
 	use super::*;
-	use lib_common::event::RingBufEvent;
+	use lib_common::event::{ContainerMeta, RingBufEvent};
 	use std::sync::Arc;
 	use toml::Value;
 
@@ -254,6 +254,10 @@ mod tests {
 			tgid: 4242,
 			comm: Arc::from("bash"),
 			meta: 0,
+			container_meta: ContainerMeta {
+				cgroup_id: 0,
+				container: None,
+			},
 		});
 
 		// -- Exec
@@ -302,6 +306,10 @@ mod tests {
 			tgid: 4242,
 			comm: Arc::from("bash"),
 			meta: 0,
+			container_meta: ContainerMeta {
+				cgroup_id: 0,
+				container: None,
+			},
 		});
 
 		// -- Exec
@@ -353,6 +361,10 @@ mod tests {
 			protocol: Arc::from("TCP"),
 			saddr: 0,
 			daddr: 0,
+			container_meta: ContainerMeta {
+				cgroup_id: 0,
+				container: None,
+			},
 		};
 
 		let event = CerberusEvent::InetSock(inet_evt);
@@ -382,6 +394,10 @@ mod tests {
 			tgid: 2222,
 			comm: Arc::from("testproc"),
 			meta: 0,
+			container_meta: ContainerMeta {
+				cgroup_id: 0,
+				container: None,
+			},
 		});
 
 		let mut ctx = RuleEngine::event_to_ctx(&event);

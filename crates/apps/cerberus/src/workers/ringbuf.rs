@@ -3,7 +3,7 @@ use std::sync::Arc;
 use crate::error::{Error, Result};
 
 use aya::maps::{MapData, RingBuf};
-use lib_common::event::{BprmSecurityEvent, CerberusEvent, InetSockEvent, ModuleEvent, RingBufEvent};
+use lib_common::event::{BprmSecurityEvent, CerberusEvent, ContainerMeta, InetSockEvent, ModuleEvent, RingBufEvent};
 use lib_ebpf_common::{
 	BprmSecurityCheckEvent, EbpfEvent, EventHeader, GenericEvent, InetSockSetStateEvent, ModuleInitEvent,
 	SocketConnectEvent,
@@ -74,6 +74,10 @@ fn parse_cerberus_event(evt: EbpfEvent) -> Result<CerberusEvent> {
 			tgid: e.tgid,
 			comm: Arc::from(String::from_utf8_lossy(&e.comm).trim_end_matches('\0')),
 			meta: e.meta,
+			container_meta: ContainerMeta {
+				cgroup_id: e.header.cgroup_id,
+				container: None,
+			},
 		}),
 
 		EbpfEvent::ModuleInit(ref e) => CerberusEvent::Module(ModuleEvent {
@@ -82,6 +86,10 @@ fn parse_cerberus_event(evt: EbpfEvent) -> Result<CerberusEvent> {
 			tgid: e.tgid,
 			comm: Arc::from(String::from_utf8_lossy(&e.comm).trim_end_matches('\0')),
 			module_name: Arc::from(String::from_utf8_lossy(&e.module_name).trim_end_matches('\0')),
+			container_meta: ContainerMeta {
+				cgroup_id: e.header.cgroup_id,
+				container: None,
+			},
 		}),
 
 		EbpfEvent::BprmSecurityCheck(ref e) => CerberusEvent::Bprm(BprmSecurityEvent {
@@ -90,6 +98,10 @@ fn parse_cerberus_event(evt: EbpfEvent) -> Result<CerberusEvent> {
 			tgid: e.tgid,
 			comm: Arc::from(String::from_utf8_lossy(&e.comm).trim_end_matches('\0')),
 			filepath: Arc::from(String::from_utf8_lossy(&e.filepath).trim_end_matches('\0')),
+			container_meta: ContainerMeta {
+				cgroup_id: e.header.cgroup_id,
+				container: None,
+			},
 		}),
 
 		EbpfEvent::InetSock(ref e) => CerberusEvent::InetSock(InetSockEvent {
@@ -100,11 +112,19 @@ fn parse_cerberus_event(evt: EbpfEvent) -> Result<CerberusEvent> {
 			protocol: Arc::from(protocol_to_str(e.protocol)),
 			saddr: e.saddr,
 			daddr: e.daddr,
+			container_meta: ContainerMeta {
+				cgroup_id: e.header.cgroup_id,
+				container: None,
+			},
 		}),
 		EbpfEvent::SocketConnect(ref e) => CerberusEvent::SocketConnect(lib_common::event::SocketConnectEvent {
 			addr: e.addr,
 			port: e.port,
 			family: e.family,
+			container_meta: ContainerMeta {
+				cgroup_id: e.header.cgroup_id,
+				container: None,
+			},
 		}),
 	};
 
