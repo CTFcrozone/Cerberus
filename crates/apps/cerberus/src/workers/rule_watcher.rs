@@ -6,18 +6,16 @@ use lib_event::trx::{new_channel, Rx};
 use lib_rules::RuleEngine;
 use notify::{INotifyWatcher, RecursiveMode};
 use notify_debouncer_full::{new_debouncer, DebounceEventResult, Debouncer, NoCache};
-use tokio_util::sync::CancellationToken;
 
 pub struct RuleWatchWorker {
 	rx: Rx<RuleWatchEvent>,
 	rule_engine: Arc<RuleEngine>,
 	_debouncer: Debouncer<INotifyWatcher, NoCache>,
 	rule_dir: PathBuf,
-	token: CancellationToken,
 }
 
 impl RuleWatchWorker {
-	pub fn start(rule_engine: Arc<RuleEngine>, rule_dir: PathBuf, token: CancellationToken) -> Result<Self> {
+	pub fn start(rule_engine: Arc<RuleEngine>, rule_dir: PathBuf) -> Result<Self> {
 		let (tx, rx) = new_channel::<RuleWatchEvent>("rules");
 
 		let mut debouncer = new_debouncer(Duration::from_secs(1), None, move |res: DebounceEventResult| {
@@ -33,17 +31,11 @@ impl RuleWatchWorker {
 			rule_engine,
 			rule_dir,
 			_debouncer: debouncer,
-			token,
 		})
 	}
 	pub async fn run(self) -> Result<()> {
-		while !self.token.is_cancelled() {
-			match self.rx.recv().await {
-				Ok(RuleWatchEvent::Reload) => {
-					self.rule_engine.reload_ruleset(&self.rule_dir)?;
-				}
-				Err(_) => break,
-			}
+		while let Ok(_) = self.rx.recv().await {
+			self.rule_engine.reload_ruleset(&self.rule_dir)?;
 		}
 		Ok(())
 	}

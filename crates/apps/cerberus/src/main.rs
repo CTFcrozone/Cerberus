@@ -83,7 +83,7 @@ async fn main() -> Result<()> {
 
 	let ringbuf_worker = RingBufWorker::start(ringbuf_fd, ringbuf_tx.clone())?;
 	let rule_worker = RuleEngineWorker::start(rule_engine.clone(), app_tx.clone(), ringbuf_rx)?;
-	let rule_watch_worker = RuleWatchWorker::start(rule_engine.clone(), rule_dir.clone(), supervisor.token())?;
+	let rule_watch_worker = RuleWatchWorker::start(rule_engine.clone(), rule_dir.clone())?;
 	supervisor.spawn(ringbuf_worker.run());
 	supervisor.spawn(rule_worker.run());
 	supervisor.spawn(rule_watch_worker.run());
