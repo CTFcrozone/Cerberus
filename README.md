@@ -23,13 +23,16 @@ Use `cargo build`, `cargo check`, etc. as normal. Run your program with:
 TUI version:
 
 ```shell
-cargo run -p cerberus --release --config 'target."cfg(all())".runner="sudo -E"'
+cargo run -p cerberus --release --config 'target."cfg(all())".runner="sudo -E"' -- --mode tui --rules path/to/rule/dir
 ```
 
 Daemon version (WIP):
 
 ```shell
-cargo run -p cerberus --release --config 'target."cfg(all())".runner="sudo -E"' -- --mode daemon
+cargo run -p cerberus --release --config 'target."cfg(all())".runner="sudo -E"' -- --mode agent --rules path/to/rule/dir --time <time in humantime format e.g 5s>
+
+# example
+cargo run -p cerberus --release --config 'target."cfg(all())".runner="sudo -E"' -- --mode agent --rules path/to/rule/dir --time 2m
 ```
 
 Cargo build scripts are used to automatically build the eBPF correctly and include it in the
