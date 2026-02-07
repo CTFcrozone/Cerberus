@@ -29,7 +29,11 @@ cargo run -p cerberus --release --config 'target."cfg(all())".runner="sudo -E"' 
 Agent version:
 
 ```shell
+# timed run
 cargo run -p cerberus --release --config 'target."cfg(all())".runner="sudo -E"' -- --mode agent --rules path/to/rule/dir --time <time in humantime format e.g 5s>
+
+# normal run
+cargo run -p cerberus --release --config 'target."cfg(all())".runner="sudo -E"' -- --mode agent --rules path/to/rule/dir
 
 # example
 cargo run -p cerberus --release --config 'target."cfg(all())".runner="sudo -E"' -- --mode agent --rules path/to/rule/dir --time 2m

@@ -87,6 +87,7 @@ async fn main() -> Result<()> {
 	supervisor.spawn(ringbuf_worker.run());
 	supervisor.spawn(rule_worker.run());
 	supervisor.spawn(rule_watch_worker.run());
+	// install_signal_handlers(supervisor.token()).await;
 
 	match args.mode {
 		RunMode::Tui => {
@@ -94,8 +95,7 @@ async fn main() -> Result<()> {
 		}
 
 		RunMode::Agent => {
-			let duration = args.time.ok_or(Error::NoTimeSpecified)?;
-			start_agent(app_rx, supervisor.token(), duration.into()).await?;
+			start_agent(app_rx, supervisor.token(), args.time).await?;
 		}
 	}
 

@@ -12,7 +12,7 @@ pub struct Cli {
 	#[arg(long)]
 	pub rules: PathBuf,
 
-	#[arg(long, help = "Time duration (e.g., 20s, 5m, 1h). REQUIRED when using --mode agent")]
+	#[arg(long, help = "Time duration (e.g., 20s, 5m, 1h). Optional when using --mode agent")]
 	pub time: Option<Duration>,
 }
 

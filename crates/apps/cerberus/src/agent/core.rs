@@ -1,7 +1,6 @@
-use std::time::Duration;
+use crate::{error::Result, event::AppEvent, Error};
 
-use crate::{error::Result, event::AppEvent};
-
+use humantime::Duration;
 use lib_common::event::CerberusEvent;
 use lib_event::trx::Rx;
 use lib_rules::EngineEvent;
@@ -36,14 +35,26 @@ pub async fn _run_agent_sink(rx: Rx<AppEvent>, shutdown: CancellationToken) -> R
 	Ok(())
 }
 
-pub async fn start_agent(app_rx: Rx<AppEvent>, shutdown: CancellationToken, run_time: Duration) -> Result<()> {
+pub async fn install_signal_handlers(shutdown: CancellationToken) {
+	tokio::spawn(async move {
+		if tokio::signal::ctrl_c().await.is_ok() {
+			info!("Ctrl+C received — shutting down");
+			shutdown.cancel();
+		}
+	});
+}
+
+pub async fn start_agent(app_rx: Rx<AppEvent>, shutdown: CancellationToken, run_time: Option<Duration>) -> Result<()> {
 	let sink_shutdown = shutdown.clone();
 	let sink_handle = tokio::spawn(async move {
 		let _ = _run_agent_sink(app_rx, sink_shutdown).await;
 	});
 
-	tokio::time::sleep(run_time).await;
-	shutdown.cancel();
+	if let Some(run_time) = run_time {
+		tokio::time::sleep(run_time.into()).await;
+		shutdown.cancel();
+	}
+
 	let _ = sink_handle.await;
 
 	Ok(())

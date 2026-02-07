@@ -20,6 +20,7 @@ pub struct ContainerResolver {
 	container_mgr: ContainerManager,
 }
 
+// TODO: make it shutdown aware
 impl ContainerResolver {
 	pub fn start(tx: Tx<CerberusEvent>, rx: Rx<CerberusEvent>, container_mgr: ContainerManager) -> Result<Self> {
 		Ok(ContainerResolver { tx, rx, container_mgr })
