@@ -1,3 +1,6 @@
+use std::sync::OnceLock;
+
+use dashmap::DashMap;
 use regex::Regex;
 use toml::Value;
 
@@ -5,6 +8,9 @@ use crate::{
 	engine::EvalCtx,
 	rule::{Condition, RuleInner},
 };
+
+// till compiled rules are fully implemented
+static REGEX_CACHE: OnceLock<DashMap<String, Regex>> = OnceLock::new();
 
 pub struct Evaluator;
 
@@ -48,12 +54,21 @@ impl Evaluator {
 			},
 
 			"regex" | "matches_regex" => {
+				// if let Some((text, pattern)) = Self::as_str_pair(left, right) {
+				// 	if let Ok(re) = Regex::new(pattern) {
+				// 		re.is_match(text)
+				// 	} else {
+				// 		false
+				// 	}
+				// } else {
+				// 	false
+				// }
 				if let Some((text, pattern)) = Self::as_str_pair(left, right) {
-					if let Ok(re) = Regex::new(pattern) {
-						re.is_match(text)
-					} else {
-						false
-					}
+					let cache = REGEX_CACHE.get_or_init(|| DashMap::new());
+
+					let re = cache.entry(pattern.to_string()).or_insert_with(|| Regex::new(pattern).unwrap());
+
+					re.is_match(text)
 				} else {
 					false
 				}

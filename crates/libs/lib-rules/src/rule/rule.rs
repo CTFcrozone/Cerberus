@@ -5,6 +5,7 @@ use crate::{
 	hash_utils,
 	rule::Sequence,
 };
+use regex::Regex;
 use serde::Deserialize;
 use simple_fs::SPath;
 

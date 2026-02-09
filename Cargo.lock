@@ -1394,6 +1394,7 @@ dependencies = [
  "aya",
  "aya-log",
  "blake3",
+ "dashmap",
  "derive_more",
  "flume",
  "futures",
