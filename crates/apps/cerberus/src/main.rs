@@ -15,7 +15,7 @@ use crate::{
 	core::start_tui,
 	event::AppEvent,
 	supervisor::Supervisor,
-	workers::{RingBufWorker, RuleEngineWorker, RuleWatchWorker},
+	workers::{ContainerResolver, RingBufWorker, RuleEngineWorker, RuleWatchWorker},
 };
 
 pub use self::error::{Error, Result};
@@ -28,6 +28,10 @@ use aya::{
 use clap::Parser;
 use core::AppTx;
 use lib_common::event::CerberusEvent;
+use lib_container::{
+	container_manager::ContainerManager,
+	runtime::{k8s_connect, K8sRtServiceClient},
+};
 use lib_event::trx::new_channel;
 use lib_rules::RuleEngine;
 use std::sync::Arc;
@@ -41,6 +45,7 @@ async fn main() -> Result<()> {
 	let args = Cli::parse();
 	tracing_subscriber::fmt()
 		.with_target(false)
+		.without_time()
 		.with_env_filter(EnvFilter::from_default_env())
 		.init();
 
@@ -67,24 +72,29 @@ async fn main() -> Result<()> {
 
 	let rule_dir = args.rules;
 	let rule_engine = Arc::new(RuleEngine::new(&rule_dir)?);
+	let k8s_client = k8s_connect().await?;
+	let container_mgr = ContainerManager::new(k8s_client)?;
+
+	let ringbuf_fd = load_hooks(&mut ebpf)?;
 
 	let (app_tx, app_rx) = new_channel::<AppEvent>("app_event");
 	let app_tx = AppTx::from(app_tx);
 
 	let (ringbuf_tx, ringbuf_rx) = new_channel::<CerberusEvent>("ringbuf");
+	let (container_resolver_tx, container_resolver_rx) = new_channel::<CerberusEvent>("container_resolver");
 
 	// let (exit_tx, _exit_rx) = new_channel::<()>("exit");
 	// let exit_tx = ExitTx::from(exit_tx);
-
-	let ringbuf_fd = load_hooks(&mut ebpf)?;
 
 	let mut supervisor = Supervisor::new();
 	// install_signal_handlers(supervisor.token()).await?;
 
 	let ringbuf_worker = RingBufWorker::start(ringbuf_fd, ringbuf_tx.clone())?;
-	let rule_worker = RuleEngineWorker::start(rule_engine.clone(), app_tx.clone(), ringbuf_rx)?;
+	let container_resolver_worker = ContainerResolver::start(container_resolver_tx, ringbuf_rx, container_mgr)?;
+	let rule_worker = RuleEngineWorker::start(rule_engine.clone(), app_tx.clone(), container_resolver_rx)?;
 	let rule_watch_worker = RuleWatchWorker::start(rule_engine.clone(), rule_dir.clone())?;
 	supervisor.spawn(ringbuf_worker.run());
+	supervisor.spawn(container_resolver_worker.run());
 	supervisor.spawn(rule_worker.run());
 	supervisor.spawn(rule_watch_worker.run());
 	// install_signal_handlers(supervisor.token()).await;

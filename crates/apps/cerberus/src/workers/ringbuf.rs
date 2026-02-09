@@ -19,7 +19,6 @@ pub struct RingBufWorker {
 }
 
 // TODO: make it shutdown aware
-
 impl RingBufWorker {
 	pub fn start(ringbuf_fd: AsyncFd<RingBuf<MapData>>, tx: Tx<CerberusEvent>) -> Result<Self> {
 		Ok(RingBufWorker { ringbuf_fd, tx })

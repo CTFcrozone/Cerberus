@@ -41,6 +41,8 @@ pub enum Error {
 	#[from]
 	AyaMaps(aya::maps::MapError),
 	#[from]
+	LibContainer(lib_container::Error),
+	#[from]
 	AyaProgram(aya::programs::ProgramError),
 	#[from]
 	Event(lib_event::Error),

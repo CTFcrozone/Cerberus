@@ -8,7 +8,7 @@ use aya_ebpf::{
 	maps::PerCpuArray,
 	programs::LsmContext,
 };
-use aya_log_ebpf::error;
+use aya_log_ebpf::{error, info};
 use lib_ebpf_common::{BprmSecurityCheckEvent, EventHeader};
 
 use crate::{utils::get_mnt_ns, vmlinux::linux_binprm, EVT_MAP};
@@ -16,7 +16,7 @@ use crate::{utils::get_mnt_ns, vmlinux::linux_binprm, EVT_MAP};
 #[map(name = "FPATH")]
 static mut FPATH: PerCpuArray<[u8; 132]> = PerCpuArray::with_max_entries(1, 0);
 
-const PATH_LEN: u32 = 128;
+const PATH_LEN: u32 = 127;
 
 pub fn try_bprm_check_security(ctx: LsmContext) -> Result<i32, i32> {
 	let uid = bpf_get_current_uid_gid() as u32;

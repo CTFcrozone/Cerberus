@@ -5,7 +5,7 @@ use lib_common::event::CerberusEvent;
 use lib_event::trx::Rx;
 use lib_rules::EngineEvent;
 use tokio_util::sync::CancellationToken;
-use tracing::{info, warn};
+use tracing::{debug, info, warn};
 
 pub async fn _run_agent_sink(rx: Rx<AppEvent>, shutdown: CancellationToken) -> Result<()> {
 	info!("Agent sink started, waiting for events...");
@@ -81,11 +81,11 @@ fn print_alert(e: &EngineEvent) {
 fn print_event(e: &CerberusEvent) {
 	match e {
 		CerberusEvent::Generic(g) => {
-			info!("{}: {} (PID: {}, UID: {})", g.name, g.comm, g.pid, g.uid);
+			info!("[{}] {} (PID: {}, UID: {})", g.name, g.comm, g.pid, g.uid);
 		}
 		CerberusEvent::InetSock(i) => {
 			info!(
-				"{} → {} ({}:{} → {}:{})",
+				"[INET_SOCKET] {} → {} ({}:{} → {}:{})",
 				i.old_state,
 				i.new_state,
 				ip_to_string(i.saddr),
@@ -95,14 +95,15 @@ fn print_event(e: &CerberusEvent) {
 			);
 		}
 		CerberusEvent::Module(m) => {
-			info!("{} loaded by {} (PID: {})", m.module_name, m.comm, m.pid);
+			info!("[INIT_MODULE] {} loaded by {} (PID: {})", m.module_name, m.comm, m.pid);
 		}
+
 		CerberusEvent::Bprm(b) => {
-			info!("{} executed {} (PID: {})", b.comm, b.filepath, b.pid);
+			info!("[BPRM_SEC_CHECK] {} executed {} (PID: {})", b.comm, b.filepath, b.pid);
 		}
 		CerberusEvent::SocketConnect(s) => {
 			info!(
-				"{}:{} | Family: {}",
+				"[SOCKET_CONNECT] {}:{} | Family: {}",
 				ip_to_string(s.addr),
 				s.port,
 				family_to_string(s.family),

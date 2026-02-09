@@ -12,6 +12,7 @@ use lib_ebpf_common::{
 use lib_event::trx::{Rx, Tx};
 use tokio::io::unix::AsyncFd;
 
+use tracing::debug;
 use zerocopy::FromBytes;
 
 pub struct ContainerResolver {
@@ -32,6 +33,7 @@ impl ContainerResolver {
 
 			if let Some(info) = self.container_mgr.resolve(meta.cgroup_id).await {
 				meta.container = Some(info.clone());
+				debug!("{info:?}");
 			}
 
 			self.tx.send(evt).await?;

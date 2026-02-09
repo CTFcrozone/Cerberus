@@ -9,9 +9,9 @@ pub use runtime::*;
 use tonic::transport::{Endpoint, Uri};
 use tower::service_fn;
 
-pub(crate) type K8sRtServiceClient = RuntimeServiceClient<tonic::transport::Channel>;
+pub type K8sRtServiceClient = RuntimeServiceClient<tonic::transport::Channel>;
 
-pub(crate) async fn connect() -> Result<K8sRtServiceClient> {
+pub async fn k8s_connect() -> Result<K8sRtServiceClient> {
 	let endpoint = tonic::transport::Endpoint::from_static("http://[::]");
 
 	let channel = endpoint

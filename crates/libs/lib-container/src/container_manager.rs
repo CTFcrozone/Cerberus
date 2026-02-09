@@ -1,7 +1,7 @@
 use crate::{
 	error::{Error, Result},
 	runtime::{
-		connect, Container, ContainerFilter, K8sRtServiceClient, ListContainersRequest, ListPodSandboxRequest,
+		k8s_connect, Container, ContainerFilter, K8sRtServiceClient, ListContainersRequest, ListPodSandboxRequest,
 		PodSandbox, PodSandboxFilter,
 	},
 };
