@@ -428,6 +428,7 @@ dependencies = [
  "futures",
  "futures-timer",
  "governor",
+ "hex",
  "humantime",
  "lib-common",
  "lib-container",

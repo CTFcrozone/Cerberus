@@ -159,7 +159,13 @@ pub fn line_from_event(evt: &CerberusEvent) -> Line<'static> {
 
 			Line::raw(format!(
 				"[BPF_PROG_LOAD] UID:{} | PID:{} | CMD:{} | TYPE:{} | ATTACH:{} | FLAGS:{} | TAG:0x{}",
-				b.uid, b.pid, b.comm, prog_type_str, attach_type_str, flags_str, b.tag
+				b.uid,
+				b.pid,
+				b.comm,
+				prog_type_str,
+				attach_type_str,
+				flags_str,
+				hex::encode(b.tag.as_ref())
 			))
 		}
 	}
