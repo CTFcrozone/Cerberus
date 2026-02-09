@@ -1,19 +1,11 @@
-use std::sync::Arc;
+use crate::error::Result;
 
-use crate::error::{Error, Result};
+use lib_common::event::CerberusEvent;
+use lib_container::container_manager::ContainerManager;
 
-use aya::maps::{MapData, RingBuf};
-use lib_common::event::{BprmSecurityEvent, CerberusEvent, InetSockEvent, ModuleEvent, RingBufEvent};
-use lib_container::{container::ContainerInfo, container_manager::ContainerManager};
-use lib_ebpf_common::{
-	BprmSecurityCheckEvent, EbpfEvent, EventHeader, GenericEvent, InetSockSetStateEvent, ModuleInitEvent,
-	SocketConnectEvent,
-};
 use lib_event::trx::{Rx, Tx};
-use tokio::io::unix::AsyncFd;
 
 use tracing::debug;
-use zerocopy::FromBytes;
 
 pub struct ContainerResolver {
 	pub tx: Tx<CerberusEvent>,

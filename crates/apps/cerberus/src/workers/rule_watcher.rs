@@ -15,7 +15,6 @@ pub struct RuleWatchWorker {
 }
 
 // TODO: make it shutdown aware
-
 impl RuleWatchWorker {
 	pub fn start(rule_engine: Arc<RuleEngine>, rule_dir: PathBuf) -> Result<Self> {
 		let (tx, rx) = new_channel::<RuleWatchEvent>("rules");

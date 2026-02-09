@@ -3,11 +3,10 @@ use std::sync::Arc;
 use crate::error::{Error, Result};
 
 use aya::maps::{MapData, RingBuf};
-use lib_common::event::{BprmSecurityEvent, CerberusEvent, ContainerMeta, InetSockEvent, ModuleEvent, RingBufEvent};
-use lib_ebpf_common::{
-	BprmSecurityCheckEvent, EbpfEvent, EventHeader, GenericEvent, InetSockSetStateEvent, ModuleInitEvent,
-	SocketConnectEvent,
+use lib_common::event::{
+	BpfProgLoadEvent, BprmSecurityEvent, CerberusEvent, ContainerMeta, InetSockEvent, ModuleEvent, RingBufEvent,
 };
+use lib_ebpf_common::{EbpfEvent, EventHeader};
 use lib_event::trx::Tx;
 use tokio::io::unix::AsyncFd;
 
@@ -105,6 +104,21 @@ fn parse_cerberus_event(evt: EbpfEvent) -> Result<CerberusEvent> {
 			},
 		}),
 
+		EbpfEvent::BpfProgLoad(ref e) => CerberusEvent::BpfProgLoad(BpfProgLoadEvent {
+			pid: e.pid,
+			uid: e.uid,
+			tgid: e.tgid,
+			flags: e.flags,
+			attach_type: e.attach_type,
+			prog_type: e.prog_type,
+			tag: Arc::from(String::from_utf8_lossy(&e.tag).trim_end_matches('\0')),
+			comm: Arc::from(String::from_utf8_lossy(&e.comm).trim_end_matches('\0')),
+			container_meta: ContainerMeta {
+				cgroup_id: e.header.cgroup_id,
+				container: None,
+			},
+		}),
+
 		EbpfEvent::InetSock(ref e) => CerberusEvent::InetSock(InetSockEvent {
 			old_state: Arc::from(state_to_str(e.oldstate)),
 			new_state: Arc::from(state_to_str(e.newstate)),
@@ -137,32 +151,42 @@ fn parse_event_from_bytes(data: &[u8]) -> Result<EbpfEvent> {
 
 	match header.event_type {
 		1 | 4 => {
-			let evt = GenericEvent::ref_from_prefix(data).map_err(|_| Error::InvalidEventSize)?.0;
+			let evt = lib_ebpf_common::GenericEvent::ref_from_prefix(data)
+				.map_err(|_| Error::InvalidEventSize)?
+				.0;
 			Ok(EbpfEvent::Generic(*evt))
 		}
 
 		3 => {
-			let evt = SocketConnectEvent::ref_from_prefix(data)
+			let evt = lib_ebpf_common::SocketConnectEvent::ref_from_prefix(data)
 				.map_err(|_| Error::InvalidEventSize)?
 				.0;
 			Ok(EbpfEvent::SocketConnect(*evt))
 		}
 
 		5 => {
-			let evt = ModuleInitEvent::ref_from_prefix(data).map_err(|_| Error::InvalidEventSize)?.0;
+			let evt = lib_ebpf_common::ModuleInitEvent::ref_from_prefix(data)
+				.map_err(|_| Error::InvalidEventSize)?
+				.0;
 			Ok(EbpfEvent::ModuleInit(*evt))
 		}
 		6 => {
-			let evt = InetSockSetStateEvent::ref_from_prefix(data)
+			let evt = lib_ebpf_common::InetSockSetStateEvent::ref_from_prefix(data)
 				.map_err(|_| Error::InvalidEventSize)?
 				.0;
 			Ok(EbpfEvent::InetSock(*evt))
 		}
 		8 => {
-			let evt = BprmSecurityCheckEvent::ref_from_prefix(data)
+			let evt = lib_ebpf_common::BprmSecurityCheckEvent::ref_from_prefix(data)
 				.map_err(|_| Error::InvalidEventSize)?
 				.0;
 			Ok(EbpfEvent::BprmSecurityCheck(*evt))
+		}
+		9 => {
+			let evt = lib_ebpf_common::BpfProgLoadEvent::ref_from_prefix(data)
+				.map_err(|_| Error::InvalidEventSize)?
+				.0;
+			Ok(EbpfEvent::BpfProgLoad(*evt))
 		}
 		_ => Err(Error::UnknownEventType(header.event_type)),
 	}

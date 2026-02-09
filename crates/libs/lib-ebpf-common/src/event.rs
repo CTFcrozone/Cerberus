@@ -7,7 +7,8 @@ use zerocopy_derive::{FromBytes, Immutable, KnownLayout};
 // 5 => "MODULE_INIT",
 // 6 => "INET_SOCK_SET_STATE",
 // 7 => "ENTER_PTRACE"
-// 8  => EXEC (bprm_check_security)
+// 8 => EXEC (bprm_check_security)
+// 9 => BPF_PROG_LOAD
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug, FromBytes, Immutable, KnownLayout)]
@@ -75,6 +76,20 @@ pub struct SocketConnectEvent {
 	pub family: u16,         // 22..24
 }
 
+#[repr(C)]
+#[derive(Clone, Copy, Debug, FromBytes, Immutable, KnownLayout)]
+pub struct BpfProgLoadEvent {
+	pub header: EventHeader, // 0..16
+	pub pid: u32,            // 16..20
+	pub uid: u32,            // 20..24
+	pub tgid: u32,           // 24..28
+	pub comm: [u8; 16],      // 28..44
+	pub prog_type: u32,      // 44..48
+	pub attach_type: u32,    // 48..52
+	pub flags: u32,          // 52..56
+	pub tag: [u8; 8],        // 56..64
+}
+
 #[derive(Clone, Copy, Debug)]
 pub enum EbpfEvent {
 	Generic(GenericEvent),
@@ -82,4 +97,5 @@ pub enum EbpfEvent {
 	SocketConnect(SocketConnectEvent),
 	ModuleInit(ModuleInitEvent),
 	BprmSecurityCheck(BprmSecurityCheckEvent),
+	BpfProgLoad(BpfProgLoadEvent),
 }

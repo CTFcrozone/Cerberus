@@ -15,6 +15,14 @@ mod vmlinux;
 #[map]
 static EVT_MAP: RingBuf = RingBuf::with_byte_size(32 * 1024, 0);
 
+#[lsm(hook = "bpf_prog_load")]
+pub fn bpf_prog_load(ctx: LsmContext) -> i32 {
+	match hooks::try_bpf_prog_load(ctx) {
+		Ok(ret) => ret,
+		Err(ret) => ret,
+	}
+}
+
 #[lsm(hook = "socket_connect")]
 pub fn socket_connect(ctx: LsmContext) -> i32 {
 	match hooks::try_socket_connect(ctx) {

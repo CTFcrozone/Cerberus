@@ -26,6 +26,7 @@ pub struct RuleEngineWorker {
 	dropped: AtomicU64,
 }
 
+// TODO: make it shutdown aware
 impl RuleEngineWorker {
 	pub fn start(rule_engine: Arc<RuleEngine>, tx: AppTx, ringbuf_rx: Rx<CerberusEvent>) -> Result<Self> {
 		let rate = NonZeroU32::new(10).ok_or(Error::InvalidRate)?;

@@ -15,6 +15,8 @@ pub enum CerberusEvent {
 	Module(ModuleEvent),
 	#[from]
 	Bprm(BprmSecurityEvent),
+	#[from]
+	BpfProgLoad(BpfProgLoadEvent),
 }
 
 // TODO: add unified EventHeader struct
@@ -27,6 +29,7 @@ impl CerberusEvent {
 			CerberusEvent::Bprm(e) => &mut e.container_meta,
 			CerberusEvent::InetSock(e) => &mut e.container_meta,
 			CerberusEvent::SocketConnect(e) => &mut e.container_meta,
+			CerberusEvent::BpfProgLoad(e) => &mut e.container_meta,
 		}
 	}
 }
@@ -55,6 +58,19 @@ pub struct SocketConnectEvent {
 	pub addr: u32,
 	pub port: u16,
 	pub family: u16,
+}
+
+#[derive(Debug, Clone)]
+pub struct BpfProgLoadEvent {
+	pub container_meta: ContainerMeta,
+	pub comm: Arc<str>,
+	pub tag: Arc<str>,
+	pub pid: u32,
+	pub uid: u32,
+	pub tgid: u32,
+	pub prog_type: u32,
+	pub attach_type: u32,
+	pub flags: u32,
 }
 
 #[derive(Debug, Clone)]

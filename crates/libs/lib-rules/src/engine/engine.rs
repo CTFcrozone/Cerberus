@@ -83,6 +83,11 @@ impl RuleEngine {
 				pid: evt.pid,
 				comm: Arc::clone(&evt.comm),
 			},
+			CerberusEvent::BpfProgLoad(evt) => EventMeta {
+				uid: evt.uid,
+				pid: evt.pid,
+				comm: Arc::clone(&evt.comm),
+			},
 		}
 	}
 
@@ -204,6 +209,19 @@ impl RuleEngine {
 				fields.insert("tgid".into(), toml::Value::Integer(e.tgid as i64));
 				fields.insert("comm".into(), toml::Value::String(e.comm.to_string()));
 				fields.insert("filepath".into(), toml::Value::String(e.filepath.to_string()));
+			}
+			CerberusEvent::BpfProgLoad(e) => {
+				fields.insert("uid".into(), toml::Value::Integer(e.uid as i64));
+				fields.insert("pid".into(), toml::Value::Integer(e.pid as i64));
+				fields.insert("tgid".into(), toml::Value::Integer(e.tgid as i64));
+				fields.insert("bpf_prog.flags".into(), toml::Value::Integer(e.flags as i64));
+				fields.insert("bpf_prog.prog_type".into(), toml::Value::Integer(e.prog_type as i64));
+				fields.insert(
+					"bpf_prog.attach_type".into(),
+					toml::Value::Integer(e.attach_type as i64),
+				);
+				fields.insert("comm".into(), toml::Value::String(e.comm.to_string()));
+				fields.insert("tag".into(), toml::Value::String(e.tag.to_string()));
 			}
 		}
 		EvalCtx::new(fields)

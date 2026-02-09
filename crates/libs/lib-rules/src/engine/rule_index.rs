@@ -12,6 +12,7 @@ pub enum EventKind {
 	InetSock,
 	SocketConnect,
 	Module,
+	BpfProgLoad,
 	Bprm,
 }
 
@@ -23,6 +24,7 @@ impl From<&CerberusEvent> for EventKind {
 			CerberusEvent::InetSock(_) => EventKind::InetSock,
 			CerberusEvent::Module(_) => EventKind::Module,
 			CerberusEvent::SocketConnect(_) => EventKind::SocketConnect,
+			CerberusEvent::BpfProgLoad(_) => EventKind::BpfProgLoad,
 		}
 	}
 }
@@ -34,6 +36,15 @@ fn field_in(kind: EventKind, field: &str) -> bool {
 		EventKind::Bprm => matches!(field, "uid" | "pid" | "tgid" | "comm" | "filepath"),
 		EventKind::Module => matches!(field, "uid" | "pid" | "tgid" | "comm" | "module_name"),
 		EventKind::SocketConnect => matches!(field, "port" | "family"),
+		EventKind::BpfProgLoad => matches!(
+			field,
+			"uid"
+				| "pid" | "tgid"
+				| "comm" | "bpf_prog.prog_type"
+				| "bpf_prog.attach_type"
+				| "bpf_prog.flags"
+				| "bpf_prog.tag"
+		),
 	}
 }
 
