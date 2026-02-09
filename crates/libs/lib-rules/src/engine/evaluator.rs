@@ -64,7 +64,11 @@ impl Evaluator {
 			"<" | "lt" => left.map_or(false, |l| Self::numeric_cmp(l, right, |x, y| x < y)),
 			">=" | "gte" => left.map_or(false, |l| Self::numeric_cmp(l, right, |x, y| x >= y)),
 			"<=" | "lte" => left.map_or(false, |l| Self::numeric_cmp(l, right, |x, y| x <= y)),
-			"exists" => left.is_some(),
+			"exists" => {
+				let expect = right.as_bool().unwrap_or(true);
+				left.is_some() == expect
+			}
+
 			_ => false,
 		}
 	}
