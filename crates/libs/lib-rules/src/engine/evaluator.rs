@@ -10,7 +10,7 @@ use crate::{
 };
 
 // till compiled rules are fully implemented
-static REGEX_CACHE: OnceLock<DashMap<String, Regex>> = OnceLock::new();
+static REGEX_CACHE: OnceLock<DashMap<String, Result<Regex, regex::Error>>> = OnceLock::new();
 
 pub struct Evaluator;
 
@@ -64,11 +64,14 @@ impl Evaluator {
 				// 	false
 				// }
 				if let Some((text, pattern)) = Self::as_str_pair(left, right) {
-					let cache = REGEX_CACHE.get_or_init(|| DashMap::new());
+					let cache = REGEX_CACHE.get_or_init(DashMap::new);
 
-					let re = cache.entry(pattern.to_string()).or_insert_with(|| Regex::new(pattern).unwrap());
+					let entry = cache.entry(pattern.into()).or_insert_with(|| Regex::new(pattern));
 
-					re.is_match(text)
+					match entry.value() {
+						Ok(re) => re.is_match(text),
+						Err(_) => false,
+					}
 				} else {
 					false
 				}

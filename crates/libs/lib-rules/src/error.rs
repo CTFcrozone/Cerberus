@@ -24,7 +24,8 @@ pub enum Error {
 	SimpleFs(simple_fs::Error),
 	#[display("No rules found in '{_0}'")]
 	NoRulesInDir(String),
-
+	#[from]
+	Regex(regex::Error),
 	// -- Externals
 	#[from]
 	#[display("{_0}")]
