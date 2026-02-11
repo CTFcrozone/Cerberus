@@ -8,6 +8,7 @@ members = [
     "crates/libs/lib-event",
     "crates/libs/lib-ebpf-common",
     "crates/libs/lib-container",
+    "crates/libs/lib-runtime-probe",
     "crates/apps/cerberus",
 ]
 default-members = ["crates/apps/cerberus", "crates/libs/lib-common"]

@@ -1,0 +1,18 @@
+[package]
+name = "lib-runtime-probe"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+lib-event = { path = "../lib-event" }
+
+kvm-bindings = "0.14.0"
+kvm-ioctls = "0.24.0"
+vm-memory = {version="0.18.0", features=["backend-mmap"]}
+derive_more = { version = "2.0.0", features = [
+    "from",
+    "display",
+    "debug",
+    "into",
+    "deref",
+] }
