@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use crate::error::Result;
 
 pub fn new_channel<T>(name: &'static str) -> (Tx<T>, Rx<T>) {
@@ -31,6 +33,16 @@ pub struct Rx<T>(flume::Receiver<T>, &'static str);
 impl<T> Rx<T> {
 	pub async fn recv(&self) -> Result<T> {
 		let res = self.0.recv_async().await?;
+		Ok(res)
+	}
+
+	pub fn recv_sync(&self) -> Result<T> {
+		let res = self.0.recv()?;
+		Ok(res)
+	}
+
+	pub fn recv_sync_timeout(&self, timeout: Duration) -> Result<T> {
+		let res = self.0.recv_timeout(timeout)?;
 		Ok(res)
 	}
 }

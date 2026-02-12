@@ -1,14 +1,20 @@
-use std::time::{Duration, Instant};
+use std::{
+	sync::{Arc, Mutex},
+	thread,
+	time::{Duration, Instant},
+};
 
+use flume::RecvTimeoutError;
 use kvm_bindings::kvm_userspace_memory_region;
 use kvm_ioctls::{Kvm, VcpuExit, VcpuFd};
+use lib_event::trx::{new_channel, Rx, Tx};
 use vm_memory::{Address, Bytes, GuestAddress, GuestMemoryBackend, GuestMemoryMmap};
 
-use crate::error::Result;
-
-const MEM_SIZE: u64 = 0x200000; // 2MB
-const CODE_START: u64 = 0x1000;
-const STACK_START: u64 = 0x1ff000;
+use crate::{
+	error::Result,
+	support::{CODE_START, MEM_SIZE},
+	Error,
+};
 
 #[derive(Debug)]
 pub enum ExitKind {
@@ -19,6 +25,15 @@ pub enum ExitKind {
 	InternalError,
 	Crash,
 	Unknown,
+}
+
+enum WorkerMsg {
+	Execute {
+		code: Vec<u8>,
+		exit_budget: u64,
+		timeout: Duration,
+	},
+	Shutdown,
 }
 
 #[derive(Debug)]
@@ -59,85 +74,15 @@ impl RuntimeProbe {
 		let vcpu = vm.create_vcpu(0)?;
 
 		let mut probe = Self { vcpu, mem };
-		probe.reset_state()?;
+		crate::support::reset_state(&mut probe.vcpu, &mut probe.mem)?;
 
 		Ok(probe)
 	}
 
-	pub fn reset_state(&mut self) -> Result<()> {
-		let gdt_addr = GuestAddress(0x500);
-		let gdt: [u64; 3] = [
-			0,
-			Self::gdt_entry(0, 0xFFFFF, 0x9A | (1 << 7)), // code
-			Self::gdt_entry(0, 0xFFFFF, 0x92 | (1 << 7)), // data
-		];
-
-		for (i, entry) in gdt.iter().enumerate() {
-			self.mem.write_obj(*entry, gdt_addr.unchecked_add((i * 8) as u64))?;
-		}
-
-		let mut sregs = self.vcpu.get_sregs()?;
-		sregs.cr0 = 0x1; //  protected mode
-		sregs.cr2 = 0;
-		sregs.cr3 = 0;
-		sregs.cr4 = 0;
-		sregs.efer = 0;
-
-		sregs.gdt.base = 0x500;
-		sregs.gdt.limit = (3 * 8 - 1) as u16;
-
-		// CS
-		sregs.cs.selector = 0x08;
-		sregs.cs.base = 0;
-		sregs.cs.limit = 0xFFFFF;
-		sregs.cs.g = 1;
-		sregs.cs.db = 1;
-		sregs.cs.present = 1;
-		sregs.cs.s = 1;
-		sregs.cs.type_ = 0b1010;
-
-		// DS, SS
-		for seg in [&mut sregs.ds, &mut sregs.ss] {
-			seg.selector = 0x10;
-			seg.base = 0;
-			seg.limit = 0xFFFFF;
-			seg.g = 1;
-			seg.db = 1;
-			seg.present = 1;
-			seg.s = 1;
-			seg.type_ = 0b0010;
-		}
-
-		self.vcpu.set_sregs(&sregs)?;
-
-		let mut regs = self.vcpu.get_regs()?;
-		regs.rax = 0;
-		regs.rip = CODE_START;
-		regs.rsp = STACK_START;
-		regs.rflags = 0x2;
-		self.vcpu.set_regs(&regs)?;
-
-		Ok(())
-	}
-
-	pub fn wipe_memory(&mut self) -> Result<()> {
-		let zeros = vec![0u8; MEM_SIZE as usize];
-		self.mem.write(&zeros, GuestAddress(0))?;
-		Ok(())
-	}
-
 	pub fn execute(&mut self, code: &[u8], timeout: Duration, exit_budget: u64) -> Result<ProbeResult> {
-		self.wipe_memory()?;
-		self.reset_state()?;
+		crate::support::wipe_memory(&mut self.mem)?;
+		crate::support::reset_state(&mut self.vcpu, &mut self.mem)?;
 		self._execute(code, timeout, exit_budget)
-	}
-
-	fn gdt_entry(base: u32, limit: u32, flags: u16) -> u64 {
-		(limit as u64 & 0xFFFF)
-			| ((base as u64 & 0xFFFFFF) << 16)
-			| ((flags as u64) << 40)
-			| (((limit as u64 >> 16) & 0xF) << 48)
-			| (((base as u64 >> 24) & 0xFF) << 56)
 	}
 
 	fn _execute(&mut self, code: &[u8], timeout: Duration, exit_budget: u64) -> Result<ProbeResult> {
@@ -215,7 +160,6 @@ impl RuntimeProbe {
 		})
 	}
 }
-
 // region:    --- Tests
 
 #[cfg(test)]
@@ -245,28 +189,21 @@ mod tests {
 		Ok(())
 	}
 
-	// ?? FIXME
 	#[test]
 	fn runtime_probe_hits_exit_budget() -> Result<()> {
-		let fx_code = b"\xE4\x01\xEB\xFC"; // in al, 0x1; jmp $-4
-
-		let fx_timeout = Duration::from_millis(100);
-		let fx_budget = 5;
-
+		let fx_code = b"\xEB\xFE"; // infinite loop
 		let mut probe = RuntimeProbe::new()?;
-		let result = probe.execute(fx_code, fx_timeout, fx_budget)?;
-
+		let result = probe.execute(fx_code, Duration::from_millis(500), 5)?; // very small budget
 		assert!(result.exit_budget_hit);
 		assert!(!result.timed_out);
 		Ok(())
 	}
 
-	// ???????????????????????????
 	#[test]
 	fn runtime_probe_times_out() -> Result<()> {
-		let fx_code = b"\xEB\xFE"; // JMP -2
+		let fx_code = b"\xEB\xFE"; // infinite loop
 		let mut probe = RuntimeProbe::new()?;
-		let result = probe.execute(fx_code, Duration::from_millis(10), 10000)?;
+		let result = probe.execute(fx_code, Duration::from_millis(10), 1000)?; // enough budget, but short timeout
 		assert!(result.timed_out);
 		assert!(!result.exit_budget_hit);
 		Ok(())

@@ -1,5 +1,5 @@
 use derive_more::{Display, From};
-use flume::{RecvError, SendError};
+use flume::{RecvError, RecvTimeoutError, SendError};
 
 pub type Result<T> = core::result::Result<T, Error>;
 
@@ -10,6 +10,7 @@ pub enum Error {
 	Custom(String),
 	EventSend(String),
 	EventRecv(RecvError),
+	EventRecvTimeout(RecvTimeoutError),
 	EbpfProgNotFound,
 	InvalidEventAlign,
 	InvalidEventSize,
@@ -23,6 +24,12 @@ pub enum Error {
 impl<T> From<SendError<T>> for Error {
 	fn from(value: SendError<T>) -> Self {
 		Self::EventSend(value.to_string())
+	}
+}
+
+impl From<RecvTimeoutError> for Error {
+	fn from(err: RecvTimeoutError) -> Self {
+		Self::EventRecvTimeout(err)
 	}
 }
 

@@ -9,12 +9,21 @@ pub enum Error {
 	Custom(String),
 	#[from]
 	KvmBindings(kvm_ioctls::Error),
+	#[from]
+	Event(lib_event::Error),
 	VmMemory {
 		err: String,
 	},
+	LockPoison,
 	// -- Externals
 	#[from]
 	Io(std::io::Error), // as example
+}
+
+impl<T> From<std::sync::PoisonError<T>> for Error {
+	fn from(_val: std::sync::PoisonError<T>) -> Self {
+		Self::LockPoison
+	}
 }
 
 impl From<vm_memory::mmap::FromRangesError> for Error {

@@ -1443,6 +1443,7 @@ name = "lib-runtime-probe"
 version = "0.1.0"
 dependencies = [
  "derive_more",
+ "flume",
  "kvm-bindings",
  "kvm-ioctls",
  "lib-event",
