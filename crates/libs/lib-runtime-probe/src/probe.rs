@@ -1,5 +1,8 @@
 use std::{
-	sync::{Arc, Mutex},
+	sync::{
+		atomic::{AtomicBool, Ordering},
+		Arc, Mutex,
+	},
 	thread,
 	time::{Duration, Instant},
 };
@@ -25,15 +28,6 @@ pub enum ExitKind {
 	InternalError,
 	Crash,
 	Unknown,
-}
-
-enum WorkerMsg {
-	Execute {
-		code: Vec<u8>,
-		exit_budget: u64,
-		timeout: Duration,
-	},
-	Shutdown,
 }
 
 #[derive(Debug)]
@@ -124,10 +118,6 @@ impl RuntimeProbe {
 				Ok(e) => e,
 				Err(e) => {
 					if e.errno() == libc::EINTR {
-						if start.elapsed() >= timeout {
-							timed_out = true;
-							break 'run_loop;
-						}
 						continue 'run_loop;
 					}
 					exit_kind = ExitKind::InternalError;
@@ -230,17 +220,16 @@ mod tests {
 		assert!(!result.timed_out);
 		Ok(())
 	}
-
 	#[test]
 	fn runtime_probe_times_out() -> Result<()> {
 		let fx_code = b"\xEB\xFE"; // infinite loop
 		let mut probe = RuntimeProbe::new()?;
-		let result = probe.execute(fx_code, Duration::from_millis(10), 1000)?; // enough budget, but short timeout
+		// Use a massive budget so it won't be hit first
+		let result = probe.execute(fx_code, Duration::from_millis(10), u64::MAX)?;
 		assert!(result.timed_out);
 		assert!(!result.exit_budget_hit);
 		Ok(())
 	}
-
 	#[test]
 	fn runtime_probe_returns_rax_value() -> Result<()> {
 		let fx_code = b"\xB8\x42\x69\x00\x00\xF4"; // mov eax, 0x6942; hlt
