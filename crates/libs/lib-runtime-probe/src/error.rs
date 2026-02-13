@@ -14,6 +14,15 @@ pub enum Error {
 	VmMemory {
 		err: String,
 	},
+	GuestCrash {
+		reason: String,
+		rip: u64,
+	},
+
+	CodeTooLarge {
+		size: usize,
+		max: usize,
+	},
 	LockPoison,
 	// -- Externals
 	#[from]

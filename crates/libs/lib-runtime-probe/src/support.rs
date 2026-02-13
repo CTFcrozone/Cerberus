@@ -1,3 +1,5 @@
+#[cfg(target_arch = "x86_64")]
+use kvm_ioctls::Kvm;
 use kvm_ioctls::VcpuFd;
 use vm_memory::{Address, Bytes, GuestAddress, GuestMemoryMmap};
 
@@ -74,5 +76,25 @@ pub(crate) fn reset_state(vcpu: &mut VcpuFd, mem: &mut GuestMemoryMmap) -> Resul
 	regs.rflags = 0x2;
 	vcpu.set_regs(&regs)?;
 
+	Ok(())
+}
+
+#[cfg(target_arch = "x86_64")]
+pub(crate) fn configure_cpuid(kvm: &Kvm, vcpu: &VcpuFd) -> Result<()> {
+	use kvm_bindings::KVM_MAX_CPUID_ENTRIES;
+
+	let mut cpuid = kvm.get_supported_cpuid(KVM_MAX_CPUID_ENTRIES)?;
+
+	for entry in cpuid.as_mut_slice() {
+		match (entry.function, entry.index) {
+			(0x7, 0) => {
+				entry.ebx &= !(1 << 11); // Clear RTM
+				entry.ebx &= !(1 << 4); // Clear HLE
+			}
+			_ => {}
+		}
+	}
+
+	vcpu.set_cpuid2(&cpuid)?;
 	Ok(())
 }

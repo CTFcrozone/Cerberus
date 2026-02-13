@@ -43,6 +43,8 @@ pub struct ProbeResult {
 	pub rip: u64,
 	pub timed_out: bool,
 	pub exit_budget_hit: bool,
+	pub total_exits: u64,
+	pub execution_time: Duration,
 }
 
 pub struct RuntimeProbe {
@@ -73,6 +75,11 @@ impl RuntimeProbe {
 
 		let vcpu = vm.create_vcpu(0)?;
 
+		#[cfg(target_arch = "x86_64")]
+		{
+			crate::support::configure_cpuid(&kvm, &vcpu)?;
+		}
+
 		let mut probe = Self { vcpu, mem };
 		crate::support::reset_state(&mut probe.vcpu, &mut probe.mem)?;
 
@@ -80,6 +87,13 @@ impl RuntimeProbe {
 	}
 
 	pub fn execute(&mut self, code: &[u8], timeout: Duration, exit_budget: u64) -> Result<ProbeResult> {
+		let size = MEM_SIZE as usize - CODE_START as usize;
+		if code.len() > size {
+			return Err(Error::CodeTooLarge {
+				size: code.len(),
+				max: size,
+			});
+		}
 		crate::support::wipe_memory(&mut self.mem)?;
 		crate::support::reset_state(&mut self.vcpu, &mut self.mem)?;
 		self._execute(code, timeout, exit_budget)
@@ -89,74 +103,92 @@ impl RuntimeProbe {
 		self.mem.write(code, GuestAddress(CODE_START))?;
 
 		let start = Instant::now();
-		let mut exit_kind = ExitKind::Unknown;
 		let mut budget = exit_budget;
+		let mut exit_count = 0u64;
 		let mut timed_out = false;
 		let mut budget_hit = false;
+		let mut exit_kind = ExitKind::Unknown;
 
-		loop {
+		'run_loop: loop {
 			if start.elapsed() >= timeout {
 				timed_out = true;
-				break;
+				break 'run_loop;
 			}
 
 			if budget == 0 {
 				budget_hit = true;
-				break;
+				break 'run_loop;
 			}
 
 			let exit = match self.vcpu.run() {
 				Ok(e) => e,
-				Err(_) => {
+				Err(e) => {
+					if e.errno() == libc::EINTR {
+						if start.elapsed() >= timeout {
+							timed_out = true;
+							break 'run_loop;
+						}
+						continue 'run_loop;
+					}
 					exit_kind = ExitKind::InternalError;
-					break;
+					break 'run_loop;
 				}
 			};
+
+			exit_count += 1;
 
 			budget = budget.saturating_sub(1);
 
 			match exit {
 				VcpuExit::Hlt => {
 					exit_kind = ExitKind::CleanHlt;
-					break;
+					break 'run_loop;
 				}
 				VcpuExit::IoOut(_, _) | VcpuExit::IoIn(_, _) => {
 					exit_kind = ExitKind::Io;
-					break;
+					break 'run_loop;
 				}
 				VcpuExit::MmioRead(_, _) | VcpuExit::MmioWrite(_, _) => {
 					exit_kind = ExitKind::Mmio;
-					break;
+					break 'run_loop;
 				}
 				VcpuExit::FailEntry(_, _) => {
 					exit_kind = ExitKind::FailEntry;
-					break;
+					break 'run_loop;
 				}
 				VcpuExit::InternalError => {
 					exit_kind = ExitKind::InternalError;
-					break;
+					break 'run_loop;
+				}
+				VcpuExit::Hypercall(_) => {
+					exit_kind = ExitKind::Unknown;
+					break 'run_loop;
+				}
+				VcpuExit::IrqWindowOpen => {
+					continue 'run_loop;
 				}
 				VcpuExit::Shutdown | VcpuExit::Exception => {
 					exit_kind = ExitKind::Crash;
-					break;
+					break 'run_loop;
 				}
 				VcpuExit::Debug(_) => {
-					continue;
+					continue 'run_loop;
 				}
-				_ => {
-					exit_kind = ExitKind::Unknown;
-					break;
-				}
+				_ => continue 'run_loop,
 			}
 		}
 
 		let regs = self.vcpu.get_regs()?;
+		let execution_time = start.elapsed();
+
 		Ok(ProbeResult {
 			exit_kind,
 			rax: regs.rax,
 			rip: regs.rip,
 			timed_out,
 			exit_budget_hit: budget_hit,
+			execution_time,
+			total_exits: exit_count,
 		})
 	}
 }
