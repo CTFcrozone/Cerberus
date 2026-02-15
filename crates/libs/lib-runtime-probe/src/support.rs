@@ -1,6 +1,6 @@
 #[cfg(target_arch = "x86_64")]
 use kvm_ioctls::Kvm;
-use kvm_ioctls::VcpuFd;
+use kvm_ioctls::{Cap, VcpuFd};
 use vm_memory::{Address, Bytes, GuestAddress, GuestMemoryMmap};
 
 use crate::error::Result;
@@ -79,18 +79,57 @@ pub(crate) fn reset_state(vcpu: &mut VcpuFd, mem: &mut GuestMemoryMmap) -> Resul
 	Ok(())
 }
 
+pub(crate) fn supports_readonly_mem(kvm: &Kvm) -> bool {
+	kvm.check_extension(Cap::ReadonlyMem)
+}
+
 #[cfg(target_arch = "x86_64")]
 pub(crate) fn configure_cpuid(kvm: &Kvm, vcpu: &VcpuFd) -> Result<()> {
-	use kvm_bindings::KVM_MAX_CPUID_ENTRIES;
+	use kvm_bindings::*;
 
 	let mut cpuid = kvm.get_supported_cpuid(KVM_MAX_CPUID_ENTRIES)?;
 
-	for entry in cpuid.as_mut_slice() {
-		match (entry.function, entry.index) {
-			(0x7, 0) => {
-				entry.ebx &= !(1 << 11); // Clear RTM
-				entry.ebx &= !(1 << 4); // Clear HLE
+	for entry in cpuid.as_mut_slice().iter_mut() {
+		match entry.function {
+			// CPUID.01H: Feature Information
+			1 => {
+				entry.ecx &= !(1 << 24); // Disable TSC-Deadline (timing attacks)
+				entry.ecx &= !(1 << 31); // Disable Hypervisor bit (VM detection)
+
+				entry.edx &= !(1 << 4); // Disable RDTSC (timing attacks)
+				entry.edx &= !(1 << 21); // Disable Debug Store
 			}
+
+			// CPUID.07H: Extended Features
+			7 => {
+				if entry.index == 0 {
+					entry.ebx &= !(1 << 2); // Disable SGX (side-channels)
+					entry.ebx &= !(1 << 10); // Disable INVPCID
+					entry.ebx &= !(1 << 26); // Disable IBRS/IBPB (let KVM handle speculation)
+
+					entry.edx &= !(1 << 26); // Disable IBRS (Spectre mitigation - KVM handles this)
+					entry.edx &= !(1 << 27); // Disable STIBP
+					entry.edx &= !(1 << 29); // Disable IA32_ARCH_CAPABILITIES
+				}
+			}
+
+			// CPUID.0DH: Extended State (XSAVE)
+			0xD => {
+				// Allow basic x87/SSE but not AVX-512 (complexity)
+				if entry.index >= 2 {
+					entry.eax = 0;
+					entry.ebx = 0;
+					entry.ecx = 0;
+					entry.edx = 0;
+				}
+			}
+
+			// CPUID.80000001H: Extended Processor Info
+			0x80000001 => {
+				entry.ecx &= !(1 << 2); // Disable SVM (nested virtualization)
+				entry.ecx &= !(1 << 3); // Disable Extended APIC
+			}
+
 			_ => {}
 		}
 	}
