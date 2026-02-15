@@ -9,8 +9,6 @@ pub enum Error {
 	Custom(String),
 	#[from]
 	KvmBindings(kvm_ioctls::Error),
-	#[from]
-	Event(lib_event::Error),
 	VmMemory {
 		err: String,
 	},
@@ -63,15 +61,3 @@ impl Error {
 impl std::error::Error for Error {}
 
 // endregion: --- Error Boilerplate
-
-macro_rules! impl_from_vm_mem_error {
-	($source:ty) => {
-		impl From<$source> for Error {
-			fn from(value: $source) -> Self {
-				Error::VmMemory {
-					err: value.to_string(),
-				}
-			}
-		}
-	};
-}

@@ -1,17 +1,4 @@
-use std::{
-	sync::{
-		atomic::{AtomicBool, Ordering},
-		Arc, Mutex,
-	},
-	thread,
-	time::{Duration, Instant},
-};
-
-use flume::RecvTimeoutError;
-use kvm_bindings::kvm_userspace_memory_region;
-use kvm_ioctls::{Kvm, VcpuExit, VcpuFd, VmFd};
-use lib_event::trx::{new_channel, Rx, Tx};
-use vm_memory::{Address, Bytes, GuestAddress, GuestMemoryBackend, GuestMemoryMmap};
+use std::time::Duration;
 
 use crate::{
 	error::Result,

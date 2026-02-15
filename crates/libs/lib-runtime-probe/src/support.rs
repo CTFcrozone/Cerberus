@@ -5,8 +5,11 @@ use vm_memory::{Address, Bytes, GuestAddress, GuestMemoryMmap};
 
 use crate::error::Result;
 
+#[allow(unused)]
 pub static ZERO_PAGE: [u8; MEM_SIZE as usize] = [0u8; MEM_SIZE as usize];
 pub(crate) const MEM_SIZE: u64 = 0x200000; // 2MB
+#[allow(unused)]
+pub(crate) const CODE_SIZE: u64 = 0x10000; // 64KB
 pub(crate) const CODE_START: u64 = 0x1000;
 pub(crate) const STACK_START: u64 = 0x1ff000;
 
@@ -18,6 +21,7 @@ pub(crate) fn gdt_entry(base: u32, limit: u32, flags: u16) -> u64 {
 		| (((base as u64 >> 24) & 0xFF) << 56)
 }
 
+#[allow(unused)]
 pub(crate) fn wipe_memory(mem: &mut GuestMemoryMmap) -> Result<()> {
 	mem.write(&ZERO_PAGE, GuestAddress(0))?;
 	Ok(())
