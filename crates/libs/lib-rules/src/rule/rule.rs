@@ -54,6 +54,7 @@ pub enum Response {
 	ThrottleNetwork,
 	EmitSignal { signal: i32 },
 	Notify { message: String },
+	KvmAction { timeout_ms: u64, exit_budget: u64 },
 }
 
 impl Rule {
