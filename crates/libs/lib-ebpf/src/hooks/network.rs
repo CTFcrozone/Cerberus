@@ -64,10 +64,10 @@ pub fn try_socket_connect(ctx: LsmContext) -> Result<i32, i32> {
 		family,
 	};
 
-	match EVT_MAP.output(&event, 0) {
-		Ok(_) => (),
-		Err(e) => error!(&ctx, "Couldn't write to the ring buffer ->> ERROR: {}", e),
+	if let Err(e) = EVT_MAP.output(&event, 0) {
+		error!(&ctx, "ringbuf write failed: {}", e);
 	}
+
 	Ok(0)
 }
 
@@ -103,9 +103,8 @@ pub fn try_inet_sock_set_state(ctx: TracePointContext) -> Result<u32, u32> {
 		daddr,
 	};
 
-	match EVT_MAP.output(&event, 0) {
-		Ok(_) => (),
-		Err(e) => error!(&ctx, "Couldn't write to the ring buffer ->> ERROR: {}", e),
+	if let Err(e) = EVT_MAP.output(&event, 0) {
+		error!(&ctx, "ringbuf write failed: {}", e);
 	}
 
 	Ok(0)

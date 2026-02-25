@@ -62,9 +62,9 @@ pub fn try_bpf_prog_load(ctx: LsmContext) -> Result<i32, i32> {
 		flags,
 	};
 
-	match EVT_MAP.output(&event, 0) {
-		Ok(_) => (),
-		Err(e) => error!(&ctx, "Couldn't write to the ring buffer ->> ERROR: {}", e),
+	if let Err(e) = EVT_MAP.output(&event, 0) {
+		error!(&ctx, "ringbuf write failed: {}", e);
 	}
+
 	Ok(0)
 }

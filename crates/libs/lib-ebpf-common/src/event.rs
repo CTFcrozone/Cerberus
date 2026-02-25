@@ -50,7 +50,8 @@ pub struct BprmSecurityCheckEvent {
 	pub uid: u32,            // 20..24
 	pub tgid: u32,           // 24..28
 	pub comm: [u8; 16],      // 28..44
-	pub filepath: [u8; 132], // 44..176
+	pub filepath: [u8; 128], // 44..172
+	pub _pad0: [u8; 4],      // 172..176
 }
 
 #[repr(C)]

@@ -13,10 +13,10 @@ use lib_ebpf_common::{BprmSecurityCheckEvent, EventHeader};
 
 use crate::{utils::get_mnt_ns, vmlinux::linux_binprm, EVT_MAP};
 
-#[map(name = "FPATH")]
-static mut FPATH: PerCpuArray<[u8; 132]> = PerCpuArray::with_max_entries(1, 0);
+const PATH_LEN: usize = 128;
 
-const PATH_LEN: u32 = 127;
+#[map(name = "FPATH")]
+static mut FPATH: PerCpuArray<[u8; PATH_LEN]> = PerCpuArray::with_max_entries(1, 0);
 
 pub fn try_bprm_check_security(ctx: LsmContext) -> Result<i32, i32> {
 	let uid = bpf_get_current_uid_gid() as u32;
@@ -41,7 +41,7 @@ pub fn try_bprm_check_security(ctx: LsmContext) -> Result<i32, i32> {
 		}
 
 		let f_path = &(*file).__bindgen_anon_1.f_path as *const _ as *mut path;
-		let ret = bpf_d_path(f_path, buf as *mut i8, PATH_LEN);
+		let ret = bpf_d_path(f_path, buf as *mut i8, PATH_LEN as u32);
 
 		if ret < 0 {
 			return Err(0);
@@ -60,6 +60,7 @@ pub fn try_bprm_check_security(ctx: LsmContext) -> Result<i32, i32> {
 		tgid,
 		comm,
 		filepath: unsafe { *buf },
+		_pad0: [0u8; 4],
 	};
 
 	match EVT_MAP.output(&event, 0) {
