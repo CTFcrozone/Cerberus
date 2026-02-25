@@ -8,7 +8,7 @@ use ratatui::{
 
 use crate::{core::AppState, styles};
 
-use super::{EvaluatedEventView, GeneralEventView, LoadedHooksView, NetworkEventView};
+use super::{EvaluatedEventView, GeneralEventView, NetworkEventView};
 
 pub struct MainView;
 
@@ -30,20 +30,12 @@ impl StatefulWidget for MainView {
 
 		render_tabs(tabs_area, buf, state);
 
-		let [events_tbl, meta] = Layout::default()
-			.direction(Direction::Horizontal)
-			.constraints([Constraint::Percentage(70), Constraint::Percentage(30)])
-			.areas(main);
-
 		match state.current_tab() {
-			crate::core::Tab::General => GeneralEventView {}.render(events_tbl, buf, state),
-			crate::core::Tab::Network => NetworkEventView {}.render(events_tbl, buf, state),
-			crate::core::Tab::MatchedRules => EvaluatedEventView {}.render(events_tbl, buf, state),
-			crate::core::Tab::CorrelatedRules => CorrelatedEventView {}.render(events_tbl, buf, state),
+			crate::core::Tab::General => GeneralEventView {}.render(main, buf, state),
+			crate::core::Tab::Network => NetworkEventView {}.render(main, buf, state),
+			crate::core::Tab::MatchedRules => EvaluatedEventView {}.render(main, buf, state),
+			crate::core::Tab::CorrelatedRules => CorrelatedEventView {}.render(main, buf, state),
 		}
-
-		let right = LoadedHooksView {};
-		right.render(meta, buf, state);
 
 		let action_v = ActionView {};
 		action_v.render(sys_info, buf, state);

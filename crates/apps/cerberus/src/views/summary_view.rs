@@ -78,7 +78,7 @@ fn render_last_event_meta(area: Rect, buf: &mut Buffer, state: &AppState) {
 		.unwrap_or("No events yet".to_string());
 
 	let paragraph = Paragraph::new(last_meta)
-		.block(Block::bordered().title("Last Event"))
+		.block(Block::bordered().title("Last Rule Match"))
 		.style(Style::default().fg(Color::Green));
 
 	paragraph.render(area, buf);
