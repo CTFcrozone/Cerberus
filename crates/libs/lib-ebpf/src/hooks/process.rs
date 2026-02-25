@@ -102,10 +102,8 @@ pub fn try_sys_enter_kill(ctx: LsmContext) -> Result<i32, i32> {
 		comm: comm_raw,
 		meta: sig,
 	};
-
-	match EVT_MAP.output(&event, 0) {
-		Ok(_) => (),
-		Err(e) => error!(&ctx, "Couldn't write to the ring buffer ->> ERROR: {}", e), //  prints the error instead of returning, so the syscall is not blocked
+	if let Err(e) = EVT_MAP.output(&event, 0) {
+		error!(&ctx, "ringbuf write failed: {}", e);
 	}
 
 	Ok(0)
