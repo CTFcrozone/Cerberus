@@ -91,6 +91,7 @@ pub struct BprmSecurityEvent {
 	pub pid: u32,
 	pub uid: u32,
 	pub tgid: u32,
+	pub path_len: u32,
 }
 
 #[derive(Debug, Clone)]

@@ -42,10 +42,7 @@ pub fn try_do_init_module(ctx: ProbeContext) -> Result<u32, i64> {
 		_pad0: [0u8; 4],
 	};
 
-	match EVT_MAP.output(&event, 0) {
-		Ok(_) => (),
-		Err(e) => return Err(e),
-	}
+	EVT_MAP.output(&event, 0)?;
 
 	Ok(0)
 }

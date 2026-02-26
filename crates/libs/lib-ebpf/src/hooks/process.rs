@@ -65,9 +65,8 @@ pub fn try_sys_enter_ptrace(ctx: TracePointContext) -> Result<u32, u32> {
 		meta: 0, // success flag
 	};
 
-	match EVT_MAP.output(&event, 0) {
-		Ok(_) => (),
-		Err(e) => error!(&ctx, "Failed to log ptrace event: {}", e),
+	if let Err(e) = EVT_MAP.output(&event, 0) {
+		error!(&ctx, "ringbuf write failed: {}", e);
 	}
 
 	Ok(0)
@@ -102,6 +101,7 @@ pub fn try_sys_enter_kill(ctx: LsmContext) -> Result<i32, i32> {
 		comm: comm_raw,
 		meta: sig,
 	};
+
 	if let Err(e) = EVT_MAP.output(&event, 0) {
 		error!(&ctx, "ringbuf write failed: {}", e);
 	}

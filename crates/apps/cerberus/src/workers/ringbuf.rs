@@ -6,7 +6,7 @@ use aya::maps::{MapData, RingBuf};
 use lib_common::event::{
 	BpfProgLoadEvent, BprmSecurityEvent, CerberusEvent, ContainerMeta, InetSockEvent, ModuleEvent, RingBufEvent,
 };
-use lib_ebpf_common::{EbpfEvent, EventHeader};
+use lib_ebpf_common::{EbpfEvent, EventHeader, FILE_PATH_LEN};
 use lib_event::trx::Tx;
 use tokio::io::unix::AsyncFd;
 
@@ -92,17 +92,27 @@ fn parse_cerberus_event(evt: EbpfEvent) -> Result<CerberusEvent> {
 			},
 		}),
 
-		EbpfEvent::BprmSecurityCheck(ref e) => CerberusEvent::Bprm(BprmSecurityEvent {
-			pid: e.pid,
-			uid: e.uid,
-			tgid: e.tgid,
-			comm: Arc::from(String::from_utf8_lossy(&e.comm).trim_end_matches('\0')),
-			filepath: Arc::from(String::from_utf8_lossy(&e.filepath).trim_end_matches('\0')),
-			container_meta: ContainerMeta {
-				cgroup_id: e.header.cgroup_id,
-				container: None,
-			},
-		}),
+		EbpfEvent::BprmSecurityCheck(ref e) => {
+			let comm_str = core::str::from_utf8(&e.comm).unwrap_or_default().trim_end_matches('\0');
+
+			let path_len = e.path_len as usize;
+			let start = FILE_PATH_LEN.saturating_sub(path_len);
+			let path_bytes = &e.filepath[start..FILE_PATH_LEN];
+			let filepath_str = core::str::from_utf8(path_bytes).unwrap_or_default().trim_end_matches('\0');
+
+			CerberusEvent::Bprm(BprmSecurityEvent {
+				pid: e.pid,
+				uid: e.uid,
+				tgid: e.tgid,
+				comm: Arc::from(comm_str),
+				filepath: Arc::from(filepath_str),
+				container_meta: ContainerMeta {
+					cgroup_id: e.header.cgroup_id,
+					container: None,
+				},
+				path_len: e.path_len,
+			})
+		}
 
 		EbpfEvent::BpfProgLoad(ref e) => CerberusEvent::BpfProgLoad(BpfProgLoadEvent {
 			pid: e.pid,
