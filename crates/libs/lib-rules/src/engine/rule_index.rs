@@ -49,9 +49,9 @@ fn field_in(kind: EventKind, field: &str) -> bool {
 }
 
 pub struct RuleIndex {
-	// evt kind -> rule ids
+	// evt kind -> root rule ids
 	pub by_evt_kind: HashMap<EventKind, Vec<Arc<str>>>,
-	// rule id -> root rules that have a sequence with this rule
+	// step rule id -> root rule ids that have a sequence with this rule from the step
 	pub seq_listeners: HashMap<Arc<str>, Vec<Arc<str>>>,
 }
 
