@@ -133,6 +133,14 @@ pub fn load_hooks(ebpf: &mut Ebpf) -> Result<AsyncFd<RingBuf<MapData>>> {
 	lsm_socket_connect.load("socket_connect", &btf)?;
 	lsm_socket_connect.attach()?;
 
+	let lsm_socket_bind: &mut Lsm = ebpf.program_mut("socket_bind").ok_or(Error::EbpfProgNotFound)?.try_into()?;
+	lsm_socket_bind.load("socket_bind", &btf)?;
+	lsm_socket_bind.attach()?;
+
+	let lsm_inode_unlink: &mut Lsm = ebpf.program_mut("inode_unlink").ok_or(Error::EbpfProgNotFound)?.try_into()?;
+	lsm_inode_unlink.load("inode_unlink", &btf)?;
+	lsm_inode_unlink.attach()?;
+
 	let lsm_bpf_prog_load: &mut Lsm = ebpf.program_mut("bpf_prog_load").ok_or(Error::EbpfProgNotFound)?.try_into()?;
 	lsm_bpf_prog_load.load("bpf_prog_load", &btf)?;
 	lsm_bpf_prog_load.attach()?;

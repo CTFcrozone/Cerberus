@@ -3,7 +3,7 @@ use aya_ebpf::{
 	programs::{LsmContext, TracePointContext},
 };
 use aya_log_ebpf::error;
-use lib_ebpf_common::{EventHeader, InetSockSetStateEvent, SocketConnectEvent};
+use lib_ebpf_common::{EventHeader, InetSockSetStateEvent, SocketConnectEvent, SocketEvent};
 
 use crate::{
 	utils::get_mnt_ns,
@@ -52,7 +52,7 @@ pub fn try_socket_connect(ctx: LsmContext) -> Result<i32, i32> {
 	let cgroup_id = unsafe { bpf_get_current_cgroup_id() };
 	let mnt_ns = unsafe { get_mnt_ns() };
 
-	let event = SocketConnectEvent {
+	let event = SocketEvent {
 		header: EventHeader {
 			event_type: 3,
 			cgroup_id,
@@ -62,6 +62,59 @@ pub fn try_socket_connect(ctx: LsmContext) -> Result<i32, i32> {
 		addr,
 		port,
 		family,
+		op: 1,
+		_pad0: [0u8; 7],
+	};
+
+	if let Err(e) = EVT_MAP.output(&event, 0) {
+		error!(&ctx, "ringbuf write failed: {}", e);
+	}
+
+	Ok(0)
+}
+
+pub fn try_socket_bind(ctx: LsmContext) -> Result<i32, i32> {
+	let addr: *const sockaddr = unsafe { ctx.arg(1) };
+	let ret: i32 = unsafe { ctx.arg(3) };
+
+	if addr.is_null() {
+		return Ok(0);
+	}
+
+	if ret != 0 {
+		return Ok(ret);
+	}
+
+	let sa_family = unsafe { (*addr).sa_family };
+	if sa_family != AF_INET {
+		return Ok(0);
+	}
+
+	let addr_in = addr as *const sockaddr_in;
+
+	if addr_in.is_null() {
+		return Ok(0);
+	}
+
+	let addr = unsafe { (*addr_in).sin_addr.s_addr };
+	let port = unsafe { (*addr_in).sin_port };
+	let family = unsafe { (*addr_in).sin_family };
+
+	let cgroup_id = unsafe { bpf_get_current_cgroup_id() };
+	let mnt_ns = unsafe { get_mnt_ns() };
+
+	let event = SocketEvent {
+		header: EventHeader {
+			event_type: 3,
+			cgroup_id,
+			mnt_ns,
+			_pad0: [0u8; 3],
+		},
+		addr,
+		port,
+		family,
+		op: 0,
+		_pad0: [0u8; 7],
 	};
 
 	if let Err(e) = EVT_MAP.output(&event, 0) {

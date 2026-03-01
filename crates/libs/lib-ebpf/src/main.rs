@@ -31,6 +31,22 @@ pub fn socket_connect(ctx: LsmContext) -> i32 {
 	}
 }
 
+#[lsm(hook = "inode_unlink")]
+pub fn inode_unlink(ctx: LsmContext) -> i32 {
+	match hooks::try_inode_unlink(ctx) {
+		Ok(ret) => ret,
+		Err(ret) => ret,
+	}
+}
+
+#[lsm(hook = "socket_bind")]
+pub fn socket_bind(ctx: LsmContext) -> i32 {
+	match hooks::try_socket_bind(ctx) {
+		Ok(ret) => ret,
+		Err(ret) => ret,
+	}
+}
+
 #[tracepoint]
 pub fn inet_sock_set_state(ctx: TracePointContext) -> u32 {
 	match hooks::try_inet_sock_set_state(ctx) {

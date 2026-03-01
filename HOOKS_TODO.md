@@ -2,73 +2,63 @@
 
 - [x] commit_creds - kprobe
 - [x] sys_enter_ptrace - tracepoint
-- [x] sys_enter_kill - LSM
+- [x] sys_enter_kill - tracepoint
 - [x] socket_connect - LSM
 - [x] inet_sock_set_state - tracepoint
 - [x] do_init_module - kprobe
 - [x] bprm_check_security - LSM
 - [x] bpf_prog_load - LSM
 
+### Process / Exec
+
 - [ ] do_fork - kprobe
 - [ ] sys_enter_execve - tracepoint
-- [ ] vfs_read - kprobe
-- [ ] vfs_write - kprobe
+- [ ] prepare_creds - kprobe
+- [ ] override_creds - kprobe
+- [ ] bprm_committing_creds - LSM
+- [ ] task_alloc - LSM
+- [ ] task_kill - LSM
+- [ ] ptrace_access_check - LSM
+- [ ] capable - LSM
+- [ ] capset - LSM
+
+### File / FS
+
 - [ ] file_permission - LSM
-- [ ] security_file_permission - LSM
+- [ ] inode_permission - LSM
+- [ ] inode_mkdir - LSM
+- [ ] inode_rmdir - LSM
+- [x] inode_unlink - LSM - only ebpf part atm
+- [ ] inode_symlink - LSM
+- [ ] inode_rename - LSM
+- [ ] inode_link - LSM
+- [ ] inode_setattr - LSM
+- [ ] mmap_file - LSM
+- [ ] file_mprotect - LSM
+- [ ] do_mmap - kprobe
+
+### Networking
+
 - [ ] tcp_connect - kprobe
 - [ ] tcp_accept - kprobe
 - [ ] sock_sendmsg - kprobe
 - [ ] sock_recvmsg - kprobe
-- [ ] net_dev_queue - tracepoint
-- [ ] tcp_set_state - tracepoint
+- [ ] tcp_sendmsg - kprobe
 - [ ] inet_csk_accept - kprobe
+- [x] socket_bind - LSM
+- [ ] socket_sendmsg - LSM
+- [ ] socket_recvmsg - LSM
+
+### Modules / Kernel Tampering
+
 - [ ] init_module - tracepoint
 - [ ] delete_module - kprobe
 - [ ] module_alloc - kprobe
 - [ ] module_free - kprobe
-- [ ] mm_file_mprotect - kprobe
-- [ ] do_mmap - kprobe
-- [ ] task_post_init - LSM
-- [ ] prepare_creds - kprobe
-- [ ] override_creds - kprobe
-- [ ] bprm_committing_creds - LSM
-- [ ] security_bprm_check_data - LSM
-- [ ] security_capable - LSM
-- [ ] security_socket_connect - LSM
-- [ ] security_socket_bind - LSM
-- [ ] security_socket_sendmsg - LSM
-- [ ] security_socket_recvmsg - LSM
-- [ ] bpf_prog_attach - LSM
-- [ ] audit_log_start - tracepoint
-- [ ] audit_log_end - tracepoint
-- [ ] fsnotify - kprobe
-- [ ] inode_permission - LSM
-- [ ] selinux_file_permission - LSM
-- [ ] apparmor_file_permission - LSM
-- [ ] security_inode_mkdir - LSM
-- [ ] security_inode_rmdir - LSM
-- [ ] security_inode_unlink - LSM
-- [ ] security_task_kill - LSM
-- [ ] sys_enter_kill - tracepoint
-- [ ] sys_exit_openat - tracepoint
-- [ ] security_bpf - LSM
-- [ ] security_bpf_map - LSM
-- [ ] security_capget - LSM
-- [ ] security_capset - LSM
-- [ ] security_task_alloc - LSM
-- [ ] security_task_free - LSM
-- [ ] security_task_setpgid - LSM
-- [ ] security_file_mmap - LSM
-- [ ] security_file_link - LSM
-- [ ] tcp_sendmsg - kprobe
-- [ ] tcp_cleanup_rbuf - kprobe
-- [ ] netif_receive_skb - tracepoint
-- [ ] security_ptrace_access_check - LSM
-- [ ] security_bpf_map_push_elem - LSM
-- [ ] security_inode_symlink - LSM
-- [ ] security_inode_rename - LSM
-- [ ] security_inode_link - LSM
-- [ ] security_inode_chmod - LSM
-- [ ] security_inode_chown - LSM
-- [ ] security_inode_truncate - LSM
-- [ ] security_file_permission_watch - LSM
+
+### BPF Security
+
+- [ ] bpf - LSM
+- [ ] bpf_map - LSM
+- [ ] bpf_prog - LSM
+- [ ] bpf_prog_attach - kprobe

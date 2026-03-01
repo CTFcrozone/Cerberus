@@ -9,6 +9,7 @@ use zerocopy_derive::{FromBytes, Immutable, KnownLayout};
 // 7 => "ENTER_PTRACE"
 // 8 => EXEC (bprm_check_security)
 // 9 => BPF_PROG_LOAD
+// 10 => INODE_UNLINK
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug, FromBytes, Immutable, KnownLayout)]
@@ -79,6 +80,29 @@ pub struct SocketConnectEvent {
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug, FromBytes, Immutable, KnownLayout)]
+pub struct SocketEvent {
+	pub header: EventHeader, // 0..16
+	pub addr: u32,           // 16..20
+	pub port: u16,           // 20..22
+	pub family: u16,         // 22..24
+	pub op: u8,              // 0 = bind, 1 = connect, etc.
+	pub _pad0: [u8; 7],
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Debug, FromBytes, Immutable, KnownLayout)]
+pub struct InodeUnlink {
+	pub header: EventHeader, // 0..16
+	pub pid: u32,            // 16..20
+	pub uid: u32,            // 20..24
+	pub tgid: u32,           // 24..28
+	pub comm: [u8; 16],      // 28..44
+	pub filename: [u8; 64],  // 44..108,
+	pub _pad0: [u8; 4],      // 108..112
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Debug, FromBytes, Immutable, KnownLayout)]
 pub struct BpfProgLoadEvent {
 	pub header: EventHeader, // 0..16
 	pub pid: u32,            // 16..20
@@ -95,7 +119,7 @@ pub struct BpfProgLoadEvent {
 pub enum EbpfEvent {
 	Generic(GenericEvent),
 	InetSock(InetSockSetStateEvent),
-	SocketConnect(SocketConnectEvent),
+	Socket(SocketEvent),
 	ModuleInit(ModuleInitEvent),
 	BprmSecurityCheck(BprmSecurityCheckEvent),
 	BpfProgLoad(BpfProgLoadEvent),
