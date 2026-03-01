@@ -101,13 +101,20 @@ fn print_event(e: &CerberusEvent) {
 		CerberusEvent::Bprm(b) => {
 			info!("[BPRM_SEC_CHECK] {} executed {} (PID: {})", b.comm, b.filepath, b.pid);
 		}
-		CerberusEvent::SocketConnect(s) => {
+		CerberusEvent::Socket(s) => {
+			let op_str = match s.op {
+				0 => "BIND",
+				1 => "CONNECT",
+				_ => "UNKNOWN",
+			};
+
 			info!(
-				"[SOCKET_CONNECT] {}:{} | Family: {}",
+				"[SOCKET] {}:{} | Family: {} | OP: {}",
 				ip_to_string(s.addr),
 				s.port,
 				family_to_string(s.family),
-			);
+				op_str
+			)
 		}
 		_ => {}
 	}

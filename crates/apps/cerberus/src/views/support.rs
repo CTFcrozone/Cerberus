@@ -136,12 +136,21 @@ pub fn line_from_event(evt: &CerberusEvent) -> Line<'static> {
 			"[BRPM_SEC_CHECK] UID:{} | PID:{} | TGID:{} | CMD:{} | FILEPATH:{}",
 			b.uid, b.pid, b.tgid, b.comm, b.filepath
 		)),
-		CerberusEvent::SocketConnect(s) => Line::raw(format!(
-			"[SOCKET_CONNECT] {}:{} | Family: {}",
-			ip_to_string(s.addr),
-			s.port,
-			family_to_string(s.family),
-		)),
+		CerberusEvent::Socket(s) => {
+			let op_str = match s.op {
+				0 => "BIND",
+				1 => "CONNECT",
+				_ => "UNKNOWN",
+			};
+
+			Line::raw(format!(
+				"[SOCKET] {}:{} | Family: {} | OP: {}",
+				ip_to_string(s.addr),
+				s.port,
+				family_to_string(s.family),
+				op_str
+			))
+		}
 		CerberusEvent::InetSock(n) => Line::raw(format!(
 			"[INET_SOCK] {}:{} → {}:{} | Proto: {} | {} → {}",
 			ip_to_string(n.saddr),

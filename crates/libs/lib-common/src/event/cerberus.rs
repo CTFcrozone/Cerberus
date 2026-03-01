@@ -10,7 +10,7 @@ pub enum CerberusEvent {
 	#[from]
 	InetSock(InetSockEvent),
 	#[from]
-	SocketConnect(SocketConnectEvent),
+	Socket(SocketEvent),
 	#[from]
 	Module(ModuleEvent),
 	#[from]
@@ -28,7 +28,7 @@ impl CerberusEvent {
 			CerberusEvent::Module(e) => &mut e.container_meta,
 			CerberusEvent::Bprm(e) => &mut e.container_meta,
 			CerberusEvent::InetSock(e) => &mut e.container_meta,
-			CerberusEvent::SocketConnect(e) => &mut e.container_meta,
+			CerberusEvent::Socket(e) => &mut e.container_meta,
 			CerberusEvent::BpfProgLoad(e) => &mut e.container_meta,
 		}
 	}
@@ -53,11 +53,12 @@ pub struct InetSockEvent {
 }
 
 #[derive(Debug, Clone)]
-pub struct SocketConnectEvent {
+pub struct SocketEvent {
 	pub container_meta: ContainerMeta,
 	pub addr: u32,
 	pub port: u16,
 	pub family: u16,
+	pub op: u8,
 }
 
 #[derive(Debug, Clone)]

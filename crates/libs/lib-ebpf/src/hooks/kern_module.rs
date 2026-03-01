@@ -10,7 +10,7 @@ use lib_ebpf_common::{EventHeader, ModuleInitEvent};
 use crate::{utils::get_mnt_ns, vmlinux::module, EVT_MAP};
 
 pub fn try_do_init_module(ctx: ProbeContext) -> Result<u32, i64> {
-	let module: *const module = ctx.arg(0).ok_or(1i64)?;
+	let module: *const module = ctx.arg(0).ok_or(1)?;
 
 	if module.is_null() {
 		return Err(1i64);
@@ -23,7 +23,7 @@ pub fn try_do_init_module(ctx: ProbeContext) -> Result<u32, i64> {
 
 	let cgroup_id = unsafe { bpf_get_current_cgroup_id() };
 	let mnt_ns = unsafe { get_mnt_ns() };
-	let name_i8 = unsafe { bpf_probe_read_kernel(&(*module).name).map_err(|_| 1i64)? };
+	let name_i8 = unsafe { bpf_probe_read_kernel(&(*module).name).map_err(|_| 1)? };
 
 	let module_name: [u8; 56] = unsafe { core::mem::transmute(name_i8) };
 

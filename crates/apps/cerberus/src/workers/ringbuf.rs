@@ -142,10 +142,11 @@ fn parse_cerberus_event(evt: EbpfEvent) -> Result<CerberusEvent> {
 				container: None,
 			},
 		}),
-		EbpfEvent::SocketConnect(ref e) => CerberusEvent::SocketConnect(lib_common::event::SocketConnectEvent {
+		EbpfEvent::Socket(ref e) => CerberusEvent::Socket(lib_common::event::SocketEvent {
 			addr: e.addr,
 			port: e.port,
 			family: e.family,
+			op: e.op,
 			container_meta: ContainerMeta {
 				cgroup_id: e.header.cgroup_id,
 				container: None,
@@ -168,10 +169,10 @@ fn parse_event_from_bytes(data: &[u8]) -> Result<EbpfEvent> {
 		}
 
 		3 => {
-			let evt = lib_ebpf_common::SocketConnectEvent::ref_from_prefix(data)
+			let evt = lib_ebpf_common::SocketEvent::ref_from_prefix(data)
 				.map_err(|_| Error::InvalidEventSize)?
 				.0;
-			Ok(EbpfEvent::SocketConnect(*evt))
+			Ok(EbpfEvent::Socket(*evt))
 		}
 
 		5 => {
