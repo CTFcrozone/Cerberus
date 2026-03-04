@@ -1,0 +1,74 @@
+#!/bin/bash
+# ──────────────────────────────────────────────────────────────────────
+# mcp-server-cerberus — Zed / Claude Desktop MCP launcher
+#
+# Drop-in replacement for the upstream mcp-qdrant script, adapted for
+# the Cerberus repository.
+# Launches the Cerberus repository hybrid MCP server (dense + sparse / RRF)
+# instead of the vanilla dense-only mcp-server-qdrant.
+#
+# Usage (Zed settings.json):
+#
+#   "context_servers": {
+#     "cerberus-qdrant": {
+#       "command": { "path": "<repo>/tools/indexer/mcp-server-cerberus" }
+#     }
+#   }
+#
+# All configuration is via environment variables (see below).
+# ──────────────────────────────────────────────────────────────────────
+set -euo pipefail
+
+# Resolve the directory this script lives in → tools/indexer/
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Repo root is two levels up from tools/indexer/
+REPO_DIR="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+
+# ── Qdrant connection ────────────────────────────────────────────────
+export QDRANT_URL="${QDRANT_URL:-http://qdrant.orbit.lfam.us:6333}"
+export COLLECTION_NAME="${COLLECTION_NAME:-cerberus-dev}"
+
+# ── Repo root (used by qdrant-reindex for incremental re-indexing) ───
+export CERBERUS_REPO_ROOT="${CERBERUS_REPO_ROOT:-${REPO_DIR}}"
+
+# ── Embedding backend + models ───────────────────────────────────────
+export EMBEDDING_BACKEND="${EMBEDDING_BACKEND:-sentence-transformers}"
+export EMBEDDING_MODEL="${EMBEDDING_MODEL:-ibm-granite/granite-embedding-small-english-r2}"
+export EMBEDDING_DTYPE="${EMBEDDING_DTYPE:-fp32}"
+export SPARSE_MODEL="${SPARSE_MODEL:-Qdrant/bm25}"
+
+# ── MCP tool descriptions (shown to the LLM) ────────────────────────
+export TOOL_MEMORY_DESCRIPTION="${TOOL_MEMORY_DESCRIPTION:-Agent memory — persist insights, architecture decisions, cross-cutting observations, and session notes into a dedicated notes collection so they are discoverable by future searches.  NOT for indexing source files (use qdrant-reindex for that).  Use 'information' for a natural-language description of the insight and 'metadata' for structured context (related files, symbols, decision rationale, etc.).  Stored notes appear in cerberus-search results alongside code chunks.}"
+export TOOL_REINDEX_DESCRIPTION="${TOOL_REINDEX_DESCRIPTION:-Incrementally re-index the Cerberus repository into Qdrant.  Detects files that changed since the last index run (via BLAKE2s content hashing) and only re-embeds/upserts those — unchanged files are skipped.  Call this after making code changes to keep search results up to date.  Returns a summary of files updated, deleted, and skipped.  Set reindex_patterns=true to also re-mine architecture patterns (slower, usually not needed for small edits).}"
+
+# ── Virtual environment ──────────────────────────────────────────────
+# Try, in order:
+#   1. A venv inside tools/indexer/
+#   2. The legacy repo-root venv used by the old mcp-qdrant-crucible
+#   3. Fall back to whatever python3/crucible-mcp-server is on PATH
+VENV_CANDIDATES=(
+    "${REPO_DIR}/.venv/mcp-qdrant"
+    "${REPO_DIR}/.venv"
+    "${SCRIPT_DIR}/.venv"
+)
+
+ACTIVATED=""
+for venv in "${VENV_CANDIDATES[@]}"; do
+    if [[ -f "${venv}/bin/activate" ]]; then
+        # shellcheck disable=SC1091
+        source "${venv}/bin/activate"
+        ACTIVATED="${venv}"
+        break
+    fi
+done
+
+# If we found a venv, prefer its entry point; otherwise hope PATH works.
+if [[ -n "${ACTIVATED}" ]] && [[ -x "${ACTIVATED}/bin/cerberus-mcp-server" ]]; then
+    exec "${ACTIVATED}/bin/cerberus-mcp-server" --transport stdio "$@"
+elif command -v cerberus-mcp-server &>/dev/null; then
+    exec cerberus-mcp-server --transport stdio "$@"
+else
+    # Last resort: run the module directly via the current Python interpreter.
+    exec "$(which python)" -m cerberus_indexer.server --transport stdio "$@"
+fi
