@@ -177,52 +177,51 @@ impl RuleEngine {
 		let mut fields = HashMap::new();
 		match event {
 			CerberusEvent::Generic(e) => {
-				fields.insert("name".into(), toml::Value::String(e.name.into()));
-				fields.insert("uid".into(), toml::Value::Integer(e.uid as i64));
-				fields.insert("pid".into(), toml::Value::Integer(e.pid as i64));
-				fields.insert("tgid".into(), toml::Value::Integer(e.tgid as i64));
-				fields.insert("comm".into(), toml::Value::String(e.comm.to_string()));
+				fields.insert("process.uid".into(), toml::Value::Integer(e.uid as i64));
+				fields.insert("process.pid".into(), toml::Value::Integer(e.pid as i64));
+				fields.insert("process.tgid".into(), toml::Value::Integer(e.tgid as i64));
+				fields.insert("process.comm".into(), toml::Value::String(e.comm.to_string()));
 			}
 			CerberusEvent::Module(e) => {
-				fields.insert("uid".into(), toml::Value::Integer(e.uid as i64));
-				fields.insert("pid".into(), toml::Value::Integer(e.pid as i64));
-				fields.insert("tgid".into(), toml::Value::Integer(e.tgid as i64));
-				fields.insert("comm".into(), toml::Value::String(e.comm.to_string()));
-				fields.insert("module_name".into(), toml::Value::String(e.module_name.to_string()));
+				fields.insert("process.uid".into(), toml::Value::Integer(e.uid as i64));
+				fields.insert("process.pid".into(), toml::Value::Integer(e.pid as i64));
+				fields.insert("process.tgid".into(), toml::Value::Integer(e.tgid as i64));
+				fields.insert("process.comm".into(), toml::Value::String(e.comm.to_string()));
+				fields.insert("module.name".into(), toml::Value::String(e.module_name.to_string()));
 			}
 			CerberusEvent::InetSock(e) => {
-				fields.insert("old_state".into(), toml::Value::String(e.old_state.to_string()));
-				fields.insert("new_state".into(), toml::Value::String(e.new_state.to_string()));
-				fields.insert("sport".into(), toml::Value::Integer(e.sport as i64));
-				fields.insert("dport".into(), toml::Value::Integer(e.dport as i64));
-				fields.insert("protocol".into(), toml::Value::String(e.protocol.to_string()));
+				fields.insert("network.sport".into(), toml::Value::Integer(e.sport as i64));
+				fields.insert("network.dport".into(), toml::Value::Integer(e.dport as i64));
+				fields.insert("network.protocol".into(), toml::Value::String(e.protocol.to_string()));
+				fields.insert("socket.old_state".into(), toml::Value::String(e.old_state.to_string()));
+				fields.insert("socket.new_state".into(), toml::Value::String(e.new_state.to_string()));
 			}
 			CerberusEvent::Socket(e) => {
 				// TODO: add IP string
 				// fields.insert("addr".into(), toml::Value::String(e.addr.to_string()));
-				fields.insert("port".into(), toml::Value::Integer(e.port as i64));
-				fields.insert("family".into(), toml::Value::Integer(e.family as i64));
-				fields.insert("op".into(), toml::Value::Integer(e.op as i64));
+				fields.insert("socket.port".into(), toml::Value::Integer(e.port as i64));
+				fields.insert("socket.family".into(), toml::Value::Integer(e.family as i64));
+				fields.insert("socket.op".into(), toml::Value::Integer(e.op as i64));
 			}
 			CerberusEvent::Bprm(e) => {
-				fields.insert("uid".into(), toml::Value::Integer(e.uid as i64));
-				fields.insert("pid".into(), toml::Value::Integer(e.pid as i64));
-				fields.insert("tgid".into(), toml::Value::Integer(e.tgid as i64));
-				fields.insert("comm".into(), toml::Value::String(e.comm.to_string()));
-				fields.insert("filepath".into(), toml::Value::String(e.filepath.to_string()));
+				fields.insert("process.pid".into(), toml::Value::Integer(e.pid as i64));
+				fields.insert("process.uid".into(), toml::Value::Integer(e.uid as i64));
+				fields.insert("process.tgid".into(), toml::Value::Integer(e.tgid as i64));
+				fields.insert("process.comm".into(), toml::Value::String(e.comm.to_string()));
+				fields.insert("process.filepath".into(), toml::Value::String(e.filepath.to_string()));
 			}
 			CerberusEvent::BpfProgLoad(e) => {
-				fields.insert("uid".into(), toml::Value::Integer(e.uid as i64));
-				fields.insert("pid".into(), toml::Value::Integer(e.pid as i64));
-				fields.insert("tgid".into(), toml::Value::Integer(e.tgid as i64));
-				fields.insert("bpf_prog.flags".into(), toml::Value::Integer(e.flags as i64));
-				fields.insert("bpf_prog.prog_type".into(), toml::Value::Integer(e.prog_type as i64));
+				fields.insert("process.pid".into(), toml::Value::Integer(e.pid as i64));
+				fields.insert("process.uid".into(), toml::Value::Integer(e.uid as i64));
+				fields.insert("process.tgid".into(), toml::Value::Integer(e.tgid as i64));
+				fields.insert("process.comm".into(), toml::Value::String(e.comm.to_string()));
+				fields.insert("bpf.prog.type".into(), toml::Value::Integer(e.prog_type as i64));
+				fields.insert("bpf.prog.flags".into(), toml::Value::Integer(e.flags as i64));
 				fields.insert(
-					"bpf_prog.attach_type".into(),
+					"bpf.prog.attach_type".into(),
 					toml::Value::Integer(e.attach_type as i64),
 				);
-				fields.insert("comm".into(), toml::Value::String(e.comm.to_string()));
-				fields.insert("tag".into(), toml::Value::String(e.tag.to_string()));
+				fields.insert("bpf.prog.tag".into(), toml::Value::String(e.tag.to_string()));
 			}
 		}
 		EvalCtx::new(fields)

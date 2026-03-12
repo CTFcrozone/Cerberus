@@ -31,19 +31,30 @@ impl From<&CerberusEvent> for EventKind {
 
 fn field_in(kind: EventKind, field: &str) -> bool {
 	match kind {
-		EventKind::Generic => matches!(field, "name" | "uid" | "pid" | "tgid" | "comm"),
-		EventKind::InetSock => matches!(field, "old_state" | "new_state" | "sport" | "dport" | "protocol"),
-		EventKind::Bprm => matches!(field, "uid" | "pid" | "tgid" | "comm" | "filepath"),
-		EventKind::Module => matches!(field, "uid" | "pid" | "tgid" | "comm" | "module_name"),
-		EventKind::Socket => matches!(field, "port" | "family" | "op"),
+		EventKind::Generic => matches!(field, |"process.uid"| "process.pid" | "process.tgid" | "process.comm"),
+		EventKind::InetSock => matches!(
+			field,
+			"socket.old_state" | "socket.new_state" | "network.sport" | "network.dport" | "network.protocol"
+		),
+		EventKind::Bprm => matches!(
+			field,
+			"process.uid" | "process.pid" | "process.tgid" | "process.comm" | "process.filepath"
+		),
+		EventKind::Module => matches!(
+			field,
+			"process.uid" | "process.pid" | "process.tgid" | "process.comm" | "module.name"
+		),
+		EventKind::Socket => matches!(field, "socket.port" | "socket.family" | "socket.op"),
 		EventKind::BpfProgLoad => matches!(
 			field,
-			"uid"
-				| "pid" | "tgid"
-				| "comm" | "bpf_prog.prog_type"
-				| "bpf_prog.attach_type"
-				| "bpf_prog.flags"
-				| "bpf_prog.tag"
+			"process.uid"
+				| "process.pid"
+				| "process.tgid"
+				| "process.comm"
+				| "bpf.prog.type"
+				| "bpf.prog.attach_type"
+				| "bpf.prog.flags"
+				| "bpf.prog.tag"
 		),
 	}
 }
