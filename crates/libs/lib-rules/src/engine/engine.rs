@@ -303,7 +303,7 @@ mod tests {
 				severity: Some("high".to_string()),
 				category: None,
 				conditions: vec![crate::rule::Condition {
-					field: "pid".to_string(),
+					field: "process.pid".to_string(),
 					op: "equals".to_string(),
 					value: Value::Integer(0),
 				}],
@@ -351,12 +351,12 @@ mod tests {
 				category: None,
 				conditions: vec![
 					crate::rule::Condition {
-						field: "protocol".to_string(),
+						field: "network.protocol".to_string(),
 						op: "equals".to_string(),
 						value: Value::String("TCP".to_string()),
 					},
 					crate::rule::Condition {
-						field: "new_state".to_string(),
+						field: "socket.new_state".to_string(),
 						op: "equals".to_string(),
 						value: Value::String("TCP_ESTABLISHED".to_string()),
 					},
@@ -419,7 +419,7 @@ mod tests {
 		});
 
 		let mut ctx = RuleEngine::event_to_ctx(&event);
-		ctx.insert("path".into(), toml::Value::String("/tmp/test.txt".into()));
+		ctx.insert("process.filepath".into(), toml::Value::String("/tmp/test.txt".into()));
 
 		let ruleset = engine.ruleset.load();
 		let matched_rule = ruleset

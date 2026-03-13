@@ -54,15 +54,6 @@ impl Evaluator {
 			},
 
 			"regex" | "matches_regex" => {
-				// if let Some((text, pattern)) = Self::as_str_pair(left, right) {
-				// 	if let Ok(re) = Regex::new(pattern) {
-				// 		re.is_match(text)
-				// 	} else {
-				// 		false
-				// 	}
-				// } else {
-				// 	false
-				// }
 				if let Some((text, pattern)) = Self::as_str_pair(left, right) {
 					let cache = REGEX_CACHE.get_or_init(DashMap::new);
 
@@ -71,6 +62,21 @@ impl Evaluator {
 					match entry.value() {
 						Ok(re) => re.is_match(text),
 						Err(_) => false,
+					}
+				} else {
+					false
+				}
+			}
+
+			"not_regex" => {
+				if let Some((text, pattern)) = Self::as_str_pair(left, right) {
+					let cache = REGEX_CACHE.get_or_init(DashMap::new);
+
+					let entry = cache.entry(pattern.into()).or_insert_with(|| Regex::new(pattern));
+
+					match entry.value() {
+						Ok(re) => !re.is_match(text),
+						Err(_) => true,
 					}
 				} else {
 					false

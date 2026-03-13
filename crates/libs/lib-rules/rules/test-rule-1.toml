@@ -6,11 +6,11 @@
     severity = "very-low"
 
     [[rule.conditions]]
-    field = "path"
+    field = "process.filepath"
     op = "regex"
     value = "^/tmp"
 
     [[rule.conditions]]
-    field = "uid"
+    field = "process.uid"
     op = "not_in"
     value = [0]

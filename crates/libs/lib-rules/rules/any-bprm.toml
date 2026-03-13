@@ -6,10 +6,9 @@ severity = "low"
 category = "test"
 
 [[rule.conditions]]
-field = "filepath"
+field = "process.filepath"
 op = "contains"
 value = "/"
-
 
 [rule.sequence]
 kind = "rule"

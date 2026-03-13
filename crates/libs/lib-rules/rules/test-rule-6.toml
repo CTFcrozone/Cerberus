@@ -6,6 +6,6 @@ category = "test"
 severity = "low"
 
 [[rule.conditions]]
-field = "pid"
+field = "process.pid"
 op = "equals"
 value = 1

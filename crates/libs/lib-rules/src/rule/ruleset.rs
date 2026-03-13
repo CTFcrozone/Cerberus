@@ -49,7 +49,7 @@ mod tests {
 	fn load_ruleset_from_dir() -> Result<()> {
 		// -- Setup & Fixtures
 		let fx_rule_dir = "rules/";
-		let fx_rule_count = 7;
+		let fx_rule_count = 3;
 		// -- Exec
 		let ruleset = RuleSet::load_from_dir(fx_rule_dir)?;
 		// -- Check

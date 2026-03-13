@@ -112,12 +112,12 @@ mod tests {
 
 			conditions: vec![
 				Condition {
-					field: "path".to_string(),
+					field: "process.filepath".to_string(),
 					op: "regex".to_string(),
 					value: toml::Value::String("^/tmp".to_string()),
 				},
 				Condition {
-					field: "uid".to_string(),
+					field: "process.uid".to_string(),
 					op: "not_in".to_string(),
 					value: toml::Value::Array(vec![toml::Value::Integer(0)]),
 				},
@@ -128,12 +128,13 @@ mod tests {
 		let fx_rule = Rule {
 			inner: fx_rule_inner,
 			hash: [
-				13, 57, 132, 16, 246, 117, 10, 68, 219, 132, 63, 208, 143, 207, 6, 180, 33, 12, 197, 109, 188, 84, 37,
-				206, 149, 192, 162, 6, 61, 160, 251, 34,
+				187, 181, 245, 203, 20, 180, 1, 230, 228, 18, 86, 2, 144, 141, 180, 82, 76, 251, 69, 94, 56, 107, 41,
+				75, 70, 61, 5, 89, 32, 89, 243, 17,
 			],
 		};
 		// -- Exec
 		let rule = Rule::from_file(fx_rule_path)?;
+		println!("{:?}", rule.hash);
 		// -- Check
 		assert_eq!(fx_rule, rule);
 

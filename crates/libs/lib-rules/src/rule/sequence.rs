@@ -28,4 +28,5 @@ pub struct Step {
 pub struct SequenceProgress {
 	pub step_idx: usize,
 	pub last_match: Instant,
+	pub expiry: Instant,
 }

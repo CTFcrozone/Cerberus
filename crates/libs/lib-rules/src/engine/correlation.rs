@@ -5,6 +5,8 @@ use crate::rule::{Sequence, SequenceProgress};
 pub struct Correlator {
 	// root rule_id -> progress sequence
 	active: HashMap<Arc<str>, Vec<SequenceProgress>>,
+	// root_rule_id -> next_step_rule_id -> Vec<SequenceProgress>
+	// active: HashMap<Arc<str>, HashMap<Arc<str>, Vec<SequenceProgress>>>,
 }
 
 #[derive(Debug, Clone)]
@@ -19,13 +21,15 @@ impl Correlator {
 	}
 
 	pub fn on_root_match(&mut self, root_rule_id: &str, seq: &Sequence, now: Instant) {
-		if seq.steps.is_empty() {
-			return;
-		}
+		let first = match seq.steps.first() {
+			Some(f) => f,
+			None => return,
+		};
 
 		self.active.entry(root_rule_id.into()).or_default().push(SequenceProgress {
 			step_idx: 0,
 			last_match: now,
+			expiry: now + first.within,
 		});
 	}
 
@@ -36,13 +40,17 @@ impl Correlator {
 		root_rule_id: &str,
 		now: Instant,
 	) -> Option<CorrelatedMatch> {
-		if !self.active.contains_key(root_rule_id) {
-			return None;
-		}
-
-		let queue = self.active.get_mut(root_rule_id)?;
+		let queue = match self.active.get_mut(root_rule_id) {
+			Some(q) => q,
+			None => return None,
+		};
 
 		for prog in queue.iter_mut() {
+			if now > prog.expiry {
+				prog.step_idx = usize::MAX;
+				continue;
+			}
+
 			let step = match seq.steps.get(prog.step_idx) {
 				Some(s) => s,
 				None => continue,
@@ -62,10 +70,13 @@ impl Correlator {
 						steps: seq.steps.len(),
 					});
 				}
+				if let Some(next) = seq.steps.get(prog.step_idx) {
+					prog.expiry = now + next.within;
+				}
 			}
 		}
 
-		queue.retain(|p| p.step_idx != usize::MAX);
+		queue.retain(|p| p.step_idx != usize::MAX && now <= p.expiry);
 
 		if queue.is_empty() {
 			self.active.remove(root_rule_id);
