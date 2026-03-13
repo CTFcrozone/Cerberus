@@ -1,5 +1,5 @@
 use aya_ebpf::{
-	helpers::r#gen::bpf_get_current_cgroup_id,
+	helpers::r#gen::{bpf_get_current_cgroup_id, bpf_ktime_get_ns},
 	programs::{LsmContext, TracePointContext},
 };
 use aya_log_ebpf::error;
@@ -48,12 +48,14 @@ pub fn try_socket_connect(ctx: LsmContext) -> Result<i32, i32> {
 	let addr = unsafe { (*addr_in).sin_addr.s_addr };
 	let port = unsafe { (*addr_in).sin_port };
 	let family = unsafe { (*addr_in).sin_family };
+	let ts = unsafe { bpf_ktime_get_ns() };
 
 	let cgroup_id = unsafe { bpf_get_current_cgroup_id() };
 	let mnt_ns = unsafe { get_mnt_ns() };
 
 	let event = SocketEvent {
 		header: EventHeader {
+			ts,
 			event_type: 3,
 			cgroup_id,
 			mnt_ns,
@@ -99,12 +101,14 @@ pub fn try_socket_bind(ctx: LsmContext) -> Result<i32, i32> {
 	let addr = unsafe { (*addr_in).sin_addr.s_addr };
 	let port = unsafe { (*addr_in).sin_port };
 	let family = unsafe { (*addr_in).sin_family };
+	let ts = unsafe { bpf_ktime_get_ns() };
 
 	let cgroup_id = unsafe { bpf_get_current_cgroup_id() };
 	let mnt_ns = unsafe { get_mnt_ns() };
 
 	let event = SocketEvent {
 		header: EventHeader {
+			ts,
 			event_type: 3,
 			cgroup_id,
 			mnt_ns,
@@ -132,6 +136,8 @@ pub fn try_inet_sock_set_state(ctx: TracePointContext) -> Result<u32, u32> {
 	let protocol: u16 = unsafe { try_read!(ctx, 30) };
 	let saddr: u32 = unsafe { try_read!(ctx, 32) };
 	let daddr: u32 = unsafe { try_read!(ctx, 36) };
+	let ts = unsafe { bpf_ktime_get_ns() };
+
 	let cgroup_id = unsafe { bpf_get_current_cgroup_id() };
 	let mnt_ns = unsafe { get_mnt_ns() };
 
@@ -141,6 +147,7 @@ pub fn try_inet_sock_set_state(ctx: TracePointContext) -> Result<u32, u32> {
 
 	let event = InetSockSetStateEvent {
 		header: EventHeader {
+			ts,
 			event_type: 6,
 			cgroup_id,
 			mnt_ns,

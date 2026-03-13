@@ -1,19 +1,29 @@
 use aya_ebpf::{
 	helpers::{
-		bpf_get_current_comm, bpf_get_current_pid_tgid, bpf_get_current_uid_gid, r#gen::bpf_get_current_cgroup_id,
+		bpf_get_current_comm, bpf_get_current_pid_tgid, bpf_get_current_uid_gid, bpf_probe_read_kernel,
+		r#gen::{bpf_get_current_cgroup_id, bpf_get_current_task, bpf_ktime_get_ns},
 	},
 	programs::LsmContext,
 };
 use aya_log_ebpf::error;
 use lib_ebpf_common::{BpfProgLoadEvent, EventHeader, FLAG_GPL, FLAG_JITED, FLAG_KPROBE_OVR, FLAG_SLEEPABLE};
 
-use crate::{utils::get_mnt_ns, vmlinux::bpf_prog, EVT_MAP};
+use crate::{
+	utils::get_mnt_ns,
+	vmlinux::{bpf_prog, task_struct},
+	EVT_MAP,
+};
 
 // LSM_HOOK(int, 0, bpf_prog_load, struct bpf_prog *prog, union bpf_attr *attr, struct bpf_token *token, bool kernel)
 pub fn try_bpf_prog_load(ctx: LsmContext) -> Result<i32, i32> {
 	let uid = bpf_get_current_uid_gid() as u32;
 	let pid = bpf_get_current_pid_tgid() as u32;
 	let tgid = (bpf_get_current_pid_tgid() >> 32) as u32;
+	let ts = unsafe { bpf_ktime_get_ns() };
+	// let task = unsafe { bpf_get_current_task() as *const task_struct };
+	// let parent = unsafe { bpf_probe_read_kernel(&(*task).real_parent).map_err(|e| e as i32)? };
+	// let raw_ppid: i32 = unsafe { bpf_probe_read_kernel(&(*parent).pid).map_err(|e| e as i32)? };
+
 	let comm = bpf_get_current_comm().unwrap_or([0u8; 16]);
 	let cgroup_id = unsafe { bpf_get_current_cgroup_id() };
 	let mnt_ns = unsafe { get_mnt_ns() };
@@ -47,6 +57,7 @@ pub fn try_bpf_prog_load(ctx: LsmContext) -> Result<i32, i32> {
 
 	let event = BpfProgLoadEvent {
 		header: EventHeader {
+			ts,
 			event_type: 9,
 			cgroup_id,
 			mnt_ns,

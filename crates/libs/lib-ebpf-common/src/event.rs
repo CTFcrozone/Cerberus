@@ -14,10 +14,11 @@ use zerocopy_derive::{FromBytes, Immutable, KnownLayout};
 #[repr(C)]
 #[derive(Clone, Copy, Debug, FromBytes, Immutable, KnownLayout)]
 pub struct EventHeader {
-	pub cgroup_id: u64, // 0..8
-	pub mnt_ns: u32,    // 8..12
-	pub event_type: u8, // 12..13
-	pub _pad0: [u8; 3], // 13..16
+	pub ts: u64,        // 0..8
+	pub cgroup_id: u64, // 0..16
+	pub mnt_ns: u32,    // 16..20
+	pub event_type: u8, // 20..21
+	pub _pad0: [u8; 3], // 21..24
 }
 
 #[repr(C)]

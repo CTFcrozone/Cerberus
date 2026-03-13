@@ -17,6 +17,8 @@ fn handle_main_view(state: &mut AppState) {
 
 fn handle_main_input(state: &mut AppState) {
 	if let Some(key) = state.last_app_event().as_key_code() {
+		let matched_rules: Vec<_> = state.cerberus_evts_matched().collect();
+		let correlated_rules: Vec<_> = state.cerberus_evts_correlated().collect();
 		match key {
 			KeyCode::Char('s') | KeyCode::Char('S') => match state.current_view() {
 				View::Main => state.set_view(View::Summary),
@@ -24,22 +26,28 @@ fn handle_main_input(state: &mut AppState) {
 			},
 
 			KeyCode::Enter => match state.current_tab() {
-				Tab::MatchedRules => state.toggle_rule_popup(),
-				Tab::CorrelatedRules => state.toggle_rule_popup(),
-
+				Tab::MatchedRules => {
+					if state.cerberus_evts_matched().count() > 0 {
+						state.toggle_rule_popup();
+					}
+				}
+				Tab::CorrelatedRules => {
+					if state.cerberus_evts_correlated().count() > 0 {
+						state.toggle_rule_popup();
+					}
+				}
 				_ => {}
 			},
 
 			KeyCode::Up => match state.current_tab() {
-				Tab::MatchedRules => state.next_rule(state.cerberus_evts_matched().count()),
-				Tab::CorrelatedRules => state.next_rule(state.cerberus_evts_correlated().count()),
+				Tab::MatchedRules => state.prev_rule(matched_rules.len()),
+				Tab::CorrelatedRules => state.prev_rule(correlated_rules.len()),
 				_ => {}
 			},
 
 			KeyCode::Down => match state.current_tab() {
-				Tab::MatchedRules => state.prev_rule(state.cerberus_evts_matched().count()),
-				Tab::CorrelatedRules => state.prev_rule(state.cerberus_evts_correlated().count()),
-
+				Tab::MatchedRules => state.next_rule(matched_rules.len()),
+				Tab::CorrelatedRules => state.next_rule(correlated_rules.len()),
 				_ => {}
 			},
 
