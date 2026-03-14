@@ -9,7 +9,7 @@ use aya_ebpf::{
 	maps::PerCpuArray,
 	programs::LsmContext,
 };
-use aya_log_ebpf::{error, info};
+use aya_log_ebpf::error;
 use lib_ebpf_common::{BprmSecurityCheckEvent, EventHeader, FILE_PATH_LEN};
 
 use crate::{utils::get_mnt_ns, vmlinux::linux_binprm, EVT_MAP};
@@ -45,14 +45,15 @@ pub fn try_bprm_check_security(ctx: LsmContext) -> Result<i32, i32> {
 			event_type: 8,
 			cgroup_id,
 			mnt_ns,
-			_pad0: [0u8; 3],
+			pid,
+			uid,
+			tgid,
+			comm,
+			_pad0: [0u8; 7],
 		},
-		pid,
-		uid,
-		tgid,
-		comm,
 		filepath: unsafe { *buf },
 		path_len: ret,
+		_pad0: [0u8; 4],
 	};
 
 	if let Err(e) = EVT_MAP.output(&event, 0) {

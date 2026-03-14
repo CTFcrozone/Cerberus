@@ -1,8 +1,8 @@
 use arc_swap::ArcSwap;
-use lib_common::event::{CerberusEvent, EventMeta};
+use lib_common::event::{CerberusEvent, Event, EventMeta};
 use std::sync::Mutex;
 use std::time::Instant;
-use std::{collections::HashMap, path::Path, sync::Arc};
+use std::{path::Path, sync::Arc};
 
 use crate::engine::{
 	CorrelatedEvent, Correlator, EngineEvent, EvalCtx, EvaluatedEvent, Evaluator, EventKind, RuleIndex,
@@ -55,39 +55,12 @@ impl RuleEngine {
 		})
 	}
 
-	// TODO: add uid, pid, comm to network events
-	fn event_meta(event: &CerberusEvent) -> EventMeta {
-		match event {
-			CerberusEvent::Generic(evt) => EventMeta {
-				uid: evt.uid,
-				pid: evt.pid,
-				comm: Arc::clone(&evt.comm),
-			},
-			CerberusEvent::InetSock(_) => EventMeta {
-				uid: 0,
-				pid: 0,
-				comm: "".into(),
-			},
-			CerberusEvent::Socket(_) => EventMeta {
-				uid: 0,
-				pid: 0,
-				comm: "".into(),
-			},
-			CerberusEvent::Module(evt) => EventMeta {
-				uid: evt.uid,
-				pid: evt.pid,
-				comm: Arc::clone(&evt.comm),
-			},
-			CerberusEvent::Bprm(evt) => EventMeta {
-				uid: evt.uid,
-				pid: evt.pid,
-				comm: Arc::clone(&evt.comm),
-			},
-			CerberusEvent::BpfProgLoad(evt) => EventMeta {
-				uid: evt.uid,
-				pid: evt.pid,
-				comm: Arc::clone(&evt.comm),
-			},
+	fn event_meta<E: Event>(event: &E) -> EventMeta {
+		let header = event.header();
+		EventMeta {
+			uid: header.uid,
+			pid: header.pid,
+			comm: Arc::clone(&header.comm),
 		}
 	}
 
@@ -173,58 +146,8 @@ impl RuleEngine {
 		Ok(out)
 	}
 
-	fn event_to_ctx(event: &CerberusEvent) -> EvalCtx {
-		let mut fields = HashMap::new();
-		match event {
-			CerberusEvent::Generic(e) => {
-				fields.insert("process.uid".into(), toml::Value::Integer(e.uid as i64));
-				fields.insert("process.pid".into(), toml::Value::Integer(e.pid as i64));
-				fields.insert("process.tgid".into(), toml::Value::Integer(e.tgid as i64));
-				fields.insert("process.comm".into(), toml::Value::String(e.comm.to_string()));
-			}
-			CerberusEvent::Module(e) => {
-				fields.insert("process.uid".into(), toml::Value::Integer(e.uid as i64));
-				fields.insert("process.pid".into(), toml::Value::Integer(e.pid as i64));
-				fields.insert("process.tgid".into(), toml::Value::Integer(e.tgid as i64));
-				fields.insert("process.comm".into(), toml::Value::String(e.comm.to_string()));
-				fields.insert("module.name".into(), toml::Value::String(e.module_name.to_string()));
-			}
-			CerberusEvent::InetSock(e) => {
-				fields.insert("network.sport".into(), toml::Value::Integer(e.sport as i64));
-				fields.insert("network.dport".into(), toml::Value::Integer(e.dport as i64));
-				fields.insert("network.protocol".into(), toml::Value::String(e.protocol.to_string()));
-				fields.insert("socket.old_state".into(), toml::Value::String(e.old_state.to_string()));
-				fields.insert("socket.new_state".into(), toml::Value::String(e.new_state.to_string()));
-			}
-			CerberusEvent::Socket(e) => {
-				// TODO: add IP string
-				// fields.insert("addr".into(), toml::Value::String(e.addr.to_string()));
-				fields.insert("socket.port".into(), toml::Value::Integer(e.port as i64));
-				fields.insert("socket.family".into(), toml::Value::Integer(e.family as i64));
-				fields.insert("socket.op".into(), toml::Value::Integer(e.op as i64));
-			}
-			CerberusEvent::Bprm(e) => {
-				fields.insert("process.pid".into(), toml::Value::Integer(e.pid as i64));
-				fields.insert("process.uid".into(), toml::Value::Integer(e.uid as i64));
-				fields.insert("process.tgid".into(), toml::Value::Integer(e.tgid as i64));
-				fields.insert("process.comm".into(), toml::Value::String(e.comm.to_string()));
-				fields.insert("process.filepath".into(), toml::Value::String(e.filepath.to_string()));
-			}
-			CerberusEvent::BpfProgLoad(e) => {
-				fields.insert("process.pid".into(), toml::Value::Integer(e.pid as i64));
-				fields.insert("process.uid".into(), toml::Value::Integer(e.uid as i64));
-				fields.insert("process.tgid".into(), toml::Value::Integer(e.tgid as i64));
-				fields.insert("process.comm".into(), toml::Value::String(e.comm.to_string()));
-				fields.insert("bpf.prog.type".into(), toml::Value::Integer(e.prog_type as i64));
-				fields.insert("bpf.prog.flags".into(), toml::Value::Integer(e.flags as i64));
-				fields.insert(
-					"bpf.prog.attach_type".into(),
-					toml::Value::Integer(e.attach_type as i64),
-				);
-				fields.insert("bpf.prog.tag".into(), toml::Value::String(e.tag.to_string()));
-			}
-		}
-		EvalCtx::new(fields)
+	fn event_to_ctx<E: Event>(event: &E) -> EvalCtx {
+		EvalCtx::new(event.to_fields())
 	}
 
 	fn rule_to_eval_event(rule: &Rule, event_meta: EventMeta) -> EvaluatedEvent {
@@ -242,10 +165,10 @@ impl RuleEngine {
 
 #[cfg(test)]
 mod tests {
-	type Result<T> = core::result::Result<T, Box<dyn std::error::Error>>; // For tests.
+	type Result<T> = core::result::Result<T, Box<dyn std::error::Error>>;
 
 	use super::*;
-	use lib_common::event::{ContainerMeta, RingBufEvent};
+	use lib_common::event::{Event, EventHeader, RingBufEvent};
 	use std::sync::Arc;
 	use toml::Value;
 
@@ -258,43 +181,39 @@ mod tests {
 
 	#[test]
 	fn process_event_matches_rule() -> Result<()> {
-		// -- Setup & Fixtures
-		//
-
 		let ruleset = RuleSet::load_from_dir("./rules/")?;
-
 		let engine = RuleEngine::new_from_ruleset(ruleset)?;
 
 		let event = CerberusEvent::Generic(RingBufEvent {
 			name: "KILL",
-			uid: 0,
-			pid: 1,
-			tgid: 4242,
-			comm: Arc::from("bash"),
-			meta: 0,
-			container_meta: ContainerMeta {
+			header: EventHeader {
 				cgroup_id: 0,
 				container: None,
+				ts: 0,
+				mnt_ns: 0,
+				pid: 1,
+				tgid: 4242,
+				uid: 0,
+				comm: Arc::from("bash"),
 			},
+			meta: 0,
 		});
 
-		// -- Exec
 		let res = engine.process_event(&event)?;
-
-		// -- Check
 		assert!(!res.is_empty());
+
 		let matched = expect_matched(&res[0]);
+		let header = event.header(); // via Event trait
 		assert_eq!(matched.rule_id, "pid-exists".into());
 		assert_eq!(matched.severity, "low".into());
 		assert_eq!(matched.rule_type, "exec".into());
-		assert_eq!(matched.event_meta.pid, 1);
+		assert_eq!(matched.event_meta.pid, header.pid);
 
 		Ok(())
 	}
 
 	#[test]
 	fn process_event_no_match() -> Result<()> {
-		// -- Setup & Fixtures
 		let rule = crate::rule::Rule {
 			inner: crate::rule::RuleInner {
 				id: "pid-zero-only".to_string(),
@@ -310,7 +229,6 @@ mod tests {
 				sequence: None,
 				response: None,
 			},
-
 			hash: [0u8; 32],
 		};
 
@@ -319,21 +237,20 @@ mod tests {
 
 		let event = CerberusEvent::Generic(RingBufEvent {
 			name: "COMMIT_CREDS",
-			uid: 1000,
-			pid: 4242,
-			tgid: 4242,
-			comm: Arc::from("bash"),
-			meta: 0,
-			container_meta: ContainerMeta {
+			header: EventHeader {
 				cgroup_id: 0,
 				container: None,
+				ts: 0,
+				mnt_ns: 0,
+				pid: 4242,
+				tgid: 4242,
+				uid: 1000,
+				comm: Arc::from("bash"),
 			},
+			meta: 0,
 		});
 
-		// -- Exec
 		let res = engine.process_event(&event)?;
-
-		// -- Check
 		assert!(res.is_empty());
 
 		Ok(())
@@ -341,7 +258,6 @@ mod tests {
 
 	#[test]
 	fn process_event_network_rule_match() -> Result<()> {
-		// -- Setup & Fixtures
 		let rule = crate::rule::Rule {
 			inner: crate::rule::RuleInner {
 				id: "tcp-state-change".to_string(),
@@ -368,10 +284,19 @@ mod tests {
 		};
 
 		let ruleset = RuleSet { ruleset: vec![rule] };
-
 		let engine = RuleEngine::new_from_ruleset(ruleset)?;
 
 		let inet_evt = lib_common::event::InetSockEvent {
+			header: EventHeader {
+				cgroup_id: 0,
+				container: None,
+				ts: 0,
+				mnt_ns: 0,
+				pid: 0,
+				tgid: 0,
+				uid: 0,
+				comm: Arc::from(""),
+			},
 			old_state: Arc::from("TCP_SYN_SENT"),
 			new_state: Arc::from("TCP_ESTABLISHED"),
 			sport: 4444,
@@ -379,22 +304,13 @@ mod tests {
 			protocol: Arc::from("TCP"),
 			saddr: 0,
 			daddr: 0,
-			container_meta: ContainerMeta {
-				cgroup_id: 0,
-				container: None,
-			},
 		};
 
 		let event = CerberusEvent::InetSock(inet_evt);
-
-		// -- Exec
 		let res = engine.process_event(&event)?;
-
-		// -- Check
 
 		assert_eq!(res.len(), 1);
 		let matched = expect_matched(&res[0]);
-
 		assert_eq!(matched.rule_id, "tcp-state-change".into());
 		assert_eq!(matched.rule_type, "network".into());
 
@@ -407,15 +323,17 @@ mod tests {
 
 		let event = CerberusEvent::Generic(lib_common::event::RingBufEvent {
 			name: "OPEN_FILE",
-			uid: 1001,
-			pid: 2222,
-			tgid: 2222,
-			comm: Arc::from("testproc"),
-			meta: 0,
-			container_meta: ContainerMeta {
+			header: EventHeader {
 				cgroup_id: 0,
 				container: None,
+				ts: 0,
+				mnt_ns: 0,
+				pid: 2222,
+				tgid: 2222,
+				uid: 1001,
+				comm: Arc::from("testproc"),
 			},
+			meta: 0,
 		});
 
 		let mut ctx = RuleEngine::event_to_ctx(&event);
@@ -429,7 +347,6 @@ mod tests {
 			.expect("rule not loaded");
 
 		let matched = Evaluator::rule_matches(&matched_rule.inner, &ctx);
-
 		assert!(matched);
 		assert_eq!(matched_rule.inner.severity.as_deref(), Some("very-low"));
 		assert_eq!(matched_rule.inner.category.as_deref(), Some("test"));

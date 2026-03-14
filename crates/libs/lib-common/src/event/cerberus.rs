@@ -1,5 +1,5 @@
 use lib_container::container::ContainerInfo;
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
 use derive_more::From;
 
@@ -9,6 +9,8 @@ pub enum CerberusEvent {
 	Generic(RingBufEvent),
 	#[from]
 	InetSock(InetSockEvent),
+	#[from]
+	InodeUnlink(InodeUnlinkEvent),
 	#[from]
 	Socket(SocketEvent),
 	#[from]
@@ -21,28 +23,27 @@ pub enum CerberusEvent {
 
 // TODO: add unified EventHeader struct
 
-impl CerberusEvent {
-	pub fn meta_mut(&mut self) -> &mut ContainerMeta {
-		match self {
-			CerberusEvent::Generic(e) => &mut e.container_meta,
-			CerberusEvent::Module(e) => &mut e.container_meta,
-			CerberusEvent::Bprm(e) => &mut e.container_meta,
-			CerberusEvent::InetSock(e) => &mut e.container_meta,
-			CerberusEvent::Socket(e) => &mut e.container_meta,
-			CerberusEvent::BpfProgLoad(e) => &mut e.container_meta,
-		}
-	}
+pub trait Event {
+	fn header(&self) -> &EventHeader;
+	fn header_mut(&mut self) -> &mut EventHeader;
+	fn to_fields(&self) -> HashMap<String, toml::Value>;
 }
 
 #[derive(Debug, Clone)]
-pub struct ContainerMeta {
+pub struct EventHeader {
 	pub container: Option<ContainerInfo>,
+	pub comm: Arc<str>,
+	pub ts: u64,
 	pub cgroup_id: u64,
+	pub mnt_ns: u32,
+	pub pid: u32,
+	pub uid: u32,
+	pub tgid: u32,
 }
 
 #[derive(Debug, Clone)]
 pub struct InetSockEvent {
-	pub container_meta: ContainerMeta,
+	pub header: EventHeader,
 	pub old_state: Arc<str>,
 	pub new_state: Arc<str>,
 	pub protocol: Arc<str>,
@@ -54,7 +55,7 @@ pub struct InetSockEvent {
 
 #[derive(Debug, Clone)]
 pub struct SocketEvent {
-	pub container_meta: ContainerMeta,
+	pub header: EventHeader,
 	pub addr: u32,
 	pub port: u16,
 	pub family: u16,
@@ -63,12 +64,8 @@ pub struct SocketEvent {
 
 #[derive(Debug, Clone)]
 pub struct BpfProgLoadEvent {
-	pub container_meta: ContainerMeta,
-	pub comm: Arc<str>,
+	pub header: EventHeader,
 	pub tag: Arc<str>,
-	pub pid: u32,
-	pub uid: u32,
-	pub tgid: u32,
 	pub prog_type: u32,
 	pub attach_type: u32,
 	pub flags: u32,
@@ -76,32 +73,27 @@ pub struct BpfProgLoadEvent {
 
 #[derive(Debug, Clone)]
 pub struct ModuleEvent {
-	pub container_meta: ContainerMeta,
-	pub comm: Arc<str>,
+	pub header: EventHeader,
 	pub module_name: Arc<str>,
-	pub pid: u32,
-	pub uid: u32,
-	pub tgid: u32,
 }
 
 #[derive(Debug, Clone)]
 pub struct BprmSecurityEvent {
-	pub container_meta: ContainerMeta,
-	pub comm: Arc<str>,
+	pub header: EventHeader,
 	pub filepath: Arc<str>,
-	pub pid: u32,
-	pub uid: u32,
-	pub tgid: u32,
 	pub path_len: u32,
 }
 
 #[derive(Debug, Clone)]
+pub struct InodeUnlinkEvent {
+	pub header: EventHeader,
+	pub filename: Arc<str>,
+	pub filename_len: u32,
+}
+
+#[derive(Debug, Clone)]
 pub struct RingBufEvent {
-	pub container_meta: ContainerMeta,
+	pub header: EventHeader,
 	pub name: &'static str,
-	pub comm: Arc<str>,
-	pub uid: u32,
-	pub pid: u32,
-	pub tgid: u32,
 	pub meta: u32,
 }

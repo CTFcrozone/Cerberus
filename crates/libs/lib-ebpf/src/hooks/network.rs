@@ -1,9 +1,12 @@
 use aya_ebpf::{
-	helpers::r#gen::{bpf_get_current_cgroup_id, bpf_ktime_get_ns},
+	helpers::{
+		bpf_get_current_comm, bpf_get_current_pid_tgid, bpf_get_current_uid_gid,
+		r#gen::{bpf_get_current_cgroup_id, bpf_ktime_get_ns},
+	},
 	programs::{LsmContext, TracePointContext},
 };
 use aya_log_ebpf::error;
-use lib_ebpf_common::{EventHeader, InetSockSetStateEvent, SocketConnectEvent, SocketEvent};
+use lib_ebpf_common::{EventHeader, InetSockSetStateEvent, SocketEvent};
 
 use crate::{
 	utils::get_mnt_ns,
@@ -49,6 +52,10 @@ pub fn try_socket_connect(ctx: LsmContext) -> Result<i32, i32> {
 	let port = unsafe { (*addr_in).sin_port };
 	let family = unsafe { (*addr_in).sin_family };
 	let ts = unsafe { bpf_ktime_get_ns() };
+	let uid = bpf_get_current_uid_gid() as u32;
+	let pid = bpf_get_current_pid_tgid() as u32;
+	let tgid = (bpf_get_current_pid_tgid() >> 32) as u32;
+	let comm_raw = bpf_get_current_comm().unwrap_or([0u8; 16]);
 
 	let cgroup_id = unsafe { bpf_get_current_cgroup_id() };
 	let mnt_ns = unsafe { get_mnt_ns() };
@@ -59,7 +66,11 @@ pub fn try_socket_connect(ctx: LsmContext) -> Result<i32, i32> {
 			event_type: 3,
 			cgroup_id,
 			mnt_ns,
-			_pad0: [0u8; 3],
+			pid,
+			uid,
+			tgid,
+			comm: comm_raw,
+			_pad0: [0u8; 7],
 		},
 		addr,
 		port,
@@ -102,7 +113,10 @@ pub fn try_socket_bind(ctx: LsmContext) -> Result<i32, i32> {
 	let port = unsafe { (*addr_in).sin_port };
 	let family = unsafe { (*addr_in).sin_family };
 	let ts = unsafe { bpf_ktime_get_ns() };
-
+	let uid = bpf_get_current_uid_gid() as u32;
+	let pid = bpf_get_current_pid_tgid() as u32;
+	let tgid = (bpf_get_current_pid_tgid() >> 32) as u32;
+	let comm_raw = bpf_get_current_comm().unwrap_or([0u8; 16]);
 	let cgroup_id = unsafe { bpf_get_current_cgroup_id() };
 	let mnt_ns = unsafe { get_mnt_ns() };
 
@@ -112,7 +126,11 @@ pub fn try_socket_bind(ctx: LsmContext) -> Result<i32, i32> {
 			event_type: 3,
 			cgroup_id,
 			mnt_ns,
-			_pad0: [0u8; 3],
+			pid,
+			uid,
+			tgid,
+			comm: comm_raw,
+			_pad0: [0u8; 7],
 		},
 		addr,
 		port,
@@ -137,7 +155,10 @@ pub fn try_inet_sock_set_state(ctx: TracePointContext) -> Result<u32, u32> {
 	let saddr: u32 = unsafe { try_read!(ctx, 32) };
 	let daddr: u32 = unsafe { try_read!(ctx, 36) };
 	let ts = unsafe { bpf_ktime_get_ns() };
-
+	let uid = bpf_get_current_uid_gid() as u32;
+	let pid = bpf_get_current_pid_tgid() as u32;
+	let tgid = (bpf_get_current_pid_tgid() >> 32) as u32;
+	let comm_raw = bpf_get_current_comm().unwrap_or([0u8; 16]);
 	let cgroup_id = unsafe { bpf_get_current_cgroup_id() };
 	let mnt_ns = unsafe { get_mnt_ns() };
 
@@ -151,7 +172,11 @@ pub fn try_inet_sock_set_state(ctx: TracePointContext) -> Result<u32, u32> {
 			event_type: 6,
 			cgroup_id,
 			mnt_ns,
-			_pad0: [0u8; 3],
+			pid,
+			uid,
+			tgid,
+			comm: comm_raw,
+			_pad0: [0u8; 7],
 		},
 		oldstate,
 		newstate,

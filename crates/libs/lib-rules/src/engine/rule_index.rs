@@ -13,6 +13,7 @@ pub enum EventKind {
 	Socket,
 	Module,
 	BpfProgLoad,
+	InodeUnlink,
 	Bprm,
 }
 
@@ -25,6 +26,7 @@ impl From<&CerberusEvent> for EventKind {
 			CerberusEvent::Module(_) => EventKind::Module,
 			CerberusEvent::Socket(_) => EventKind::Socket,
 			CerberusEvent::BpfProgLoad(_) => EventKind::BpfProgLoad,
+			CerberusEvent::InodeUnlink(_) => EventKind::InodeUnlink,
 		}
 	}
 }
@@ -43,6 +45,10 @@ fn field_in(kind: EventKind, field: &str) -> bool {
 		EventKind::Module => matches!(
 			field,
 			"process.uid" | "process.pid" | "process.tgid" | "process.comm" | "module.name"
+		),
+		EventKind::InodeUnlink => matches!(
+			field,
+			"process.uid" | "process.pid" | "process.tgid" | "process.comm" | "inode.filename"
 		),
 		EventKind::Socket => matches!(field, "socket.port" | "socket.family" | "socket.op"),
 		EventKind::BpfProgLoad => matches!(

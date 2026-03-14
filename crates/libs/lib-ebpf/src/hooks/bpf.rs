@@ -1,18 +1,14 @@
 use aya_ebpf::{
 	helpers::{
-		bpf_get_current_comm, bpf_get_current_pid_tgid, bpf_get_current_uid_gid, bpf_probe_read_kernel,
-		r#gen::{bpf_get_current_cgroup_id, bpf_get_current_task, bpf_ktime_get_ns},
+		bpf_get_current_comm, bpf_get_current_pid_tgid, bpf_get_current_uid_gid,
+		r#gen::{bpf_get_current_cgroup_id, bpf_ktime_get_ns},
 	},
 	programs::LsmContext,
 };
 use aya_log_ebpf::error;
 use lib_ebpf_common::{BpfProgLoadEvent, EventHeader, FLAG_GPL, FLAG_JITED, FLAG_KPROBE_OVR, FLAG_SLEEPABLE};
 
-use crate::{
-	utils::get_mnt_ns,
-	vmlinux::{bpf_prog, task_struct},
-	EVT_MAP,
-};
+use crate::{utils::get_mnt_ns, vmlinux::bpf_prog, EVT_MAP};
 
 // LSM_HOOK(int, 0, bpf_prog_load, struct bpf_prog *prog, union bpf_attr *attr, struct bpf_token *token, bool kernel)
 pub fn try_bpf_prog_load(ctx: LsmContext) -> Result<i32, i32> {
@@ -61,16 +57,17 @@ pub fn try_bpf_prog_load(ctx: LsmContext) -> Result<i32, i32> {
 			event_type: 9,
 			cgroup_id,
 			mnt_ns,
-			_pad0: [0u8; 3],
+			pid,
+			uid,
+			tgid,
+			comm,
+			_pad0: [0u8; 7],
 		},
-		pid,
-		uid,
-		tgid,
-		comm,
 		attach_type,
 		prog_type,
 		tag,
 		flags,
+		_pad0: [0u8; 4],
 	};
 
 	if let Err(e) = EVT_MAP.output(&event, 0) {

@@ -4,9 +4,10 @@ use crate::error::{Error, Result};
 
 use aya::maps::{MapData, RingBuf};
 use lib_common::event::{
-	BpfProgLoadEvent, BprmSecurityEvent, CerberusEvent, ContainerMeta, InetSockEvent, ModuleEvent, RingBufEvent,
+	BpfProgLoadEvent, BprmSecurityEvent, CerberusEvent, EventHeader, InetSockEvent, InodeUnlinkEvent, ModuleEvent,
+	RingBufEvent,
 };
-use lib_ebpf_common::{EbpfEvent, EventHeader, FILE_PATH_LEN};
+use lib_ebpf_common::{EbpfEvent, FILE_PATH_LEN};
 use lib_event::trx::Tx;
 use tokio::io::unix::AsyncFd;
 
@@ -69,63 +70,87 @@ fn parse_cerberus_event(evt: EbpfEvent) -> Result<CerberusEvent> {
 				8 => "BPRM_CHECK",
 				_ => "UNKNOWN",
 			},
-			pid: e.pid,
-			uid: e.uid,
-			tgid: e.tgid,
-			comm: Arc::from(String::from_utf8_lossy(&e.comm).trim_end_matches('\0')),
 			meta: e.meta,
-			container_meta: ContainerMeta {
+			header: EventHeader {
 				cgroup_id: e.header.cgroup_id,
 				container: None,
+				ts: e.header.ts,
+				mnt_ns: e.header.mnt_ns,
+				pid: e.header.pid,
+				uid: e.header.uid,
+				tgid: e.header.tgid,
+				comm: Arc::from(String::from_utf8_lossy(&e.header.comm).trim_end_matches('\0')),
 			},
 		}),
 
 		EbpfEvent::ModuleInit(ref e) => CerberusEvent::Module(ModuleEvent {
-			pid: e.pid,
-			uid: e.uid,
-			tgid: e.tgid,
-			comm: Arc::from(String::from_utf8_lossy(&e.comm).trim_end_matches('\0')),
 			module_name: Arc::from(String::from_utf8_lossy(&e.module_name).trim_end_matches('\0')),
-			container_meta: ContainerMeta {
+			header: EventHeader {
 				cgroup_id: e.header.cgroup_id,
 				container: None,
+				ts: e.header.ts,
+				mnt_ns: e.header.mnt_ns,
+				pid: e.header.pid,
+				uid: e.header.uid,
+				tgid: e.header.tgid,
+				comm: Arc::from(String::from_utf8_lossy(&e.header.comm).trim_end_matches('\0')),
+			},
+		}),
+
+		EbpfEvent::InodeUnlink(ref e) => CerberusEvent::InodeUnlink(InodeUnlinkEvent {
+			filename: Arc::from(String::from_utf8_lossy(&e.filename).trim_end_matches('\0')),
+			filename_len: e.filename_len,
+			header: EventHeader {
+				cgroup_id: e.header.cgroup_id,
+				container: None,
+				ts: e.header.ts,
+				mnt_ns: e.header.mnt_ns,
+				pid: e.header.pid,
+				uid: e.header.uid,
+				tgid: e.header.tgid,
+				comm: Arc::from(String::from_utf8_lossy(&e.header.comm).trim_end_matches('\0')),
 			},
 		}),
 
 		EbpfEvent::BprmSecurityCheck(ref e) => {
-			let comm_str = core::str::from_utf8(&e.comm).unwrap_or_default().trim_end_matches('\0');
+			let comm_cow = String::from_utf8_lossy(&e.header.comm);
+			let comm_str = comm_cow.trim_end_matches('\0');
 
 			let path_len = e.path_len as usize;
 			let start = FILE_PATH_LEN.saturating_sub(path_len);
-			let path_bytes = &e.filepath[start..FILE_PATH_LEN];
-			let filepath_str = core::str::from_utf8(path_bytes).unwrap_or_default().trim_end_matches('\0');
+			let path_cow = String::from_utf8_lossy(&e.filepath[start..FILE_PATH_LEN]);
+			let filepath_str = path_cow.trim_end_matches('\0');
 
 			CerberusEvent::Bprm(BprmSecurityEvent {
-				pid: e.pid,
-				uid: e.uid,
-				tgid: e.tgid,
-				comm: Arc::from(comm_str),
 				filepath: Arc::from(filepath_str),
-				container_meta: ContainerMeta {
+				header: EventHeader {
 					cgroup_id: e.header.cgroup_id,
 					container: None,
+					ts: e.header.ts,
+					mnt_ns: e.header.mnt_ns,
+					pid: e.header.pid,
+					uid: e.header.uid,
+					tgid: e.header.tgid,
+					comm: Arc::from(comm_str),
 				},
 				path_len: e.path_len,
 			})
 		}
 
 		EbpfEvent::BpfProgLoad(ref e) => CerberusEvent::BpfProgLoad(BpfProgLoadEvent {
-			pid: e.pid,
-			uid: e.uid,
-			tgid: e.tgid,
 			flags: e.flags,
 			attach_type: e.attach_type,
 			prog_type: e.prog_type,
 			tag: Arc::from(String::from_utf8_lossy(&e.tag).trim_end_matches('\0')),
-			comm: Arc::from(String::from_utf8_lossy(&e.comm).trim_end_matches('\0')),
-			container_meta: ContainerMeta {
+			header: EventHeader {
 				cgroup_id: e.header.cgroup_id,
 				container: None,
+				ts: e.header.ts,
+				mnt_ns: e.header.mnt_ns,
+				pid: e.header.pid,
+				uid: e.header.uid,
+				tgid: e.header.tgid,
+				comm: Arc::from(String::from_utf8_lossy(&e.header.comm).trim_end_matches('\0')),
 			},
 		}),
 
@@ -137,9 +162,15 @@ fn parse_cerberus_event(evt: EbpfEvent) -> Result<CerberusEvent> {
 			protocol: Arc::from(protocol_to_str(e.protocol)),
 			saddr: e.saddr,
 			daddr: e.daddr,
-			container_meta: ContainerMeta {
+			header: EventHeader {
 				cgroup_id: e.header.cgroup_id,
 				container: None,
+				ts: e.header.ts,
+				mnt_ns: e.header.mnt_ns,
+				pid: e.header.pid,
+				uid: e.header.uid,
+				tgid: e.header.tgid,
+				comm: Arc::from(String::from_utf8_lossy(&e.header.comm).trim_end_matches('\0')),
 			},
 		}),
 		EbpfEvent::Socket(ref e) => CerberusEvent::Socket(lib_common::event::SocketEvent {
@@ -147,9 +178,15 @@ fn parse_cerberus_event(evt: EbpfEvent) -> Result<CerberusEvent> {
 			port: e.port,
 			family: e.family,
 			op: e.op,
-			container_meta: ContainerMeta {
+			header: EventHeader {
 				cgroup_id: e.header.cgroup_id,
 				container: None,
+				ts: e.header.ts,
+				mnt_ns: e.header.mnt_ns,
+				pid: e.header.pid,
+				uid: e.header.uid,
+				tgid: e.header.tgid,
+				comm: Arc::from(String::from_utf8_lossy(&e.header.comm).trim_end_matches('\0')),
 			},
 		}),
 	};
@@ -158,7 +195,9 @@ fn parse_cerberus_event(evt: EbpfEvent) -> Result<CerberusEvent> {
 }
 
 fn parse_event_from_bytes(data: &[u8]) -> Result<EbpfEvent> {
-	let header = EventHeader::ref_from_prefix(data).map_err(|_| Error::InvalidEventSize)?.0;
+	let header = lib_ebpf_common::EventHeader::ref_from_prefix(data)
+		.map_err(|_| Error::InvalidEventSize)?
+		.0;
 
 	match header.event_type {
 		1 | 4 => {
@@ -198,6 +237,12 @@ fn parse_event_from_bytes(data: &[u8]) -> Result<EbpfEvent> {
 				.map_err(|_| Error::InvalidEventSize)?
 				.0;
 			Ok(EbpfEvent::BpfProgLoad(*evt))
+		}
+		10 => {
+			let evt = lib_ebpf_common::InodeUnlinkEvent::ref_from_prefix(data)
+				.map_err(|_| Error::InvalidEventSize)?
+				.0;
+			Ok(EbpfEvent::InodeUnlink(*evt))
 		}
 		_ => Err(Error::UnknownEventType(header.event_type)),
 	}

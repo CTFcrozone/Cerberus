@@ -10,6 +10,7 @@ pub struct Correlator {
 	active: HashMap<Arc<str>, HashMap<Arc<str>, Vec<SequenceProgress>>>,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct CorrelatedMatch {
 	pub root_rule_id: Arc<str>,

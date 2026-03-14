@@ -1,4 +1,4 @@
-use lib_common::event::CerberusEvent;
+use lib_common::event::{CerberusEvent, Event};
 use lib_ebpf_common::{FLAG_GPL, FLAG_JITED, FLAG_KPROBE_OVR, FLAG_SLEEPABLE};
 use ratatui::text::Line;
 
@@ -123,18 +123,23 @@ fn prog_type_to_string(ptype: u32) -> &'static str {
 }
 
 pub fn line_from_event(evt: &CerberusEvent) -> Line<'static> {
+	let h = evt.header();
 	match evt {
 		CerberusEvent::Generic(g) => Line::raw(format!(
 			"[{}] UID:{} | PID:{} | TGID:{} | CMD:{} | META:{}",
-			g.name, g.uid, g.pid, g.tgid, g.comm, g.meta
+			g.name, h.uid, h.pid, h.tgid, h.comm, g.meta
 		)),
 		CerberusEvent::Module(m) => Line::raw(format!(
 			"[MODULE_INIT] UID:{} | PID:{} | TGID:{} | CMD:{} | MODULE_NAME:{}",
-			m.uid, m.pid, m.tgid, m.comm, m.module_name
+			h.uid, h.pid, h.tgid, h.comm, m.module_name
 		)),
 		CerberusEvent::Bprm(b) => Line::raw(format!(
 			"[BRPM_SEC_CHECK] UID:{} | PID:{} | TGID:{} | CMD:{} | FILEPATH:{}",
-			b.uid, b.pid, b.tgid, b.comm, b.filepath
+			h.uid, h.pid, h.tgid, h.comm, b.filepath
+		)),
+		CerberusEvent::InodeUnlink(u) => Line::raw(format!(
+			"[INODE_UNLINK] UID:{} | PID:{} | TGID:{} | CMD:{} | FILENAME:{}",
+			h.uid, h.pid, h.tgid, h.comm, u.filename
 		)),
 		CerberusEvent::Socket(s) => {
 			let op_str = match s.op {
@@ -168,7 +173,7 @@ pub fn line_from_event(evt: &CerberusEvent) -> Line<'static> {
 
 			Line::raw(format!(
 				"[BPF_PROG_LOAD] UID:{} | PID:{} | CMD:{} | TYPE:{} | ATTACH:{} | FLAGS:{}",
-				b.uid, b.pid, b.comm, prog_type_str, attach_type_str, flags_str,
+				h.uid, h.pid, h.comm, prog_type_str, attach_type_str, flags_str,
 			))
 		}
 	}

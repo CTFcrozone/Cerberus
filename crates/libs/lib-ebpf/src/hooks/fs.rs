@@ -1,22 +1,14 @@
 use aya_ebpf::{
-	bindings::path,
-	cty::c_char,
 	helpers::{
 		bpf_get_current_comm, bpf_get_current_pid_tgid, bpf_get_current_uid_gid,
-		r#gen::{bpf_d_path, bpf_get_current_cgroup_id, bpf_ktime_get_ns},
+		r#gen::{bpf_get_current_cgroup_id, bpf_ktime_get_ns},
 	},
-	macros::map,
-	maps::PerCpuArray,
 	programs::LsmContext,
 };
-use aya_log_ebpf::{error, info};
-use lib_ebpf_common::{BprmSecurityCheckEvent, EventHeader, InodeUnlink, FILE_PATH_LEN};
+use aya_log_ebpf::error;
+use lib_ebpf_common::{EventHeader, InodeUnlinkEvent};
 
-use crate::{
-	utils::get_mnt_ns,
-	vmlinux::{dentry, inode, linux_binprm, qstr},
-	EVT_MAP,
-};
+use crate::{utils::get_mnt_ns, vmlinux::dentry, EVT_MAP};
 
 // LSM_HOOK(int, 0, inode_unlink, struct inode *dir, struct dentry *dentry)
 pub fn try_inode_unlink(ctx: LsmContext) -> Result<i32, i32> {
@@ -43,19 +35,20 @@ pub fn try_inode_unlink(ctx: LsmContext) -> Result<i32, i32> {
 	let copy_len = core::cmp::min(slice.len(), filename.len());
 	filename[..copy_len].copy_from_slice(&slice[..copy_len]);
 
-	let event = InodeUnlink {
+	let event = InodeUnlinkEvent {
 		header: EventHeader {
 			ts,
 			event_type: 10,
 			cgroup_id,
 			mnt_ns,
-			_pad0: [0u8; 3],
+			pid,
+			uid,
+			tgid,
+			comm: comm_raw,
+			_pad0: [0u8; 7],
 		},
-		pid,
-		uid,
-		tgid,
-		comm: comm_raw,
 		filename,
+		filename_len: len,
 		_pad0: [0u8; 4],
 	};
 

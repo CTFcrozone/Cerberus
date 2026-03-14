@@ -34,14 +34,13 @@ pub fn try_do_init_module(ctx: ProbeContext) -> Result<u32, i64> {
 			event_type: 5,
 			cgroup_id,
 			mnt_ns,
-			_pad0: [0u8; 3],
+			pid,
+			uid,
+			tgid,
+			comm: comm_raw,
+			_pad0: [0u8; 7],
 		},
-		pid,
-		uid,
-		tgid,
-		comm: comm_raw,
 		module_name,
-		_pad0: [0u8; 4],
 	};
 
 	EVT_MAP.output(&event, 0)?;

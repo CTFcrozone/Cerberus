@@ -17,103 +17,90 @@ pub struct EventHeader {
 	pub ts: u64,        // 0..8
 	pub cgroup_id: u64, // 0..16
 	pub mnt_ns: u32,    // 16..20
-	pub event_type: u8, // 20..21
-	pub _pad0: [u8; 3], // 21..24
+	pub pid: u32,       // 20..24
+	pub uid: u32,       // 24..28
+	pub tgid: u32,      // 28..32
+	pub event_type: u8, // 32..33
+	pub comm: [u8; 16], // 33..49
+	pub _pad0: [u8; 7], // 49..56
 }
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug, FromBytes, Immutable, KnownLayout)]
 pub struct GenericEvent {
-	pub header: EventHeader, // 0..16
-	pub pid: u32,            // 16..20
-	pub uid: u32,            // 20..24
-	pub tgid: u32,           // 24..28
-	pub comm: [u8; 16],      // 28..44
-	pub meta: u32,           // 44..48 | Meta - Sometimes syscall num, exitcode, some permission flags..etc
+	pub header: EventHeader,
+	pub meta: u32, // syscall num, exit code, permission flags, etc
+	pub _pad0: [u8; 4],
 }
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug, FromBytes, Immutable, KnownLayout)]
 pub struct ModuleInitEvent {
-	pub header: EventHeader,   // 0..16
-	pub pid: u32,              // 16..20
-	pub uid: u32,              // 20..24
-	pub tgid: u32,             // 24..28
-	pub comm: [u8; 16],        // 28..44
-	pub module_name: [u8; 56], // 44..100
-	pub _pad0: [u8; 4],        // 100..104
+	pub header: EventHeader,
+	pub module_name: [u8; 56],
 }
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug, FromBytes, Immutable, KnownLayout)]
 pub struct BprmSecurityCheckEvent {
-	pub header: EventHeader, // 0..16
-	pub pid: u32,            // 16..20
-	pub uid: u32,            // 20..24
-	pub tgid: u32,           // 24..28
-	pub comm: [u8; 16],      // 28..44
-	pub filepath: [u8; 128], // 44..172
-	pub path_len: u32,       // 172..176
+	pub header: EventHeader,
+	pub filepath: [u8; 128],
+	pub path_len: u32,
+	pub _pad0: [u8; 4],
 }
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug, FromBytes, Immutable, KnownLayout)]
 pub struct InetSockSetStateEvent {
-	pub header: EventHeader, // 0..16
-	pub oldstate: i32,       // 16..20
-	pub newstate: i32,       // 20..24
-	pub saddr: u32,          // 24..28
-	pub daddr: u32,          // 28..32
-	pub sport: u16,          // 32..34
-	pub dport: u16,          // 34..36
-	pub protocol: u16,       // 36..38
-	pub _pad0: [u8; 2],      // 38..40
+	pub header: EventHeader,
+	pub oldstate: i32,
+	pub newstate: i32,
+	pub saddr: u32,
+	pub daddr: u32,
+	pub sport: u16,
+	pub dport: u16,
+	pub protocol: u16,
+	pub _pad0: [u8; 2],
 }
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug, FromBytes, Immutable, KnownLayout)]
 pub struct SocketConnectEvent {
-	pub header: EventHeader, // 0..16
-	pub addr: u32,           // 16..20
-	pub port: u16,           // 20..22
-	pub family: u16,         // 22..24
+	pub header: EventHeader,
+	pub addr: u32,
+	pub port: u16,
+	pub family: u16,
 }
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug, FromBytes, Immutable, KnownLayout)]
 pub struct SocketEvent {
-	pub header: EventHeader, // 0..16
-	pub addr: u32,           // 16..20
-	pub port: u16,           // 20..22
-	pub family: u16,         // 22..24
-	pub op: u8,              // 0 = bind, 1 = connect, etc.
+	pub header: EventHeader,
+	pub addr: u32,
+	pub port: u16,
+	pub family: u16,
+	pub op: u8, // 0 = bind, 1 = connect, etc.
 	pub _pad0: [u8; 7],
 }
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug, FromBytes, Immutable, KnownLayout)]
-pub struct InodeUnlink {
-	pub header: EventHeader, // 0..16
-	pub pid: u32,            // 16..20
-	pub uid: u32,            // 20..24
-	pub tgid: u32,           // 24..28
-	pub comm: [u8; 16],      // 28..44
-	pub filename: [u8; 64],  // 44..108,
-	pub _pad0: [u8; 4],      // 108..112
+pub struct InodeUnlinkEvent {
+	pub header: EventHeader,
+	pub filename: [u8; 64],
+	pub filename_len: u32,
+	pub _pad0: [u8; 4],
 }
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug, FromBytes, Immutable, KnownLayout)]
 pub struct BpfProgLoadEvent {
-	pub header: EventHeader, // 0..16
-	pub pid: u32,            // 16..20
-	pub uid: u32,            // 20..24
-	pub tgid: u32,           // 24..28
-	pub comm: [u8; 16],      // 28..44
-	pub prog_type: u32,      // 44..48
-	pub attach_type: u32,    // 48..52
-	pub flags: u32,          // 52..56
-	pub tag: [u8; 8],        // 56..64
+	pub header: EventHeader,
+	pub prog_type: u32,
+	pub attach_type: u32,
+	pub flags: u32,
+	pub tag: [u8; 8],
+	pub _pad0: [u8; 4],
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -121,6 +108,7 @@ pub enum EbpfEvent {
 	Generic(GenericEvent),
 	InetSock(InetSockSetStateEvent),
 	Socket(SocketEvent),
+	InodeUnlink(InodeUnlinkEvent),
 	ModuleInit(ModuleInitEvent),
 	BprmSecurityCheck(BprmSecurityCheckEvent),
 	BpfProgLoad(BpfProgLoadEvent),

@@ -27,6 +27,8 @@ pub enum Error {
 	// -- Externals
 	//
 	#[from]
+	SystemTime(std::time::SystemTimeError),
+	#[from]
 	Var(std::env::VarError),
 	#[from]
 	Oneshot(tokio::sync::oneshot::error::RecvError),

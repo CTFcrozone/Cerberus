@@ -1,6 +1,6 @@
 use crate::error::Result;
 
-use lib_common::event::CerberusEvent;
+use lib_common::event::{CerberusEvent, Event};
 use lib_container::container_manager::ContainerManager;
 
 use lib_event::trx::{Rx, Tx};
@@ -21,7 +21,7 @@ impl ContainerResolver {
 
 	pub async fn run(mut self) -> Result<()> {
 		while let Ok(mut evt) = self.rx.recv().await {
-			let meta = evt.meta_mut();
+			let meta = evt.header_mut();
 
 			if let Some(info) = self.container_mgr.resolve(meta.cgroup_id).await {
 				meta.container = Some(info.clone());

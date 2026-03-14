@@ -1,11 +1,11 @@
-use crate::{error::Result, event::AppEvent, Error};
+use crate::{error::Result, event::AppEvent};
 
 use humantime::Duration;
-use lib_common::event::CerberusEvent;
+use lib_common::event::{CerberusEvent, Event};
 use lib_event::trx::Rx;
 use lib_rules::EngineEvent;
 use tokio_util::sync::CancellationToken;
-use tracing::{debug, info, warn};
+use tracing::{info, warn};
 
 pub async fn _run_agent_sink(rx: Rx<AppEvent>, shutdown: CancellationToken) -> Result<()> {
 	info!("Agent sink started, waiting for events...");
@@ -35,14 +35,14 @@ pub async fn _run_agent_sink(rx: Rx<AppEvent>, shutdown: CancellationToken) -> R
 	Ok(())
 }
 
-pub async fn install_signal_handlers(shutdown: CancellationToken) {
-	tokio::spawn(async move {
-		if tokio::signal::ctrl_c().await.is_ok() {
-			info!("Ctrl+C received — shutting down");
-			shutdown.cancel();
-		}
-	});
-}
+// pub async fn install_signal_handlers(shutdown: CancellationToken) {
+// 	tokio::spawn(async move {
+// 		if tokio::signal::ctrl_c().await.is_ok() {
+// 			info!("Ctrl+C received — shutting down");
+// 			shutdown.cancel();
+// 		}
+// 	});
+// }
 
 pub async fn start_agent(app_rx: Rx<AppEvent>, shutdown: CancellationToken, run_time: Option<Duration>) -> Result<()> {
 	let sink_shutdown = shutdown.clone();
@@ -78,28 +78,37 @@ fn print_alert(e: &EngineEvent) {
 	}
 }
 
-fn print_event(e: &CerberusEvent) {
+pub fn print_event(e: &CerberusEvent) {
+	let h = e.header();
+
 	match e {
 		CerberusEvent::Generic(g) => {
-			info!("[{}] {} (PID: {}, UID: {})", g.name, g.comm, g.pid, g.uid);
+			info!("[{}] {} (PID: {}, UID: {})", g.name, h.comm, h.pid, h.uid);
 		}
 		CerberusEvent::InetSock(i) => {
 			info!(
-				"[INET_SOCKET] {} → {} ({}:{} → {}:{})",
+				"[INET_SOCKET] {} → {} ({}:{} → {}:{}) | PID: {}, UID: {}",
 				i.old_state,
 				i.new_state,
 				ip_to_string(i.saddr),
 				i.sport,
 				ip_to_string(i.daddr),
-				i.dport
+				i.dport,
+				h.pid,
+				h.uid
 			);
 		}
 		CerberusEvent::Module(m) => {
-			info!("[INIT_MODULE] {} loaded by {} (PID: {})", m.module_name, m.comm, m.pid);
+			info!(
+				"[INIT_MODULE] {} loaded by {} (PID: {}, UID: {})",
+				m.module_name, h.comm, h.pid, h.uid
+			);
 		}
-
 		CerberusEvent::Bprm(b) => {
-			info!("[BPRM_SEC_CHECK] {} executed {} (PID: {})", b.comm, b.filepath, b.pid);
+			info!(
+				"[BPRM_SEC_CHECK] {} executed {} (PID: {}, UID: {})",
+				h.comm, b.filepath, h.pid, h.uid
+			);
 		}
 		CerberusEvent::Socket(s) => {
 			let op_str = match s.op {
@@ -109,12 +118,14 @@ fn print_event(e: &CerberusEvent) {
 			};
 
 			info!(
-				"[SOCKET] {}:{} | Family: {} | OP: {}",
+				"[SOCKET] {}:{} | Family: {} | OP: {} | PID: {}, UID: {}",
 				ip_to_string(s.addr),
 				s.port,
 				family_to_string(s.family),
-				op_str
-			)
+				op_str,
+				h.pid,
+				h.uid
+			);
 		}
 		_ => {}
 	}

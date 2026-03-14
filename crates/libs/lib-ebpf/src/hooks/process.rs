@@ -28,13 +28,15 @@ pub fn try_commit_creds(ctx: ProbeContext) -> Result<u32, i64> {
 				event_type: 4,
 				cgroup_id,
 				mnt_ns,
-				_pad0: [0u8; 3],
+				pid,
+				uid: old_uid,
+				tgid,
+				comm: comm_raw,
+				_pad0: [0u8; 7],
 			},
-			pid,
-			uid: old_uid,
-			tgid,
-			comm: comm_raw,
+
 			meta: 0x00,
+			_pad0: [0u8; 4],
 		};
 
 		match EVT_MAP.output(&event, 0) {
@@ -61,13 +63,14 @@ pub fn try_sys_enter_ptrace(ctx: TracePointContext) -> Result<u32, u32> {
 			event_type: 7,
 			cgroup_id,
 			mnt_ns,
-			_pad0: [0u8; 3],
+			pid,
+			uid,
+			tgid,
+			comm: comm_raw,
+			_pad0: [0u8; 7],
 		},
-		pid,
-		uid,
-		tgid,
-		comm: comm_raw,
 		meta: 0, // success flag
+		_pad0: [0u8; 4],
 	};
 
 	if let Err(e) = EVT_MAP.output(&event, 0) {
@@ -85,7 +88,7 @@ pub fn try_sys_enter_kill(ctx: LsmContext) -> Result<i32, i32> {
 	}
 
 	let sig: u32 = unsafe { ctx.arg(2) };
-	let pid = unsafe { (*task).pid };
+	let pid = unsafe { (*task).pid as u32 };
 	let ts = unsafe { bpf_ktime_get_ns() };
 
 	let tgid = (bpf_get_current_pid_tgid() >> 32) as u32;
@@ -100,13 +103,14 @@ pub fn try_sys_enter_kill(ctx: LsmContext) -> Result<i32, i32> {
 			event_type: 1,
 			cgroup_id,
 			mnt_ns,
-			_pad0: [0u8; 3],
+			pid,
+			uid,
+			tgid,
+			comm: comm_raw,
+			_pad0: [0u8; 7],
 		},
-		pid: pid as u32,
-		uid,
-		tgid,
-		comm: comm_raw,
 		meta: sig,
+		_pad0: [0u8; 4],
 	};
 
 	if let Err(e) = EVT_MAP.output(&event, 0) {
