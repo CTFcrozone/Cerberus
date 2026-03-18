@@ -1,6 +1,6 @@
 use arc_swap::ArcSwap;
 use lib_common::event::{CerberusEvent, Event, EventMeta};
-use std::sync::Mutex;
+use parking_lot::Mutex;
 use std::time::Instant;
 use std::{path::Path, sync::Arc};
 
@@ -120,7 +120,7 @@ impl RuleEngine {
 		let mut out = Vec::<EngineEvent>::new();
 		let index = self.index.load();
 		let now = Instant::now();
-		let mut corr = self.correlator.lock()?;
+		let mut corr = self.correlator.lock();
 		let evt_kind = EventKind::from(event);
 
 		if let Some(candidates) = index.by_evt_kind.get(&evt_kind) {
