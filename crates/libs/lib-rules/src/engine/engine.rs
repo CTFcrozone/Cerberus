@@ -25,7 +25,7 @@ impl RuleEngine {
 			return Err(Error::NoRulesInDir(dir.as_ref().display().to_string()));
 		}
 
-		let index = RuleIndex::build(ruleset.clone());
+		let index = RuleIndex::build(&ruleset);
 
 		Ok(Self {
 			ruleset: ArcSwap::from_pointee(ruleset),
@@ -35,18 +35,17 @@ impl RuleEngine {
 	}
 
 	pub fn reload_ruleset(&self, dir: impl AsRef<Path>) -> Result<()> {
-		let ruleset = RuleSet::load_from_dir(dir)?;
-		let new = Arc::new(ruleset.clone());
-		let index = Arc::new(RuleIndex::build(ruleset.clone()));
+		let ruleset = Arc::new(RuleSet::load_from_dir(dir)?);
+		let index = Arc::new(RuleIndex::build(&ruleset));
 
-		self.ruleset.store(new);
+		self.ruleset.store(ruleset);
 		self.index.store(index);
 
 		Ok(())
 	}
 
 	pub fn new_from_ruleset(ruleset: RuleSet) -> Result<Self> {
-		let index = RuleIndex::build(ruleset.clone());
+		let index = RuleIndex::build(&ruleset);
 
 		Ok(Self {
 			ruleset: ArcSwap::from_pointee(ruleset),

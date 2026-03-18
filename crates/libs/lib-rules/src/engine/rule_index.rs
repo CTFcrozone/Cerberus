@@ -73,13 +73,13 @@ pub struct RuleIndex {
 }
 
 impl RuleIndex {
-	pub fn build(ruleset: RuleSet) -> Self {
+	pub fn build(ruleset: &RuleSet) -> Self {
 		let mut by_evt_kind: HashMap<EventKind, Vec<Arc<str>>> = HashMap::new();
 		let mut seq_listeners: HashMap<Arc<str>, Vec<Arc<str>>> = HashMap::new();
 
-		for rule in ruleset.ruleset {
+		for rule in &ruleset.ruleset {
 			let mut supported = Vec::new();
-			let rule_id: Arc<str> = rule.inner.id.into();
+			let rule_id: Arc<str> = Arc::from(rule.inner.id.as_str());
 
 			for kind in EventKind::iter() {
 				let ok = rule.inner.conditions.iter().all(|c| field_in(kind, &c.field));
@@ -92,9 +92,12 @@ impl RuleIndex {
 				by_evt_kind.entry(kind).or_default().push(rule_id.clone());
 			}
 
-			if let Some(seq) = rule.inner.sequence {
-				for step in seq.steps {
-					seq_listeners.entry(step.rule_id.into()).or_default().push(rule_id.clone());
+			if let Some(seq) = &rule.inner.sequence {
+				for step in &seq.steps {
+					seq_listeners
+						.entry(Arc::from(step.rule_id.as_str()))
+						.or_default()
+						.push(rule_id.clone());
 				}
 			}
 		}
