@@ -173,6 +173,12 @@ Each condition has:
 
 ---
 
+## Other
+
+    inode.filename
+
+---
+
 # Condition Operators
 
 ## equals
