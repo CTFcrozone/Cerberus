@@ -11,14 +11,13 @@ pub fn process_app_state(state: &mut AppState) {
 
 fn handle_main_view(state: &mut AppState) {
 	handle_main_input(state);
-	update_loaded_hooks(state);
 	handle_scroll(state);
 }
 
 fn handle_main_input(state: &mut AppState) {
 	if let Some(key) = state.last_app_event().as_key_code() {
-		let matched_rules: Vec<_> = state.cerberus_evts_matched().collect();
-		let correlated_rules: Vec<_> = state.cerberus_evts_correlated().collect();
+		let matched_len = state.cerberus_evts_matched().count();
+		let correlated_len = state.cerberus_evts_correlated().count();
 		match key {
 			KeyCode::Char('s') | KeyCode::Char('S') => match state.current_view() {
 				View::Main => state.set_view(View::Summary),
@@ -26,28 +25,20 @@ fn handle_main_input(state: &mut AppState) {
 			},
 
 			KeyCode::Enter => match state.current_tab() {
-				Tab::MatchedRules => {
-					if state.cerberus_evts_matched().count() > 0 {
-						state.toggle_rule_popup();
-					}
-				}
-				Tab::CorrelatedRules => {
-					if state.cerberus_evts_correlated().count() > 0 {
-						state.toggle_rule_popup();
-					}
-				}
+				Tab::MatchedRules if matched_len > 0 => state.toggle_rule_popup(),
+				Tab::CorrelatedRules if correlated_len > 0 => state.toggle_rule_popup(),
 				_ => {}
 			},
 
 			KeyCode::Up => match state.current_tab() {
-				Tab::MatchedRules => state.prev_rule(matched_rules.len()),
-				Tab::CorrelatedRules => state.prev_rule(correlated_rules.len()),
+				Tab::MatchedRules => state.prev_rule(matched_len),
+				Tab::CorrelatedRules => state.prev_rule(correlated_len),
 				_ => {}
 			},
 
 			KeyCode::Down => match state.current_tab() {
-				Tab::MatchedRules => state.next_rule(matched_rules.len()),
-				Tab::CorrelatedRules => state.next_rule(correlated_rules.len()),
+				Tab::MatchedRules => state.next_rule(matched_len),
+				Tab::CorrelatedRules => state.next_rule(correlated_len),
 				_ => {}
 			},
 
@@ -78,17 +69,11 @@ fn handle_main_input(state: &mut AppState) {
 	}
 }
 
-fn update_loaded_hooks(state: &mut AppState) {
-	let hooks: Vec<String> = state.ebpf.programs().map(|(name, _)| name.to_string()).collect();
-
-	state.loaded_hooks = hooks;
-}
-
 fn handle_scroll(state: &mut AppState) {
 	if let Some(mouse_evt) = state.last_app_event().as_mouse_event() {
 		let new_scroll = match mouse_evt.kind {
-			MouseEventKind::ScrollUp => Some(state.event_scroll().saturating_sub(3)),
-			MouseEventKind::ScrollDown => Some(state.event_scroll().saturating_add(3)),
+			MouseEventKind::ScrollUp => Some(state.event_scroll().saturating_sub(1)),
+			MouseEventKind::ScrollDown => Some(state.event_scroll().saturating_add(1)),
 			_ => None,
 		};
 

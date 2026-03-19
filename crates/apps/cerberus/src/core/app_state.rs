@@ -74,9 +74,11 @@ pub struct AppState {
 
 impl AppState {
 	pub fn new(ebpf: Ebpf, last_app_event: LastAppEvent) -> Result<Self> {
+		let loaded_hooks: Vec<String> = ebpf.programs().map(|(name, _)| name.to_string()).collect();
+
 		Ok(Self {
 			ebpf,
-			loaded_hooks: Vec::new(),
+			loaded_hooks,
 			event_scroll: 0,
 			last_app_event,
 			cerberus_evts_correlated: VecDeque::with_capacity(250),
