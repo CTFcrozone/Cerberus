@@ -67,8 +67,9 @@ impl RuleEngine {
 		self.ruleset.load().rule_count()
 	}
 
-	fn find_rule_by_id<'a>(ruleset: &'a RuleSet, rule_id: &'a str) -> Option<&'a Rule> {
-		ruleset.ruleset.iter().find(|rule| rule.inner.id == rule_id)
+	fn find_rule_by_id<'a>(ruleset: &'a RuleSet, rule_id: &str) -> Option<&'a Rule> {
+		let idx = ruleset.by_id.get(rule_id)?;
+		ruleset.ruleset.get(*idx)
 	}
 
 	fn advance_sequences(
@@ -168,7 +169,7 @@ mod tests {
 
 	use super::*;
 	use lib_common::event::{Event, EventHeader, RingBufEvent};
-	use std::sync::Arc;
+	use std::{collections::HashMap, sync::Arc};
 	use toml::Value;
 
 	fn expect_matched(ev: &EngineEvent) -> &EvaluatedEvent {
@@ -231,7 +232,14 @@ mod tests {
 			hash: [0u8; 32],
 		};
 
-		let ruleset = RuleSet { ruleset: vec![rule] };
+		let mut by_id = HashMap::new();
+		by_id.insert(rule.inner.id.clone().into(), 0);
+
+		let ruleset = crate::RuleSet {
+			ruleset: vec![rule],
+			by_id,
+		};
+
 		let engine = RuleEngine::new_from_ruleset(ruleset)?;
 
 		let event = CerberusEvent::Generic(RingBufEvent {
@@ -282,7 +290,14 @@ mod tests {
 			hash: [0u8; 32],
 		};
 
-		let ruleset = RuleSet { ruleset: vec![rule] };
+		let mut by_id = HashMap::new();
+		by_id.insert(rule.inner.id.clone().into(), 0);
+
+		let ruleset = crate::RuleSet {
+			ruleset: vec![rule],
+			by_id,
+		};
+
 		let engine = RuleEngine::new_from_ruleset(ruleset)?;
 
 		let inet_evt = lib_common::event::InetSockEvent {
