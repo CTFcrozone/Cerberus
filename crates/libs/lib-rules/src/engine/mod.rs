@@ -1,11 +1,11 @@
-mod correlation;
+mod correlator;
 mod ctx;
 mod engine;
 mod evaluator;
 mod event;
 mod rule_index;
 
-use correlation::*;
+use correlator::*;
 use ctx::*;
 use evaluator::*;
 use rule_index::*;

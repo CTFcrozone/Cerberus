@@ -1,7 +1,11 @@
 use std::{collections::HashMap, sync::Arc, time::Instant, usize};
 
+use dashmap::DashMap;
+
 use crate::rule::{Sequence, SequenceProgress};
 
+//todo: 	// for pid scoping
+// active: HashMap<Arc<str>, HashMap<Option<u32>, HashMap<Arc<str>, Vec<SequenceProgress>>>>,
 pub struct Correlator {
 	// root rule_id -> progress sequence
 	// active: HashMap<Arc<str>, Vec<SequenceProgress>>,
@@ -31,7 +35,7 @@ impl Correlator {
 		let root = self.active.entry(root_rule_id.into()).or_insert_with(HashMap::new);
 		let first_rule_id: Arc<str> = first.rule_id.clone().into();
 
-		root.entry(first_rule_id.into()).or_default().push(SequenceProgress {
+		root.entry(first_rule_id).or_default().push(SequenceProgress {
 			step_idx: 0,
 			last_match: now,
 			expiry: now + first.within,
@@ -47,11 +51,13 @@ impl Correlator {
 	) -> Option<CorrelatedMatch> {
 		let root = self.active.get_mut(root_rule_id)?;
 
-		let mut queue = root.remove(matched_rule_id)?;
+		let queue = root.remove(matched_rule_id)?;
+		let mut remaining = Vec::new();
 
-		for prog in queue.iter_mut() {
+		let mut completed = None;
+
+		for mut prog in queue.into_iter() {
 			if now > prog.expiry {
-				prog.step_idx = usize::MAX;
 				continue;
 			}
 
@@ -59,26 +65,33 @@ impl Correlator {
 			prog.last_match = now;
 
 			if prog.step_idx == seq.steps.len() {
-				return Some(CorrelatedMatch {
+				completed = Some(CorrelatedMatch {
 					root_rule_id: root_rule_id.into(),
 					steps: seq.steps.len(),
 				});
+				continue;
 			}
 
 			if let Some(next_step) = seq.steps.get(prog.step_idx) {
 				let next_rule_id: Arc<str> = next_step.rule_id.clone().into();
 				prog.expiry = now + next_step.within;
-				root.entry(next_rule_id).or_default().push(prog.clone());
+				root.entry(next_rule_id).or_default().push(prog);
+			} else {
+				remaining.push(prog);
 			}
 		}
 
-		queue.retain(|p| p.step_idx != usize::MAX && now <= p.expiry);
+		// queue.retain(|p| p.step_idx != usize::MAX && now <= p.expiry);
 
-		if queue.is_empty() {
+		if !remaining.is_empty() {
+			root.entry(matched_rule_id.into()).or_default().extend(remaining);
+		}
+
+		if root.is_empty() {
 			self.active.remove(root_rule_id);
 		}
 
-		None
+		completed
 	}
 }
 
@@ -107,6 +120,7 @@ mod tests {
 					within: Duration::from_secs(15),
 				},
 			],
+			scope: None,
 		}
 	}
 	#[test]
@@ -237,6 +251,7 @@ mod tests {
 		let seq = Sequence {
 			kind: SequenceKind::Rule,
 			steps: vec![],
+			scope: None,
 		};
 		// -- Exec
 		corr.on_root_match("tmp-exec", &seq, t0);
