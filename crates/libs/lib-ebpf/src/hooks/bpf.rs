@@ -8,7 +8,11 @@ use aya_ebpf::{
 use aya_log_ebpf::error;
 use lib_ebpf_common::{BpfProgLoadEvent, EventHeader, FLAG_GPL, FLAG_JITED, FLAG_KPROBE_OVR, FLAG_SLEEPABLE};
 
-use crate::{utils::get_mnt_ns, vmlinux::bpf_prog, EVT_MAP};
+use crate::{
+	utils::{get_mnt_ns, get_ppid},
+	vmlinux::bpf_prog,
+	EVT_MAP,
+};
 
 // LSM_HOOK(int, 0, bpf_prog_load, struct bpf_prog *prog, union bpf_attr *attr, struct bpf_token *token, bool kernel)
 pub fn try_bpf_prog_load(ctx: LsmContext) -> Result<i32, i32> {
@@ -23,7 +27,7 @@ pub fn try_bpf_prog_load(ctx: LsmContext) -> Result<i32, i32> {
 	let comm = bpf_get_current_comm().unwrap_or([0u8; 16]);
 	let cgroup_id = unsafe { bpf_get_current_cgroup_id() };
 	let mnt_ns = unsafe { get_mnt_ns() };
-
+	let ppid = unsafe { get_ppid() };
 	let prog: *const bpf_prog = unsafe { ctx.arg(0) };
 
 	if prog.is_null() {
@@ -58,10 +62,11 @@ pub fn try_bpf_prog_load(ctx: LsmContext) -> Result<i32, i32> {
 			cgroup_id,
 			mnt_ns,
 			pid,
+			ppid: ppid as u32,
 			uid,
 			tgid,
 			comm,
-			_pad0: [0u8; 7],
+			_pad0: [0u8; 3],
 		},
 		attach_type,
 		prog_type,

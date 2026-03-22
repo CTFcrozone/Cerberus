@@ -37,6 +37,7 @@ pub struct EventHeader {
 	pub cgroup_id: u64,
 	pub mnt_ns: u32,
 	pub pid: u32,
+	pub ppid: u32,
 	pub uid: u32,
 	pub tgid: u32,
 }

@@ -1,6 +1,23 @@
 use aya_ebpf::helpers::{bpf_probe_read_kernel, r#gen::bpf_get_current_task};
 
-use crate::vmlinux::{mnt_namespace, nsproxy};
+use crate::vmlinux::{mnt_namespace, nsproxy, pid_type::PIDTYPE_SID, signal_struct};
+
+pub unsafe fn get_ppid() -> i32 {
+	let task = bpf_get_current_task() as *const crate::vmlinux::task_struct;
+	if task.is_null() {
+		return -1;
+	}
+
+	let parent: *const crate::vmlinux::task_struct = match bpf_probe_read_kernel(&(*task).real_parent) {
+		Ok(p) => p,
+		Err(_) => return -1,
+	};
+
+	match bpf_probe_read_kernel(&(*parent).pid) {
+		Ok(ppid) => ppid,
+		Err(_) => -1,
+	}
+}
 
 pub unsafe fn get_mnt_ns() -> u32 {
 	let task = bpf_get_current_task() as *const crate::vmlinux::task_struct;

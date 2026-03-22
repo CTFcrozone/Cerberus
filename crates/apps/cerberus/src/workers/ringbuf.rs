@@ -77,6 +77,7 @@ fn parse_cerberus_event(evt: EbpfEvent) -> Result<CerberusEvent> {
 				ts: e.header.ts,
 				mnt_ns: e.header.mnt_ns,
 				pid: e.header.pid,
+				ppid: e.header.ppid,
 				uid: e.header.uid,
 				tgid: e.header.tgid,
 				comm: Arc::from(String::from_utf8_lossy(&e.header.comm).trim_end_matches('\0')),
@@ -91,6 +92,8 @@ fn parse_cerberus_event(evt: EbpfEvent) -> Result<CerberusEvent> {
 				ts: e.header.ts,
 				mnt_ns: e.header.mnt_ns,
 				pid: e.header.pid,
+				ppid: e.header.ppid,
+
 				uid: e.header.uid,
 				tgid: e.header.tgid,
 				comm: Arc::from(String::from_utf8_lossy(&e.header.comm).trim_end_matches('\0')),
@@ -106,6 +109,8 @@ fn parse_cerberus_event(evt: EbpfEvent) -> Result<CerberusEvent> {
 				ts: e.header.ts,
 				mnt_ns: e.header.mnt_ns,
 				pid: e.header.pid,
+				ppid: e.header.ppid,
+
 				uid: e.header.uid,
 				tgid: e.header.tgid,
 				comm: Arc::from(String::from_utf8_lossy(&e.header.comm).trim_end_matches('\0')),
@@ -129,6 +134,8 @@ fn parse_cerberus_event(evt: EbpfEvent) -> Result<CerberusEvent> {
 					ts: e.header.ts,
 					mnt_ns: e.header.mnt_ns,
 					pid: e.header.pid,
+					ppid: e.header.ppid,
+
 					uid: e.header.uid,
 					tgid: e.header.tgid,
 					comm: Arc::from(comm_str),
@@ -148,6 +155,8 @@ fn parse_cerberus_event(evt: EbpfEvent) -> Result<CerberusEvent> {
 				ts: e.header.ts,
 				mnt_ns: e.header.mnt_ns,
 				pid: e.header.pid,
+				ppid: e.header.ppid,
+
 				uid: e.header.uid,
 				tgid: e.header.tgid,
 				comm: Arc::from(String::from_utf8_lossy(&e.header.comm).trim_end_matches('\0')),
@@ -168,6 +177,8 @@ fn parse_cerberus_event(evt: EbpfEvent) -> Result<CerberusEvent> {
 				ts: e.header.ts,
 				mnt_ns: e.header.mnt_ns,
 				pid: e.header.pid,
+				ppid: e.header.ppid,
+
 				uid: e.header.uid,
 				tgid: e.header.tgid,
 				comm: Arc::from(String::from_utf8_lossy(&e.header.comm).trim_end_matches('\0')),
@@ -184,6 +195,8 @@ fn parse_cerberus_event(evt: EbpfEvent) -> Result<CerberusEvent> {
 				ts: e.header.ts,
 				mnt_ns: e.header.mnt_ns,
 				pid: e.header.pid,
+				ppid: e.header.ppid,
+
 				uid: e.header.uid,
 				tgid: e.header.tgid,
 				comm: Arc::from(String::from_utf8_lossy(&e.header.comm).trim_end_matches('\0')),

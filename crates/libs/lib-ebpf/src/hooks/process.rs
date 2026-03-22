@@ -8,7 +8,11 @@ use aya_ebpf::{
 use aya_log_ebpf::error;
 use lib_ebpf_common::{EventHeader, GenericEvent};
 
-use crate::{utils::get_mnt_ns, vmlinux::task_struct, EVT_MAP};
+use crate::{
+	utils::{get_mnt_ns, get_ppid},
+	vmlinux::task_struct,
+	EVT_MAP,
+};
 
 pub fn try_commit_creds(ctx: ProbeContext) -> Result<u32, i64> {
 	let old_uid = bpf_get_current_uid_gid() as u32;
@@ -18,6 +22,7 @@ pub fn try_commit_creds(ctx: ProbeContext) -> Result<u32, i64> {
 	let cgroup_id = unsafe { bpf_get_current_cgroup_id() };
 	let mnt_ns = unsafe { get_mnt_ns() };
 	let ts = unsafe { bpf_ktime_get_ns() };
+	let ppid = unsafe { get_ppid() };
 
 	let new_uid = ctx.arg(1).unwrap_or(0u32);
 
@@ -29,10 +34,11 @@ pub fn try_commit_creds(ctx: ProbeContext) -> Result<u32, i64> {
 				cgroup_id,
 				mnt_ns,
 				pid,
+				ppid: ppid as u32,
 				uid: old_uid,
 				tgid,
 				comm: comm_raw,
-				_pad0: [0u8; 7],
+				_pad0: [0u8; 3],
 			},
 
 			meta: 0x00,
@@ -56,6 +62,7 @@ pub fn try_sys_enter_ptrace(ctx: TracePointContext) -> Result<u32, u32> {
 	let cgroup_id = unsafe { bpf_get_current_cgroup_id() };
 	let mnt_ns = unsafe { get_mnt_ns() };
 	let ts = unsafe { bpf_ktime_get_ns() };
+	let ppid = unsafe { get_ppid() };
 
 	let event = GenericEvent {
 		header: EventHeader {
@@ -64,10 +71,11 @@ pub fn try_sys_enter_ptrace(ctx: TracePointContext) -> Result<u32, u32> {
 			cgroup_id,
 			mnt_ns,
 			pid,
+			ppid: ppid as u32,
 			uid,
 			tgid,
 			comm: comm_raw,
-			_pad0: [0u8; 7],
+			_pad0: [0u8; 3],
 		},
 		meta: 0, // success flag
 		_pad0: [0u8; 4],
@@ -90,6 +98,7 @@ pub fn try_sys_enter_kill(ctx: LsmContext) -> Result<i32, i32> {
 	let sig: u32 = unsafe { ctx.arg(2) };
 	let pid = unsafe { (*task).pid as u32 };
 	let ts = unsafe { bpf_ktime_get_ns() };
+	let ppid = unsafe { get_ppid() };
 
 	let tgid = (bpf_get_current_pid_tgid() >> 32) as u32;
 	let comm_raw = bpf_get_current_comm().unwrap_or([0u8; 16]);
@@ -104,10 +113,11 @@ pub fn try_sys_enter_kill(ctx: LsmContext) -> Result<i32, i32> {
 			cgroup_id,
 			mnt_ns,
 			pid,
+			ppid: ppid as u32,
 			uid,
 			tgid,
 			comm: comm_raw,
-			_pad0: [0u8; 7],
+			_pad0: [0u8; 3],
 		},
 		meta: sig,
 		_pad0: [0u8; 4],

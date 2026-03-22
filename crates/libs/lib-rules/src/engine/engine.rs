@@ -4,6 +4,7 @@ use parking_lot::Mutex;
 use std::time::Instant;
 use std::{path::Path, sync::Arc};
 
+use crate::engine::correlator::ShardedCorrelator;
 use crate::engine::{
 	CorrelatedEvent, Correlator, EngineEvent, EvalCtx, EvaluatedEvent, Evaluator, EventKind, RuleIndex,
 };
@@ -14,7 +15,7 @@ use crate::{Error, RuleSet};
 pub struct RuleEngine {
 	pub ruleset: ArcSwap<RuleSet>,
 	pub index: ArcSwap<RuleIndex>,
-	correlator: Mutex<Correlator>,
+	correlator: ShardedCorrelator,
 }
 
 impl RuleEngine {
@@ -29,7 +30,7 @@ impl RuleEngine {
 
 		Ok(Self {
 			ruleset: ArcSwap::from_pointee(ruleset),
-			correlator: Mutex::new(Correlator::new()),
+			correlator: ShardedCorrelator::new(),
 			index: ArcSwap::from_pointee(index),
 		})
 	}
@@ -49,7 +50,8 @@ impl RuleEngine {
 
 		Ok(Self {
 			ruleset: ArcSwap::from_pointee(ruleset),
-			correlator: Mutex::new(Correlator::new()),
+			correlator: ShardedCorrelator::new(),
+
 			index: ArcSwap::from_pointee(index),
 		})
 	}
@@ -74,7 +76,6 @@ impl RuleEngine {
 
 	fn advance_sequences(
 		&self,
-		corr: &mut Correlator,
 		matched_rule: &Rule,
 		now: Instant,
 		ruleset: &RuleSet,
@@ -96,8 +97,15 @@ impl RuleEngine {
 				continue;
 			};
 
-			if corr
-				.on_rule_match(&matched_rule.inner.id, seq, &root_rule.inner.id, now)
+			if self
+				.correlator
+				.on_rule_match(
+					event.header().ppid,
+					&matched_rule.inner.id,
+					seq,
+					&root_rule.inner.id,
+					now,
+				)
 				.is_some()
 			{
 				out.push(
@@ -121,7 +129,7 @@ impl RuleEngine {
 		let mut out = Vec::<EngineEvent>::new();
 		let index = self.index.load();
 		let now = Instant::now();
-		let mut corr = self.correlator.lock();
+		// let mut corr = self.correlator.lock();
 		let evt_kind = EventKind::from(event);
 
 		if let Some(candidates) = index.by_evt_kind.get(&evt_kind) {
@@ -137,9 +145,9 @@ impl RuleEngine {
 				out.push(Self::rule_to_eval_event(rule, Self::event_meta(event)).into());
 
 				if let Some(seq) = &rule.inner.sequence {
-					corr.on_root_match(&rule.inner.id, seq, now);
+					self.correlator.on_root_match(event.header().ppid, &rule.inner.id, seq, now);
 				}
-				self.advance_sequences(&mut corr, rule, now, &ruleset, &index, &mut out, event);
+				self.advance_sequences(rule, now, &ruleset, &index, &mut out, event);
 			}
 		}
 
@@ -192,6 +200,7 @@ mod tests {
 				ts: 0,
 				mnt_ns: 0,
 				pid: 1,
+				ppid: 1,
 				tgid: 4242,
 				uid: 0,
 				comm: Arc::from("bash"),
@@ -249,6 +258,8 @@ mod tests {
 				container: None,
 				ts: 0,
 				mnt_ns: 0,
+				ppid: 1,
+
 				pid: 4242,
 				tgid: 4242,
 				uid: 1000,
@@ -305,6 +316,8 @@ mod tests {
 				cgroup_id: 0,
 				container: None,
 				ts: 0,
+				ppid: 1,
+
 				mnt_ns: 0,
 				pid: 0,
 				tgid: 0,
@@ -341,6 +354,8 @@ mod tests {
 				cgroup_id: 0,
 				container: None,
 				ts: 0,
+				ppid: 1,
+
 				mnt_ns: 0,
 				pid: 2222,
 				tgid: 2222,

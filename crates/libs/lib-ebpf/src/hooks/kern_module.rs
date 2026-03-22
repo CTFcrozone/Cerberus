@@ -7,7 +7,11 @@ use aya_ebpf::{
 };
 use lib_ebpf_common::{EventHeader, ModuleInitEvent};
 
-use crate::{utils::get_mnt_ns, vmlinux::module, EVT_MAP};
+use crate::{
+	utils::{get_mnt_ns, get_ppid},
+	vmlinux::module,
+	EVT_MAP,
+};
 
 pub fn try_do_init_module(ctx: ProbeContext) -> Result<u32, i64> {
 	let module: *const module = ctx.arg(0).ok_or(1)?;
@@ -21,6 +25,7 @@ pub fn try_do_init_module(ctx: ProbeContext) -> Result<u32, i64> {
 	let tgid = (bpf_get_current_pid_tgid() >> 32) as u32;
 	let comm_raw = bpf_get_current_comm().unwrap_or([0u8; 16]);
 	let ts = unsafe { bpf_ktime_get_ns() };
+	let ppid = unsafe { get_ppid() };
 
 	let cgroup_id = unsafe { bpf_get_current_cgroup_id() };
 	let mnt_ns = unsafe { get_mnt_ns() };
@@ -35,10 +40,11 @@ pub fn try_do_init_module(ctx: ProbeContext) -> Result<u32, i64> {
 			cgroup_id,
 			mnt_ns,
 			pid,
+			ppid: ppid as u32,
 			uid,
 			tgid,
 			comm: comm_raw,
-			_pad0: [0u8; 7],
+			_pad0: [0u8; 3],
 		},
 		module_name,
 	};

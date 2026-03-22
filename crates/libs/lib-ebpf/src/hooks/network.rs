@@ -9,7 +9,7 @@ use aya_log_ebpf::error;
 use lib_ebpf_common::{EventHeader, InetSockSetStateEvent, SocketEvent};
 
 use crate::{
-	utils::get_mnt_ns,
+	utils::{get_mnt_ns, get_ppid},
 	vmlinux::{sockaddr, sockaddr_in},
 	EVT_MAP,
 };
@@ -56,6 +56,7 @@ pub fn try_socket_connect(ctx: LsmContext) -> Result<i32, i32> {
 	let pid = bpf_get_current_pid_tgid() as u32;
 	let tgid = (bpf_get_current_pid_tgid() >> 32) as u32;
 	let comm_raw = bpf_get_current_comm().unwrap_or([0u8; 16]);
+	let ppid = unsafe { get_ppid() };
 
 	let cgroup_id = unsafe { bpf_get_current_cgroup_id() };
 	let mnt_ns = unsafe { get_mnt_ns() };
@@ -67,10 +68,11 @@ pub fn try_socket_connect(ctx: LsmContext) -> Result<i32, i32> {
 			cgroup_id,
 			mnt_ns,
 			pid,
+			ppid: ppid as u32,
 			uid,
 			tgid,
 			comm: comm_raw,
-			_pad0: [0u8; 7],
+			_pad0: [0u8; 3],
 		},
 		addr,
 		port,
@@ -119,6 +121,7 @@ pub fn try_socket_bind(ctx: LsmContext) -> Result<i32, i32> {
 	let comm_raw = bpf_get_current_comm().unwrap_or([0u8; 16]);
 	let cgroup_id = unsafe { bpf_get_current_cgroup_id() };
 	let mnt_ns = unsafe { get_mnt_ns() };
+	let ppid = unsafe { get_ppid() };
 
 	let event = SocketEvent {
 		header: EventHeader {
@@ -127,10 +130,11 @@ pub fn try_socket_bind(ctx: LsmContext) -> Result<i32, i32> {
 			cgroup_id,
 			mnt_ns,
 			pid,
+			ppid: ppid as u32,
 			uid,
 			tgid,
 			comm: comm_raw,
-			_pad0: [0u8; 7],
+			_pad0: [0u8; 3],
 		},
 		addr,
 		port,
@@ -161,6 +165,7 @@ pub fn try_inet_sock_set_state(ctx: TracePointContext) -> Result<u32, u32> {
 	let comm_raw = bpf_get_current_comm().unwrap_or([0u8; 16]);
 	let cgroup_id = unsafe { bpf_get_current_cgroup_id() };
 	let mnt_ns = unsafe { get_mnt_ns() };
+	let ppid = unsafe { get_ppid() };
 
 	if protocol != 6 {
 		return Ok(0);
@@ -173,10 +178,11 @@ pub fn try_inet_sock_set_state(ctx: TracePointContext) -> Result<u32, u32> {
 			cgroup_id,
 			mnt_ns,
 			pid,
+			ppid: ppid as u32,
 			uid,
 			tgid,
 			comm: comm_raw,
-			_pad0: [0u8; 7],
+			_pad0: [0u8; 3],
 		},
 		oldstate,
 		newstate,

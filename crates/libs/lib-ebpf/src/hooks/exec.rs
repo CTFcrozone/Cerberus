@@ -12,7 +12,11 @@ use aya_ebpf::{
 use aya_log_ebpf::error;
 use lib_ebpf_common::{BprmSecurityCheckEvent, EventHeader, FILE_PATH_LEN};
 
-use crate::{utils::get_mnt_ns, vmlinux::linux_binprm, EVT_MAP};
+use crate::{
+	utils::{get_mnt_ns, get_ppid},
+	vmlinux::linux_binprm,
+	EVT_MAP,
+};
 
 #[map(name = "FPATH")]
 static mut FPATH: PerCpuArray<[u8; FILE_PATH_LEN]> = PerCpuArray::with_max_entries(1, 0);
@@ -23,7 +27,7 @@ pub fn try_bprm_check_security(ctx: LsmContext) -> Result<i32, i32> {
 	let tgid = (bpf_get_current_pid_tgid() >> 32) as u32;
 	let comm = bpf_get_current_comm().unwrap_or([0u8; 16]);
 	let ts = unsafe { bpf_ktime_get_ns() };
-
+	let ppid = unsafe { get_ppid() };
 	let cgroup_id = unsafe { bpf_get_current_cgroup_id() };
 	let mnt_ns = unsafe { get_mnt_ns() };
 	let bprm: *const linux_binprm = unsafe { ctx.arg(0) };
@@ -46,10 +50,11 @@ pub fn try_bprm_check_security(ctx: LsmContext) -> Result<i32, i32> {
 			cgroup_id,
 			mnt_ns,
 			pid,
+			ppid: ppid as u32,
 			uid,
 			tgid,
 			comm,
-			_pad0: [0u8; 7],
+			_pad0: [0u8; 3],
 		},
 		filepath: unsafe { *buf },
 		path_len: ret,

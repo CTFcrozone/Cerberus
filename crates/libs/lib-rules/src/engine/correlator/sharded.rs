@@ -7,7 +7,7 @@ use crate::{
 	rule::Sequence,
 };
 
-type ShardKey = u32; // pid
+type ShardKey = u32; // ppid
 
 pub struct ShardedCorrelator {
 	shards: DashMap<ShardKey, Correlator>,
@@ -38,4 +38,12 @@ impl ShardedCorrelator {
 		let mut correlator = self.shards.get_mut(&pid)?;
 		correlator.on_rule_match(matched_rule_id, seq, root_rule_id, now)
 	}
+}
+
+fn shard_key(pid: u32, tgid: u32, ppid: u32, cgroup_id: u64) -> u64 {
+	let mut key = pid as u64;
+	key ^= (tgid as u64) << 16;
+	key ^= (ppid as u64) << 32;
+	key ^= cgroup_id;
+	key ^ (key >> 33)
 }
