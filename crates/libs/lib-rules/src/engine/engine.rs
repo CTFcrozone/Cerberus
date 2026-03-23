@@ -102,8 +102,6 @@ impl RuleEngine {
 			if self
 				.correlator
 				.on_rule_match(
-					header.pid,
-					header.tgid,
 					header.ppid,
 					header.cgroup_id,
 					&matched_rule.inner.id,
@@ -151,15 +149,8 @@ impl RuleEngine {
 				out.push(Self::rule_to_eval_event(rule, Self::event_meta(event)).into());
 
 				if let Some(seq) = &rule.inner.sequence {
-					self.correlator.on_root_match(
-						header.pid,
-						header.tgid,
-						header.ppid,
-						header.cgroup_id,
-						&rule.inner.id,
-						seq,
-						now,
-					);
+					self.correlator
+						.on_root_match(header.ppid, header.cgroup_id, &rule.inner.id, seq, now);
 				}
 				self.advance_sequences(rule, now, &ruleset, &index, &mut out, event);
 			}
