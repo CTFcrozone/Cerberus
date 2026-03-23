@@ -84,6 +84,8 @@ impl RuleEngine {
 		event: &CerberusEvent,
 	) {
 		let key: Arc<str> = matched_rule.inner.id.as_str().into();
+		let header = event.header();
+
 		let Some(root_ids) = index.seq_listeners.get(&key) else {
 			return;
 		};
@@ -100,7 +102,10 @@ impl RuleEngine {
 			if self
 				.correlator
 				.on_rule_match(
-					event.header().ppid,
+					header.pid,
+					header.tgid,
+					header.ppid,
+					header.cgroup_id,
 					&matched_rule.inner.id,
 					seq,
 					&root_rule.inner.id,
@@ -131,6 +136,7 @@ impl RuleEngine {
 		let now = Instant::now();
 		// let mut corr = self.correlator.lock();
 		let evt_kind = EventKind::from(event);
+		let header = event.header();
 
 		if let Some(candidates) = index.by_evt_kind.get(&evt_kind) {
 			for rule_id in candidates {
@@ -145,7 +151,15 @@ impl RuleEngine {
 				out.push(Self::rule_to_eval_event(rule, Self::event_meta(event)).into());
 
 				if let Some(seq) = &rule.inner.sequence {
-					self.correlator.on_root_match(event.header().ppid, &rule.inner.id, seq, now);
+					self.correlator.on_root_match(
+						header.pid,
+						header.tgid,
+						header.ppid,
+						header.cgroup_id,
+						&rule.inner.id,
+						seq,
+						now,
+					);
 				}
 				self.advance_sequences(rule, now, &ruleset, &index, &mut out, event);
 			}

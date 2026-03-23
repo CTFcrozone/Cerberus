@@ -7,7 +7,7 @@ use crate::{
 	rule::Sequence,
 };
 
-type ShardKey = u32; // ppid
+type ShardKey = u64; // ppid
 
 pub struct ShardedCorrelator {
 	shards: DashMap<ShardKey, Correlator>,
@@ -18,24 +18,44 @@ impl ShardedCorrelator {
 		Self { shards: DashMap::new() }
 	}
 
-	fn get_correlator(&self, pid: u32) -> dashmap::mapref::entry::Entry<'_, ShardKey, Correlator> {
-		self.shards.entry(pid)
+	fn get_correlator(
+		&self,
+		pid: u32,
+		tgid: u32,
+		ppid: u32,
+		cgroup_id: u64,
+	) -> dashmap::mapref::entry::Entry<'_, ShardKey, Correlator> {
+		let key = shard_key(pid, tgid, ppid, cgroup_id);
+		self.shards.entry(key)
 	}
 
-	pub fn on_root_match(&self, pid: u32, root_rule_id: &str, seq: &Sequence, now: Instant) {
-		let mut correlator = self.get_correlator(pid).or_insert_with(Correlator::new);
+	pub fn on_root_match(
+		&self,
+		pid: u32,
+		tgid: u32,
+		ppid: u32,
+		cgroup_id: u64,
+		root_rule_id: &str,
+		seq: &Sequence,
+		now: Instant,
+	) {
+		let mut correlator = self.get_correlator(pid, tgid, ppid, cgroup_id).or_insert_with(Correlator::new);
 		correlator.on_root_match(root_rule_id, seq, now);
 	}
 
 	pub fn on_rule_match(
 		&self,
 		pid: u32,
+		tgid: u32,
+		ppid: u32,
+		cgroup_id: u64,
 		matched_rule_id: &str,
 		seq: &Sequence,
 		root_rule_id: &str,
 		now: Instant,
 	) -> Option<CorrelatedMatch> {
-		let mut correlator = self.shards.get_mut(&pid)?;
+		let key = shard_key(pid, tgid, ppid, cgroup_id);
+		let mut correlator = self.shards.get_mut(&key)?;
 		correlator.on_rule_match(matched_rule_id, seq, root_rule_id, now)
 	}
 }
