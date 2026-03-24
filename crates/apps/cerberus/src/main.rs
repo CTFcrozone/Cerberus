@@ -141,6 +141,10 @@ pub fn load_hooks(ebpf: &mut Ebpf) -> Result<AsyncFd<RingBuf<MapData>>> {
 	lsm_inode_unlink.load("inode_unlink", &btf)?;
 	lsm_inode_unlink.attach()?;
 
+	let lsm_inode_mkdir: &mut Lsm = ebpf.program_mut("inode_mkdir").ok_or(Error::EbpfProgNotFound)?.try_into()?;
+	lsm_inode_mkdir.load("inode_mkdir", &btf)?;
+	lsm_inode_mkdir.attach()?;
+
 	let lsm_bpf_prog_load: &mut Lsm = ebpf.program_mut("bpf_prog_load").ok_or(Error::EbpfProgNotFound)?.try_into()?;
 	lsm_bpf_prog_load.load("bpf_prog_load", &btf)?;
 	lsm_bpf_prog_load.attach()?;

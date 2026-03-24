@@ -10,7 +10,7 @@ pub enum CerberusEvent {
 	#[from]
 	InetSock(InetSockEvent),
 	#[from]
-	InodeUnlink(InodeUnlinkEvent),
+	Inode(InodeEvent),
 	#[from]
 	Socket(SocketEvent),
 	#[from]
@@ -86,10 +86,11 @@ pub struct BprmSecurityEvent {
 }
 
 #[derive(Debug, Clone)]
-pub struct InodeUnlinkEvent {
+pub struct InodeEvent {
 	pub header: EventHeader,
 	pub filename: Arc<str>,
 	pub filename_len: u32,
+	pub op: u8,
 }
 
 #[derive(Debug, Clone)]

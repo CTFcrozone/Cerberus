@@ -31,6 +31,14 @@ pub fn socket_connect(ctx: LsmContext) -> i32 {
 	}
 }
 
+#[lsm(hook = "inode_mkdir")]
+pub fn inode_mkdir(ctx: LsmContext) -> i32 {
+	match hooks::try_inode_mkdir(ctx) {
+		Ok(ret) => ret,
+		Err(ret) => ret,
+	}
+}
+
 #[lsm(hook = "inode_unlink")]
 pub fn inode_unlink(ctx: LsmContext) -> i32 {
 	match hooks::try_inode_unlink(ctx) {

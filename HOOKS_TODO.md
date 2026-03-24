@@ -26,9 +26,9 @@
 
 - [ ] file_permission - LSM
 - [ ] inode_permission - LSM
-- [ ] inode_mkdir - LSM
+- [x] inode_mkdir - LSM
 - [ ] inode_rmdir - LSM
-- [x] inode_unlink - LSM - only ebpf part atm
+- [x] inode_unlink - LSM
 - [ ] inode_symlink - LSM
 - [ ] inode_rename - LSM
 - [ ] inode_link - LSM

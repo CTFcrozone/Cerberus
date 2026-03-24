@@ -4,7 +4,7 @@ use crate::error::{Error, Result};
 
 use aya::maps::{MapData, RingBuf};
 use lib_common::event::{
-	BpfProgLoadEvent, BprmSecurityEvent, CerberusEvent, EventHeader, InetSockEvent, InodeUnlinkEvent, ModuleEvent,
+	BpfProgLoadEvent, BprmSecurityEvent, CerberusEvent, EventHeader, InetSockEvent, InodeEvent, ModuleEvent,
 	RingBufEvent,
 };
 use lib_ebpf_common::{EbpfEvent, FILE_PATH_LEN};
@@ -100,9 +100,10 @@ fn parse_cerberus_event(evt: EbpfEvent) -> Result<CerberusEvent> {
 			},
 		}),
 
-		EbpfEvent::InodeUnlink(ref e) => CerberusEvent::InodeUnlink(InodeUnlinkEvent {
+		EbpfEvent::Inode(ref e) => CerberusEvent::Inode(InodeEvent {
 			filename: Arc::from(String::from_utf8_lossy(&e.filename).trim_end_matches('\0')),
 			filename_len: e.filename_len,
+			op: e.op,
 			header: EventHeader {
 				cgroup_id: e.header.cgroup_id,
 				container: None,
@@ -252,10 +253,10 @@ fn parse_event_from_bytes(data: &[u8]) -> Result<EbpfEvent> {
 			Ok(EbpfEvent::BpfProgLoad(*evt))
 		}
 		10 => {
-			let evt = lib_ebpf_common::InodeUnlinkEvent::ref_from_prefix(data)
+			let evt = lib_ebpf_common::InodeEvent::ref_from_prefix(data)
 				.map_err(|_| Error::InvalidEventSize)?
 				.0;
-			Ok(EbpfEvent::InodeUnlink(*evt))
+			Ok(EbpfEvent::Inode(*evt))
 		}
 		_ => Err(Error::UnknownEventType(header.event_type)),
 	}

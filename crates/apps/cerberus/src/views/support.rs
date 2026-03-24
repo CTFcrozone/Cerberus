@@ -137,10 +137,19 @@ pub fn line_from_event(evt: &CerberusEvent) -> Line<'static> {
 			"[BRPM_SEC_CHECK] UID:{} | PID:{} | TGID:{} | CMD:{} | FILEPATH:{}",
 			h.uid, h.pid, h.tgid, h.comm, b.filepath
 		)),
-		CerberusEvent::InodeUnlink(u) => Line::raw(format!(
-			"[INODE_UNLINK] UID:{} | PID:{} | TGID:{} | CMD:{} | FILENAME:{}",
-			h.uid, h.pid, h.tgid, h.comm, u.filename
-		)),
+		CerberusEvent::Inode(u) => {
+			let op_str = match u.op {
+				0 => "UNLINK",
+				1 => "MKDIR",
+				2 => "RMDIR",
+				_ => "UNKOWN",
+			};
+
+			Line::raw(format!(
+				"[INODE] UID:{} | PID:{} | TGID:{} | CMD:{} | FILENAME:{} | OP:{}",
+				h.uid, h.pid, h.tgid, h.comm, u.filename, op_str
+			))
+		}
 		CerberusEvent::Socket(s) => {
 			let op_str = match s.op {
 				0 => "BIND",

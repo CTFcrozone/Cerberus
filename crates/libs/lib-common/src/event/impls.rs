@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
 use crate::event::{
-	BpfProgLoadEvent, BprmSecurityEvent, CerberusEvent, Event, EventHeader, InetSockEvent, InodeUnlinkEvent,
-	ModuleEvent, RingBufEvent, SocketEvent,
+	BpfProgLoadEvent, BprmSecurityEvent, CerberusEvent, Event, EventHeader, InetSockEvent, InodeEvent, ModuleEvent,
+	RingBufEvent, SocketEvent,
 };
 
 impl Event for RingBufEvent {
@@ -62,7 +62,7 @@ impl Event for BprmSecurityEvent {
 	}
 }
 
-impl Event for InodeUnlinkEvent {
+impl Event for InodeEvent {
 	fn header(&self) -> &EventHeader {
 		&self.header
 	}
@@ -164,7 +164,7 @@ impl Event for CerberusEvent {
 			CerberusEvent::Generic(e) => e.header(),
 			CerberusEvent::Module(e) => e.header(),
 			CerberusEvent::Bprm(e) => e.header(),
-			CerberusEvent::InodeUnlink(e) => e.header(),
+			CerberusEvent::Inode(e) => e.header(),
 			CerberusEvent::InetSock(e) => e.header(),
 			CerberusEvent::Socket(e) => e.header(),
 			CerberusEvent::BpfProgLoad(e) => e.header(),
@@ -176,7 +176,7 @@ impl Event for CerberusEvent {
 			CerberusEvent::Generic(e) => e.header_mut(),
 			CerberusEvent::Module(e) => e.header_mut(),
 			CerberusEvent::Bprm(e) => e.header_mut(),
-			CerberusEvent::InodeUnlink(e) => e.header_mut(),
+			CerberusEvent::Inode(e) => e.header_mut(),
 			CerberusEvent::InetSock(e) => e.header_mut(),
 			CerberusEvent::Socket(e) => e.header_mut(),
 			CerberusEvent::BpfProgLoad(e) => e.header_mut(),
@@ -188,7 +188,7 @@ impl Event for CerberusEvent {
 			CerberusEvent::Generic(e) => e.to_fields(),
 			CerberusEvent::Module(e) => e.to_fields(),
 			CerberusEvent::Bprm(e) => e.to_fields(),
-			CerberusEvent::InodeUnlink(e) => e.to_fields(),
+			CerberusEvent::Inode(e) => e.to_fields(),
 			CerberusEvent::InetSock(e) => e.to_fields(),
 			CerberusEvent::Socket(e) => e.to_fields(),
 			CerberusEvent::BpfProgLoad(e) => e.to_fields(),

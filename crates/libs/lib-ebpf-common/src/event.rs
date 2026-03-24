@@ -86,11 +86,12 @@ pub struct SocketEvent {
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug, FromBytes, Immutable, KnownLayout)]
-pub struct InodeUnlinkEvent {
+pub struct InodeEvent {
 	pub header: EventHeader,
 	pub filename: [u8; 64],
 	pub filename_len: u32,
-	pub _pad0: [u8; 4],
+	pub op: u8, // 0 = unlink, 1 = mkdir, 2 = rmdir, 3 = symlink, 4 = rename etc.
+	pub _pad0: [u8; 3],
 }
 
 #[repr(C)]
@@ -109,7 +110,7 @@ pub enum EbpfEvent {
 	Generic(GenericEvent),
 	InetSock(InetSockSetStateEvent),
 	Socket(SocketEvent),
-	InodeUnlink(InodeUnlinkEvent),
+	Inode(InodeEvent),
 	ModuleInit(ModuleInitEvent),
 	BprmSecurityCheck(BprmSecurityCheckEvent),
 	BpfProgLoad(BpfProgLoadEvent),
