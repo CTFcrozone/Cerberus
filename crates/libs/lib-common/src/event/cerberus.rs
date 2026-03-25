@@ -76,6 +76,7 @@ pub struct BpfProgLoadEvent {
 pub struct ModuleEvent {
 	pub header: EventHeader,
 	pub module_name: Arc<str>,
+	pub op: u8,
 }
 
 #[derive(Debug, Clone)]

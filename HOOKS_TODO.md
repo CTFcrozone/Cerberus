@@ -27,7 +27,7 @@
 - [ ] file_permission - LSM
 - [ ] inode_permission - LSM
 - [x] inode_mkdir - LSM
-- [ ] inode_rmdir - LSM
+- [x] inode_rmdir - LSM
 - [x] inode_unlink - LSM
 - [ ] inode_symlink - LSM
 - [ ] inode_rename - LSM
@@ -52,7 +52,7 @@
 ### Modules / Kernel Tampering
 
 - [ ] init_module - tracepoint
-- [ ] delete_module - kprobe
+- [x] delete_module - kprobe - ERROR: not found
 - [ ] module_alloc - kprobe
 - [ ] module_free - kprobe
 

@@ -31,6 +31,14 @@ pub fn socket_connect(ctx: LsmContext) -> i32 {
 	}
 }
 
+#[lsm(hook = "inode_rmdir")]
+pub fn inode_rmdir(ctx: LsmContext) -> i32 {
+	match hooks::try_inode_rmdir(ctx) {
+		Ok(ret) => ret,
+		Err(ret) => ret,
+	}
+}
+
 #[lsm(hook = "inode_mkdir")]
 pub fn inode_mkdir(ctx: LsmContext) -> i32 {
 	match hooks::try_inode_mkdir(ctx) {
@@ -90,6 +98,14 @@ pub fn bprm_check_security(ctx: LsmContext) -> i32 {
 #[kprobe]
 pub fn commit_creds(ctx: ProbeContext) -> u32 {
 	match hooks::try_commit_creds(ctx) {
+		Ok(ret) => ret,
+		Err(ret) => ret.try_into().unwrap_or(1),
+	}
+}
+
+#[kprobe]
+pub fn do_delete_module(ctx: ProbeContext) -> u32 {
+	match hooks::try_do_delete_module(ctx) {
 		Ok(ret) => ret,
 		Err(ret) => ret.try_into().unwrap_or(1),
 	}

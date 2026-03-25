@@ -1,15 +1,15 @@
 use zerocopy_derive::{FromBytes, Immutable, KnownLayout};
 
-// 1 => "KILL",
-// 2 => "IO_URING",
-// 3 => "SOCKET_CONNECT",
-// 4 => "COMMIT_CREDS",
-// 5 => "MODULE_INIT",
-// 6 => "INET_SOCK_SET_STATE",
-// 7 => "ENTER_PTRACE"
+// 1 => KILL,
+// 2 => IO_URING,
+// 3 => SOCKET,
+// 4 => COMMIT_CREDS,
+// 5 => MODULE,
+// 6 => INET_SOCK_SET_STATE,
+// 7 => ENTER_PTRACE
 // 8 => EXEC (bprm_check_security)
 // 9 => BPF_PROG_LOAD
-// 10 => INODE_UNLINK
+// 10 => INODE
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug, FromBytes, Immutable, KnownLayout)]
@@ -36,9 +36,11 @@ pub struct GenericEvent {
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug, FromBytes, Immutable, KnownLayout)]
-pub struct ModuleInitEvent {
+pub struct ModuleEvent {
 	pub header: EventHeader,
 	pub module_name: [u8; 56],
+	pub op: u8, // 0 = init, 1 = delete, etc.
+	pub _pad0: [u8; 7],
 }
 
 #[repr(C)]
@@ -111,7 +113,7 @@ pub enum EbpfEvent {
 	InetSock(InetSockSetStateEvent),
 	Socket(SocketEvent),
 	Inode(InodeEvent),
-	ModuleInit(ModuleInitEvent),
+	Module(ModuleEvent),
 	BprmSecurityCheck(BprmSecurityCheckEvent),
 	BpfProgLoad(BpfProgLoadEvent),
 }

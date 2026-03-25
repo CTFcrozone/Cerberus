@@ -44,7 +44,7 @@ fn field_in(kind: EventKind, field: &str) -> bool {
 		),
 		EventKind::Module => matches!(
 			field,
-			"process.uid" | "process.pid" | "process.tgid" | "process.comm" | "module.name"
+			"process.uid" | "process.pid" | "process.tgid" | "process.comm" | "module.name" | "module.op"
 		),
 		EventKind::Inode => matches!(
 			field,

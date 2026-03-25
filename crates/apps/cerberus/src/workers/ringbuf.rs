@@ -84,8 +84,9 @@ fn parse_cerberus_event(evt: EbpfEvent) -> Result<CerberusEvent> {
 			},
 		}),
 
-		EbpfEvent::ModuleInit(ref e) => CerberusEvent::Module(ModuleEvent {
+		EbpfEvent::Module(ref e) => CerberusEvent::Module(ModuleEvent {
 			module_name: Arc::from(String::from_utf8_lossy(&e.module_name).trim_end_matches('\0')),
+			op: e.op,
 			header: EventHeader {
 				cgroup_id: e.header.cgroup_id,
 				container: None,
@@ -229,10 +230,10 @@ fn parse_event_from_bytes(data: &[u8]) -> Result<EbpfEvent> {
 		}
 
 		5 => {
-			let evt = lib_ebpf_common::ModuleInitEvent::ref_from_prefix(data)
+			let evt = lib_ebpf_common::ModuleEvent::ref_from_prefix(data)
 				.map_err(|_| Error::InvalidEventSize)?
 				.0;
-			Ok(EbpfEvent::ModuleInit(*evt))
+			Ok(EbpfEvent::Module(*evt))
 		}
 		6 => {
 			let evt = lib_ebpf_common::InetSockSetStateEvent::ref_from_prefix(data)

@@ -145,6 +145,10 @@ pub fn load_hooks(ebpf: &mut Ebpf) -> Result<AsyncFd<RingBuf<MapData>>> {
 	lsm_inode_mkdir.load("inode_mkdir", &btf)?;
 	lsm_inode_mkdir.attach()?;
 
+	let lsm_inode_rmdir: &mut Lsm = ebpf.program_mut("inode_rmdir").ok_or(Error::EbpfProgNotFound)?.try_into()?;
+	lsm_inode_rmdir.load("inode_rmdir", &btf)?;
+	lsm_inode_rmdir.attach()?;
+
 	let lsm_bpf_prog_load: &mut Lsm = ebpf.program_mut("bpf_prog_load").ok_or(Error::EbpfProgNotFound)?.try_into()?;
 	lsm_bpf_prog_load.load("bpf_prog_load", &btf)?;
 	lsm_bpf_prog_load.attach()?;
@@ -159,6 +163,14 @@ pub fn load_hooks(ebpf: &mut Ebpf) -> Result<AsyncFd<RingBuf<MapData>>> {
 		.try_into()?;
 	bprm.load("bprm_check_security", &btf)?;
 	bprm.attach()?;
+
+	// FIXME: Not found???
+	// let kp_module_delete: &mut KProbe = ebpf
+	// 	.program_mut("do_delete_module")
+	// 	.ok_or(Error::EbpfProgNotFound)?
+	// 	.try_into()?;
+	// kp_module_delete.load()?;
+	// kp_module_delete.attach("do_delete_module", 0)?;
 
 	let kp_commit_creds: &mut KProbe = ebpf.program_mut("commit_creds").ok_or(Error::EbpfProgNotFound)?.try_into()?;
 	kp_commit_creds.load()?;

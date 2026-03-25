@@ -37,6 +37,7 @@ impl Event for ModuleEvent {
 		f.insert("process.tgid".into(), toml::Value::Integer(self.header.tgid as i64));
 		f.insert("process.comm".into(), toml::Value::String(self.header.comm.to_string()));
 		f.insert("module.name".into(), toml::Value::String(self.module_name.to_string()));
+		f.insert("module.op".into(), toml::Value::Integer(self.op as i64));
 		f
 	}
 }
@@ -76,6 +77,7 @@ impl Event for InodeEvent {
 		f.insert("process.tgid".into(), toml::Value::Integer(self.header.tgid as i64));
 		f.insert("process.comm".into(), toml::Value::String(self.header.comm.to_string()));
 		f.insert("inode.filename".into(), toml::Value::String(self.filename.to_string()));
+		f.insert("inode.op".into(), toml::Value::Integer(self.op as i64));
 		f
 	}
 }

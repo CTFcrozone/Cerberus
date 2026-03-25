@@ -129,10 +129,18 @@ pub fn line_from_event(evt: &CerberusEvent) -> Line<'static> {
 			"[{}] UID:{} | PID:{} | TGID:{} | CMD:{} | META:{}",
 			g.name, h.uid, h.pid, h.tgid, h.comm, g.meta
 		)),
-		CerberusEvent::Module(m) => Line::raw(format!(
-			"[MODULE_INIT] UID:{} | PID:{} | TGID:{} | CMD:{} | MODULE_NAME:{}",
-			h.uid, h.pid, h.tgid, h.comm, m.module_name
-		)),
+		CerberusEvent::Module(m) => {
+			let op_str = match m.op {
+				0 => "INIT",
+				1 => "DELETE",
+				_ => "UNKNOWN",
+			};
+
+			Line::raw(format!(
+				"[MODULE_{}] UID:{} | PID:{} | TGID:{} | CMD:{} | MODULE_NAME:{}",
+				op_str, h.uid, h.pid, h.tgid, h.comm, m.module_name
+			))
+		}
 		CerberusEvent::Bprm(b) => Line::raw(format!(
 			"[BRPM_SEC_CHECK] UID:{} | PID:{} | TGID:{} | CMD:{} | FILEPATH:{}",
 			h.uid, h.pid, h.tgid, h.comm, b.filepath
@@ -146,8 +154,8 @@ pub fn line_from_event(evt: &CerberusEvent) -> Line<'static> {
 			};
 
 			Line::raw(format!(
-				"[INODE] UID:{} | PID:{} | TGID:{} | CMD:{} | FILENAME:{} | OP:{}",
-				h.uid, h.pid, h.tgid, h.comm, u.filename, op_str
+				"[INODE_{}] UID:{} | PID:{} | TGID:{} | CMD:{} | FILENAME:{}",
+				op_str, h.uid, h.pid, h.tgid, h.comm, u.filename,
 			))
 		}
 		CerberusEvent::Socket(s) => {
