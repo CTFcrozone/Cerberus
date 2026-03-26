@@ -95,21 +95,21 @@ pub fn bprm_check_security(ctx: LsmContext) -> i32 {
 	}
 }
 
-#[kprobe]
-pub fn commit_creds(ctx: ProbeContext) -> u32 {
-	match hooks::try_commit_creds(ctx) {
+#[tracepoint]
+pub fn sys_enter_delete_module(ctx: TracePointContext) -> u32 {
+	match hooks::try_sys_enter_delete_module(ctx) {
 		Ok(ret) => ret,
-		Err(ret) => ret.try_into().unwrap_or(1),
+		Err(ret) => ret,
 	}
 }
 
-#[kprobe]
-pub fn do_delete_module(ctx: ProbeContext) -> u32 {
-	match hooks::try_do_delete_module(ctx) {
-		Ok(ret) => ret,
-		Err(ret) => ret.try_into().unwrap_or(1),
-	}
-}
+// #[kprobe]
+// pub fn do_delete_module(ctx: ProbeContext) -> u32 {
+// 	match hooks::try_do_delete_module(ctx) {
+// 		Ok(ret) => ret,
+// 		Err(ret) => ret.try_into().unwrap_or(1),
+// 	}
+// }
 
 #[kprobe]
 pub fn do_init_module(ctx: ProbeContext) -> u32 {

@@ -14,46 +14,6 @@ use crate::{
 	EVT_MAP,
 };
 
-pub fn try_commit_creds(ctx: ProbeContext) -> Result<u32, i64> {
-	let old_uid = bpf_get_current_uid_gid() as u32;
-	let pid = bpf_get_current_pid_tgid() as u32;
-	let tgid = (bpf_get_current_pid_tgid() >> 32) as u32;
-	let comm_raw = bpf_get_current_comm().unwrap_or([0u8; 16]);
-	let cgroup_id = unsafe { bpf_get_current_cgroup_id() };
-	let mnt_ns = unsafe { get_mnt_ns() };
-	let ts = unsafe { bpf_ktime_get_ns() };
-	let ppid = unsafe { get_ppid() };
-
-	let new_uid = ctx.arg(1).unwrap_or(0u32);
-
-	if old_uid != 0 && new_uid == 0 {
-		let event = GenericEvent {
-			header: EventHeader {
-				ts,
-				event_type: 4,
-				cgroup_id,
-				mnt_ns,
-				pid,
-				ppid: ppid as u32,
-				uid: old_uid,
-				tgid,
-				comm: comm_raw,
-				_pad0: [0u8; 3],
-			},
-
-			meta: 0x00,
-			_pad0: [0u8; 4],
-		};
-
-		match EVT_MAP.output(&event, 0) {
-			Ok(_) => (),
-			Err(e) => return Err(e),
-		}
-	}
-
-	Ok(0)
-}
-
 pub fn try_sys_enter_ptrace(ctx: TracePointContext) -> Result<u32, u32> {
 	let uid = bpf_get_current_uid_gid() as u32;
 	let pid = bpf_get_current_pid_tgid() as u32;
