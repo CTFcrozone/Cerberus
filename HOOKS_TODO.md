@@ -52,7 +52,7 @@
 ### Modules / Kernel Tampering
 
 - [ ] init_module - tracepoint
-- [x] delete_module - kprobe - ERROR: not found
+- [x] delete_module - tracepoint
 - [ ] module_alloc - kprobe
 - [ ] module_free - kprobe
 
