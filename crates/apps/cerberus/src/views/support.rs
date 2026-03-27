@@ -133,6 +133,7 @@ pub fn line_from_event(evt: &CerberusEvent) -> Line<'static> {
 			let op_str = match m.op {
 				0 => "INIT",
 				1 => "DELETE",
+				2 => "REQUEST",
 				_ => "UNKNOWN",
 			};
 

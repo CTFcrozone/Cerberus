@@ -1,64 +1,63 @@
-# Hooks
+# Core
 
-- [x] commit_creds - kprobe
-- [x] sys_enter_ptrace - tracepoint
-- [x] sys_enter_kill - tracepoint
-- [x] socket_connect - LSM
-- [x] inet_sock_set_state - tracepoint
-- [x] do_init_module - kprobe
-- [x] bprm_check_security - LSM
-- [x] bpf_prog_load - LSM
+- [x] kprobe::commit_creds
+- [x] tracepoint::syscalls:sys_enter_ptrace
+- [x] tracepoint::syscalls:sys_enter_kill
+- [x] lsm::socket_connect
+- [x] tracepoint::sock:inet_sock_set_state
+- [x] kprobe::do_init_module
+- [x] lsm::bprm_check_security
+- [x] lsm::bpf_prog_load
 
 ### Process / Exec
 
-- [ ] do_fork - kprobe
-- [ ] sys_enter_execve - tracepoint
-- [ ] prepare_creds - kprobe
-- [ ] override_creds - kprobe
-- [ ] bprm_committing_creds - LSM
-- [ ] task_alloc - LSM
-- [ ] task_kill - LSM
-- [ ] ptrace_access_check - LSM
-- [ ] capable - LSM
-- [ ] capset - LSM
+- [ ] tracepoint::sched:sched_process_fork
+- [ ] tracepoint::sched:sched_process_exec
+- [ ] tracepoint::sched:sched_process_exit
+- [ ] kprobe::prepare_creds
+- [ ] kprobe::override_creds
+- [ ] lsm::bprm_committing_creds
+- [ ] lsm::task_alloc
+- [ ] lsm::task_kill
+- [ ] lsm::ptrace_access_check
+- [ ] lsm::capable
+- [ ] lsm::capset
 
 ### File / FS
 
-- [ ] file_permission - LSM
-- [ ] inode_permission - LSM
-- [x] inode_mkdir - LSM
-- [x] inode_rmdir - LSM
-- [x] inode_unlink - LSM
-- [ ] inode_symlink - LSM
-- [ ] inode_rename - LSM
-- [ ] inode_link - LSM
-- [ ] inode_setattr - LSM
-- [ ] mmap_file - LSM
-- [ ] file_mprotect - LSM
-- [ ] do_mmap - kprobe
+- [ ] lsm::inode_permission
+- [x] lsm::inode_mkdir
+- [x] lsm::inode_rmdir
+- [x] lsm::inode_unlink
+- [ ] lsm::inode_symlink
+- [ ] lsm::inode_rename
+- [ ] lsm::inode_link
+- [ ] lsm::inode_setattr
+- [ ] lsm::mmap_file
+- [ ] lsm::file_mprotect
+- [ ] kprobe::do_mmap
 
 ### Networking
 
-- [ ] tcp_connect - kprobe
-- [ ] tcp_accept - kprobe
-- [ ] sock_sendmsg - kprobe
-- [ ] sock_recvmsg - kprobe
-- [ ] tcp_sendmsg - kprobe
-- [ ] inet_csk_accept - kprobe
-- [x] socket_bind - LSM
-- [ ] socket_sendmsg - LSM
-- [ ] socket_recvmsg - LSM
+- [ ] kprobe::tcp_connect
+- [ ] kprobe::inet_csk_accept
+- [ ] kprobe::sock_sendmsg
+- [ ] kprobe::sock_recvmsg
+- [x] tracepoint::sock:inet_sock_set_state
+- [x] lsm::socket_bind
+- [ ] lsm::socket_recvmsg
 
 ### Modules / Kernel Tampering
 
-- [ ] init_module - tracepoint
-- [x] delete_module - tracepoint
-- [ ] module_alloc - kprobe
-- [ ] module_free - kprobe
+- [ ] tracepoint::module:init_module
+- [x] kprobe:: `__x64_sys_delete_module/__pfx___x64_sys_delete_module`
+- [ ] kprobe::module_alloc
+- [ ] kprobe::module_free
+- [x] lsm::kernel_module_request
 
 ### BPF Security
 
-- [ ] bpf - LSM
-- [ ] bpf_map - LSM
-- [ ] bpf_prog - LSM
-- [ ] bpf_prog_attach - kprobe
+- [ ] lsm::bpf
+- [ ] lsm::bpf_map
+- [ ] lsm::bpf_prog
+- [ ] kprobe::bpf_prog_attach

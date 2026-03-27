@@ -87,6 +87,14 @@ pub fn sys_enter_kill(ctx: LsmContext) -> i32 {
 	}
 }
 
+#[lsm(hook = "kernel_module_request")]
+pub fn kernel_module_request(ctx: LsmContext) -> i32 {
+	match hooks::try_kernel_module_request(ctx) {
+		Ok(ret) => ret,
+		Err(ret) => ret,
+	}
+}
+
 #[lsm(hook = "bprm_check_security")]
 pub fn bprm_check_security(ctx: LsmContext) -> i32 {
 	match hooks::try_bprm_check_security(ctx) {
