@@ -10,6 +10,7 @@ use zerocopy_derive::{FromBytes, Immutable, KnownLayout};
 // 8 => EXEC (bprm_check_security)
 // 9 => BPF_PROG_LOAD
 // 10 => INODE
+// 11 => SCHED_PROCESS_EXEC
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug, FromBytes, Immutable, KnownLayout)]

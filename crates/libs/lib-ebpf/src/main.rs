@@ -7,6 +7,7 @@ use aya_ebpf::{
 	programs::{LsmContext, ProbeContext, TracePointContext},
 };
 
+#[macro_use]
 mod utils;
 
 mod hooks;
@@ -82,14 +83,6 @@ pub fn sys_enter_ptrace(ctx: TracePointContext) -> u32 {
 #[lsm(hook = "task_kill")]
 pub fn sys_enter_kill(ctx: LsmContext) -> i32 {
 	match hooks::try_sys_enter_kill(ctx) {
-		Ok(ret) => ret,
-		Err(ret) => ret,
-	}
-}
-
-#[lsm(hook = "kernel_module_request")]
-pub fn kernel_module_request(ctx: LsmContext) -> i32 {
-	match hooks::try_kernel_module_request(ctx) {
 		Ok(ret) => ret,
 		Err(ret) => ret,
 	}

@@ -159,6 +159,7 @@ pub fn line_from_event(evt: &CerberusEvent) -> Line<'static> {
 				op_str, h.uid, h.pid, h.tgid, h.comm, u.filename,
 			))
 		}
+
 		CerberusEvent::Socket(s) => {
 			let op_str = match s.op {
 				0 => "BIND",

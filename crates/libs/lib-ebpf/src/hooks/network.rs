@@ -16,15 +16,6 @@ use crate::{
 
 const AF_INET: u16 = 2;
 
-macro_rules! try_read {
-	($ctx:expr, $offset:expr) => {
-		match $ctx.read_at($offset) {
-			Ok(val) => val,
-			Err(_) => return Err(1),
-		}
-	};
-}
-
 pub fn try_socket_connect(ctx: LsmContext) -> Result<i32, i32> {
 	let addr: *const sockaddr = unsafe { ctx.arg(1) };
 	let ret: i32 = unsafe { ctx.arg(3) };
@@ -151,13 +142,13 @@ pub fn try_socket_bind(ctx: LsmContext) -> Result<i32, i32> {
 }
 
 pub fn try_inet_sock_set_state(ctx: TracePointContext) -> Result<u32, u32> {
-	let oldstate: i32 = unsafe { try_read!(ctx, 16) };
-	let newstate: i32 = unsafe { try_read!(ctx, 20) };
-	let sport: u16 = unsafe { try_read!(ctx, 24) };
-	let dport: u16 = unsafe { try_read!(ctx, 26) };
-	let protocol: u16 = unsafe { try_read!(ctx, 30) };
-	let saddr: u32 = unsafe { try_read!(ctx, 32) };
-	let daddr: u32 = unsafe { try_read!(ctx, 36) };
+	let oldstate: i32 = unsafe { tp_try_read!(ctx, 16) };
+	let newstate: i32 = unsafe { tp_try_read!(ctx, 20) };
+	let sport: u16 = unsafe { tp_try_read!(ctx, 24) };
+	let dport: u16 = unsafe { tp_try_read!(ctx, 26) };
+	let protocol: u16 = unsafe { tp_try_read!(ctx, 30) };
+	let saddr: u32 = unsafe { tp_try_read!(ctx, 32) };
+	let daddr: u32 = unsafe { tp_try_read!(ctx, 36) };
 	let ts = unsafe { bpf_ktime_get_ns() };
 	let uid = bpf_get_current_uid_gid() as u32;
 	let pid = bpf_get_current_pid_tgid() as u32;

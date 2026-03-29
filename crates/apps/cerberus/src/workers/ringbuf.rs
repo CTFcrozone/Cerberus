@@ -259,6 +259,7 @@ fn parse_event_from_bytes(data: &[u8]) -> Result<EbpfEvent> {
 				.0;
 			Ok(EbpfEvent::Inode(*evt))
 		}
+
 		_ => Err(Error::UnknownEventType(header.event_type)),
 	}
 }

@@ -12,7 +12,6 @@
 ### Process / Exec
 
 - [ ] tracepoint::sched:sched_process_fork
-- [ ] tracepoint::sched:sched_process_exec
 - [ ] tracepoint::sched:sched_process_exit
 - [ ] kprobe::prepare_creds
 - [ ] kprobe::override_creds
@@ -53,7 +52,6 @@
 - [x] kprobe:: `__x64_sys_delete_module/__pfx___x64_sys_delete_module`
 - [ ] kprobe::module_alloc
 - [ ] kprobe::module_free
-- [x] lsm::kernel_module_request
 
 ### BPF Security
 

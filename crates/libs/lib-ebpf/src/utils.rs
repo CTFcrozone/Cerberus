@@ -19,6 +19,15 @@ pub unsafe fn get_ppid() -> i32 {
 	}
 }
 
+macro_rules! tp_try_read {
+	($ctx:expr, $offset:expr) => {
+		match $ctx.read_at($offset) {
+			Ok(val) => val,
+			Err(_) => return Err(1),
+		}
+	};
+}
+
 pub unsafe fn get_mnt_ns() -> u32 {
 	let task = bpf_get_current_task() as *const crate::vmlinux::task_struct;
 	if task.is_null() {

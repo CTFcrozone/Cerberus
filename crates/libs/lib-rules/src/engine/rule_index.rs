@@ -50,6 +50,7 @@ fn field_in(kind: EventKind, field: &str) -> bool {
 			field,
 			"process.uid" | "process.pid" | "process.tgid" | "process.comm" | "inode.filename" | "inode.op"
 		),
+
 		EventKind::Socket => matches!(field, "socket.port" | "socket.family" | "socket.op"),
 		EventKind::BpfProgLoad => matches!(
 			field,

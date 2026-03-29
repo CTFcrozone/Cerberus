@@ -15,15 +15,6 @@ use crate::{
 	EVT_MAP,
 };
 
-macro_rules! try_read {
-	($ctx:expr, $offset:expr) => {
-		match $ctx.read_at($offset) {
-			Ok(val) => val,
-			Err(_) => return Err(1),
-		}
-	};
-}
-
 pub fn try_sys_enter_delete_module(ctx: TracePointContext) -> Result<u32, u32> {
 	let uid = bpf_get_current_uid_gid() as u32;
 	let pid = bpf_get_current_pid_tgid() as u32;
@@ -35,7 +26,7 @@ pub fn try_sys_enter_delete_module(ctx: TracePointContext) -> Result<u32, u32> {
 	let ppid = unsafe { get_ppid() };
 
 	let mut module_name = [0u8; 56];
-	let name_ptr: *const u8 = unsafe { try_read!(ctx, 8) };
+	let name_ptr: *const u8 = unsafe { tp_try_read!(ctx, 8) };
 
 	let _name_bytes = unsafe { bpf_probe_read_user_str_bytes(name_ptr, &mut module_name) }.map_err(|_| 1u32)?;
 
