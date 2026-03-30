@@ -13,6 +13,7 @@ pub enum EventKind {
 	Socket,
 	Module,
 	BpfProgLoad,
+	BpfMap,
 	Inode,
 	Bprm,
 }
@@ -27,6 +28,7 @@ impl From<&CerberusEvent> for EventKind {
 			CerberusEvent::Socket(_) => EventKind::Socket,
 			CerberusEvent::BpfProgLoad(_) => EventKind::BpfProgLoad,
 			CerberusEvent::Inode(_) => EventKind::Inode,
+			CerberusEvent::BpfMap(_) => EventKind::BpfMap,
 		}
 	}
 }
@@ -62,6 +64,16 @@ fn field_in(kind: EventKind, field: &str) -> bool {
 				| "bpf.prog.attach_type"
 				| "bpf.prog.flags"
 				| "bpf.prog.tag"
+		),
+		EventKind::BpfMap => matches!(
+			field,
+			"process.uid"
+				| "process.pid"
+				| "process.tgid"
+				| "process.comm"
+				| "bpf.map.name"
+				| "bpf.map.type"
+				| "bpf.map.id"
 		),
 	}
 }

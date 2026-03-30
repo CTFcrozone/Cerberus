@@ -56,6 +56,6 @@
 ### BPF Security
 
 - [ ] lsm::bpf
-- [ ] lsm::bpf_map
+- [x] lsm::bpf_map - TO ADD: ops
 - [ ] lsm::bpf_prog
 - [ ] kprobe::bpf_prog_attach

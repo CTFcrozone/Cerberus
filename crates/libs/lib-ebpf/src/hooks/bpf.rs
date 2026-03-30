@@ -6,11 +6,13 @@ use aya_ebpf::{
 	programs::LsmContext,
 };
 use aya_log_ebpf::error;
-use lib_ebpf_common::{BpfProgLoadEvent, EventHeader, FLAG_GPL, FLAG_JITED, FLAG_KPROBE_OVR, FLAG_SLEEPABLE};
+use lib_ebpf_common::{
+	BpfMapEvent, BpfProgLoadEvent, EventHeader, FLAG_GPL, FLAG_JITED, FLAG_KPROBE_OVR, FLAG_SLEEPABLE,
+};
 
 use crate::{
 	utils::{get_mnt_ns, get_ppid},
-	vmlinux::bpf_prog,
+	vmlinux::{bpf_map, bpf_prog},
 	EVT_MAP,
 };
 
@@ -73,6 +75,59 @@ pub fn try_bpf_prog_load(ctx: LsmContext) -> Result<i32, i32> {
 		tag,
 		flags,
 		_pad0: [0u8; 4],
+	};
+
+	if let Err(e) = EVT_MAP.output(&event, 0) {
+		error!(&ctx, "ringbuf write failed: {}", e);
+	}
+
+	Ok(0)
+}
+
+pub fn try_bpf_map(ctx: LsmContext) -> Result<i32, i32> {
+	let uid = bpf_get_current_uid_gid() as u32;
+	let pid = bpf_get_current_pid_tgid() as u32;
+	let tgid = (bpf_get_current_pid_tgid() >> 32) as u32;
+	let ts = unsafe { bpf_ktime_get_ns() };
+	// let task = unsafe { bpf_get_current_task() as *const task_struct };
+	// let parent = unsafe { bpf_probe_read_kernel(&(*task).real_parent).map_err(|e| e as i32)? };
+	// let raw_ppid: i32 = unsafe { bpf_probe_read_kernel(&(*parent).pid).map_err(|e| e as i32)? };
+
+	let comm = bpf_get_current_comm().unwrap_or([0u8; 16]);
+	let cgroup_id = unsafe { bpf_get_current_cgroup_id() };
+	let mnt_ns = unsafe { get_mnt_ns() };
+	let ppid = unsafe { get_ppid() };
+	let map: *const bpf_map = unsafe { ctx.arg(0) };
+
+	if map.is_null() {
+		return Ok(0);
+	}
+
+	let map_id: u32 = unsafe { (*map).id };
+	let map_type: u32 = unsafe { (*map).map_type };
+	let mut map_name = [0u8; 64];
+
+	unsafe {
+		let name_ptr = (*map).name.as_ptr() as *const u8;
+		core::ptr::copy_nonoverlapping(name_ptr, map_name.as_mut_ptr(), 16);
+	}
+
+	let event = BpfMapEvent {
+		header: EventHeader {
+			ts,
+			event_type: 11,
+			cgroup_id,
+			mnt_ns,
+			pid,
+			ppid: ppid as u32,
+			uid,
+			tgid,
+			comm,
+			_pad0: [0u8; 3],
+		},
+		map_id,
+		map_type,
+		map_name,
 	};
 
 	if let Err(e) = EVT_MAP.output(&event, 0) {

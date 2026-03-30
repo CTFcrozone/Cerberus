@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
 use crate::event::{
-	BpfProgLoadEvent, BprmSecurityEvent, CerberusEvent, Event, EventHeader, InetSockEvent, InodeEvent, ModuleEvent,
-	RingBufEvent, SocketEvent,
+	BpfMapEvent, BpfProgLoadEvent, BprmSecurityEvent, CerberusEvent, Event, EventHeader, InetSockEvent, InodeEvent,
+	ModuleEvent, RingBufEvent, SocketEvent,
 };
 
 impl Event for RingBufEvent {
@@ -20,6 +20,26 @@ impl Event for RingBufEvent {
 		fields.insert("process.tgid".into(), toml::Value::Integer(self.header.tgid as i64));
 		fields.insert("process.comm".into(), toml::Value::String(self.header.comm.to_string()));
 		fields
+	}
+}
+
+impl Event for BpfMapEvent {
+	fn header(&self) -> &EventHeader {
+		&self.header
+	}
+	fn header_mut(&mut self) -> &mut EventHeader {
+		&mut self.header
+	}
+	fn to_fields(&self) -> HashMap<String, toml::Value> {
+		let mut f = HashMap::new();
+		f.insert("process.uid".into(), toml::Value::Integer(self.header.uid as i64));
+		f.insert("process.pid".into(), toml::Value::Integer(self.header.pid as i64));
+		f.insert("process.tgid".into(), toml::Value::Integer(self.header.tgid as i64));
+		f.insert("process.comm".into(), toml::Value::String(self.header.comm.to_string()));
+		f.insert("bpf.map.id".into(), toml::Value::Integer(self.map_id as i64));
+		f.insert("bpf.map.name".into(), toml::Value::String(self.map_name.to_string()));
+		f.insert("bpf.map.type".into(), toml::Value::String(self.map_type.to_string()));
+		f
 	}
 }
 
@@ -170,6 +190,7 @@ impl Event for CerberusEvent {
 			CerberusEvent::InetSock(e) => e.header(),
 			CerberusEvent::Socket(e) => e.header(),
 			CerberusEvent::BpfProgLoad(e) => e.header(),
+			CerberusEvent::BpfMap(e) => e.header(),
 		}
 	}
 
@@ -182,6 +203,7 @@ impl Event for CerberusEvent {
 			CerberusEvent::InetSock(e) => e.header_mut(),
 			CerberusEvent::Socket(e) => e.header_mut(),
 			CerberusEvent::BpfProgLoad(e) => e.header_mut(),
+			CerberusEvent::BpfMap(e) => e.header_mut(),
 		}
 	}
 
@@ -194,6 +216,7 @@ impl Event for CerberusEvent {
 			CerberusEvent::InetSock(e) => e.to_fields(),
 			CerberusEvent::Socket(e) => e.to_fields(),
 			CerberusEvent::BpfProgLoad(e) => e.to_fields(),
+			CerberusEvent::BpfMap(e) => e.to_fields(),
 		}
 	}
 }

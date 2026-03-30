@@ -19,6 +19,8 @@ pub enum CerberusEvent {
 	Bprm(BprmSecurityEvent),
 	#[from]
 	BpfProgLoad(BpfProgLoadEvent),
+	#[from]
+	BpfMap(BpfMapEvent),
 }
 
 // TODO: add unified EventHeader struct
@@ -61,6 +63,14 @@ pub struct SocketEvent {
 	pub port: u16,
 	pub family: u16,
 	pub op: u8,
+}
+
+#[derive(Debug, Clone)]
+pub struct BpfMapEvent {
+	pub header: EventHeader,
+	pub map_name: Arc<str>,
+	pub map_type: Arc<str>,
+	pub map_id: u32,
 }
 
 #[derive(Debug, Clone)]

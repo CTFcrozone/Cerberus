@@ -24,6 +24,14 @@ pub fn bpf_prog_load(ctx: LsmContext) -> i32 {
 	}
 }
 
+#[lsm(hook = "bpf_map")]
+pub fn bpf_map(ctx: LsmContext) -> i32 {
+	match hooks::try_bpf_map(ctx) {
+		Ok(ret) => ret,
+		Err(ret) => ret,
+	}
+}
+
 #[lsm(hook = "socket_connect")]
 pub fn socket_connect(ctx: LsmContext) -> i32 {
 	match hooks::try_socket_connect(ctx) {

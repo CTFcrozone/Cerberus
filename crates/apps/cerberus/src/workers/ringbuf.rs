@@ -4,8 +4,8 @@ use crate::error::{Error, Result};
 
 use aya::maps::{MapData, RingBuf};
 use lib_common::event::{
-	BpfProgLoadEvent, BprmSecurityEvent, CerberusEvent, EventHeader, InetSockEvent, InodeEvent, ModuleEvent,
-	RingBufEvent,
+	BpfMapEvent, BpfProgLoadEvent, BprmSecurityEvent, CerberusEvent, EventHeader, InetSockEvent, InodeEvent,
+	ModuleEvent, RingBufEvent,
 };
 use lib_ebpf_common::{EbpfEvent, FILE_PATH_LEN};
 use lib_event::trx::Tx;
@@ -101,6 +101,23 @@ fn parse_cerberus_event(evt: EbpfEvent) -> Result<CerberusEvent> {
 			},
 		}),
 
+		EbpfEvent::BpfMap(ref e) => CerberusEvent::BpfMap(BpfMapEvent {
+			map_id: e.map_id,
+			map_type: Arc::from(bpf_map_type_to_str(e.map_type)),
+			map_name: Arc::from(String::from_utf8_lossy(&e.map_name).trim_end_matches('\0')),
+			header: EventHeader {
+				cgroup_id: e.header.cgroup_id,
+				container: None,
+				ts: e.header.ts,
+				mnt_ns: e.header.mnt_ns,
+				pid: e.header.pid,
+				ppid: e.header.ppid,
+
+				uid: e.header.uid,
+				tgid: e.header.tgid,
+				comm: Arc::from(String::from_utf8_lossy(&e.header.comm).trim_end_matches('\0')),
+			},
+		}),
 		EbpfEvent::Inode(ref e) => CerberusEvent::Inode(InodeEvent {
 			filename: Arc::from(String::from_utf8_lossy(&e.filename).trim_end_matches('\0')),
 			filename_len: e.filename_len,
@@ -259,7 +276,12 @@ fn parse_event_from_bytes(data: &[u8]) -> Result<EbpfEvent> {
 				.0;
 			Ok(EbpfEvent::Inode(*evt))
 		}
-
+		11 => {
+			let evt = lib_ebpf_common::BpfMapEvent::ref_from_prefix(data)
+				.map_err(|_| Error::InvalidEventSize)?
+				.0;
+			Ok(EbpfEvent::BpfMap(*evt))
+		}
 		_ => Err(Error::UnknownEventType(header.event_type)),
 	}
 }
@@ -285,6 +307,46 @@ fn protocol_to_str(proto: u16) -> &'static str {
 	match proto {
 		6 => "TCP",
 		17 => "UDP",
+		_ => "UNKNOWN",
+	}
+}
+
+fn bpf_map_type_to_str(map_type: u32) -> &'static str {
+	match map_type {
+		0 => "UNSPEC",
+		1 => "HASH",
+		2 => "ARRAY",
+		3 => "PROG_ARRAY",
+		4 => "PERF_EVENT_ARRAY",
+		5 => "PERCPU_HASH",
+		6 => "PERCPU_ARRAY",
+		7 => "STACK_TRACE",
+		8 => "CGROUP_ARRAY",
+		9 => "LRU_HASH",
+		10 => "LRU_PERCPU_HASH",
+		11 => "LPM_TRIE",
+		12 => "ARRAY_OF_MAPS",
+		13 => "HASH_OF_MAPS",
+		14 => "DEVMAP",
+		15 => "SOCKMAP",
+		16 => "CPUMAP",
+		17 => "XSKMAP",
+		18 => "SOCKHASH",
+		19 => "CGROUP_STORAGE",
+		20 => "REUSEPORT_SOCKARRAY",
+		21 => "PERCPU_CGROUP_STORAGE",
+		22 => "QUEUE",
+		23 => "STACK",
+		24 => "SK_STORAGE",
+		25 => "DEVMAP_HASH",
+		26 => "STRUCT_OPS",
+		27 => "RINGBUF",
+		28 => "INODE_STORAGE",
+		29 => "TASK_STORAGE",
+		30 => "BLOOM_FILTER",
+		31 => "USER_RINGBUF",
+		32 => "CGRP_STORAGE",
+		33 => "ARENA",
 		_ => "UNKNOWN",
 	}
 }

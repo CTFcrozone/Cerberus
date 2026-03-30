@@ -152,6 +152,10 @@ pub fn load_hooks(ebpf: &mut Ebpf) -> Result<AsyncFd<RingBuf<MapData>>> {
 	let lsm_bpf_prog_load: &mut Lsm = ebpf.program_mut("bpf_prog_load").ok_or(Error::EbpfProgNotFound)?.try_into()?;
 	lsm_bpf_prog_load.load("bpf_prog_load", &btf)?;
 	lsm_bpf_prog_load.attach()?;
+
+	let lsm_bpf_map: &mut Lsm = ebpf.program_mut("bpf_map").ok_or(Error::EbpfProgNotFound)?.try_into()?;
+	lsm_bpf_map.load("bpf_map", &btf)?;
+	lsm_bpf_map.attach()?;
 	//
 	let kp_module_init: &mut KProbe = ebpf.program_mut("do_init_module").ok_or(Error::EbpfProgNotFound)?.try_into()?;
 	kp_module_init.load()?;

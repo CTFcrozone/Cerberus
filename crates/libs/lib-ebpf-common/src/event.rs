@@ -55,6 +55,15 @@ pub struct BprmSecurityCheckEvent {
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug, FromBytes, Immutable, KnownLayout)]
+pub struct BpfMapEvent {
+	pub header: EventHeader,
+	pub map_name: [u8; 64],
+	pub map_id: u32,
+	pub map_type: u32,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Debug, FromBytes, Immutable, KnownLayout)]
 pub struct InetSockSetStateEvent {
 	pub header: EventHeader,
 	pub oldstate: i32,
@@ -117,4 +126,5 @@ pub enum EbpfEvent {
 	Module(ModuleEvent),
 	BprmSecurityCheck(BprmSecurityCheckEvent),
 	BpfProgLoad(BpfProgLoadEvent),
+	BpfMap(BpfMapEvent),
 }

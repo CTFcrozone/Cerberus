@@ -146,6 +146,7 @@ pub fn line_from_event(evt: &CerberusEvent) -> Line<'static> {
 			"[BRPM_SEC_CHECK] UID:{} | PID:{} | TGID:{} | CMD:{} | FILEPATH:{}",
 			h.uid, h.pid, h.tgid, h.comm, b.filepath
 		)),
+
 		CerberusEvent::Inode(u) => {
 			let op_str = match u.op {
 				0 => "UNLINK",
@@ -195,6 +196,10 @@ pub fn line_from_event(evt: &CerberusEvent) -> Line<'static> {
 				h.uid, h.pid, h.comm, prog_type_str, attach_type_str, flags_str,
 			))
 		}
+		CerberusEvent::BpfMap(b) => Line::raw(format!(
+			"[BPF_MAP] UID:{} | PID:{} | CMD:{} | MAP_NAME:{} | MAP_TYPE:{} | MAP_ID:{}",
+			h.uid, h.pid, h.comm, b.map_name, b.map_type, b.map_id,
+		)),
 	}
 }
 
