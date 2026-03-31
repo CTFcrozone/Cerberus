@@ -48,6 +48,14 @@ pub fn inode_rmdir(ctx: LsmContext) -> i32 {
 	}
 }
 
+#[lsm(hook = "inode_rename")]
+pub fn inode_rename(ctx: LsmContext) -> i32 {
+	match hooks::try_inode_rename(ctx) {
+		Ok(ret) => ret,
+		Err(ret) => ret,
+	}
+}
+
 #[lsm(hook = "inode_mkdir")]
 pub fn inode_mkdir(ctx: LsmContext) -> i32 {
 	match hooks::try_inode_mkdir(ctx) {

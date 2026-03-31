@@ -108,6 +108,16 @@ pub struct InodeEvent {
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug, FromBytes, Immutable, KnownLayout)]
+pub struct InodeRenameEvent {
+	pub header: EventHeader,
+	pub old_filename: [u8; 64],
+	pub old_filename_len: u32,
+	pub new_filename: [u8; 64],
+	pub new_filename_len: u32,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Debug, FromBytes, Immutable, KnownLayout)]
 pub struct BpfProgLoadEvent {
 	pub header: EventHeader,
 	pub prog_type: u32,
