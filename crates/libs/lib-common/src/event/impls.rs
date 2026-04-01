@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::event::{
 	BpfMapEvent, BpfProgLoadEvent, BprmSecurityEvent, CerberusEvent, Event, EventHeader, InetSockEvent, InodeEvent,
-	ModuleEvent, RingBufEvent, SocketEvent,
+	InodeRenameEvent, ModuleEvent, RingBufEvent, SocketEvent,
 };
 
 impl Event for RingBufEvent {
@@ -79,6 +79,32 @@ impl Event for BprmSecurityEvent {
 			"process.filepath".into(),
 			toml::Value::String(self.filepath.to_string()),
 		);
+		f
+	}
+}
+
+impl Event for InodeRenameEvent {
+	fn header(&self) -> &EventHeader {
+		&self.header
+	}
+	fn header_mut(&mut self) -> &mut EventHeader {
+		&mut self.header
+	}
+	fn to_fields(&self) -> HashMap<String, toml::Value> {
+		let mut f = HashMap::new();
+		f.insert("process.uid".into(), toml::Value::Integer(self.header.uid as i64));
+		f.insert("process.pid".into(), toml::Value::Integer(self.header.pid as i64));
+		f.insert("process.tgid".into(), toml::Value::Integer(self.header.tgid as i64));
+		f.insert("process.comm".into(), toml::Value::String(self.header.comm.to_string()));
+		f.insert(
+			"inode.new_filename".into(),
+			toml::Value::String(self.new_filename.to_string()),
+		);
+		f.insert(
+			"inode.old_filename".into(),
+			toml::Value::String(self.old_filename.to_string()),
+		);
+
 		f
 	}
 }
@@ -191,6 +217,7 @@ impl Event for CerberusEvent {
 			CerberusEvent::Socket(e) => e.header(),
 			CerberusEvent::BpfProgLoad(e) => e.header(),
 			CerberusEvent::BpfMap(e) => e.header(),
+			CerberusEvent::InodeRename(e) => e.header(),
 		}
 	}
 
@@ -204,6 +231,7 @@ impl Event for CerberusEvent {
 			CerberusEvent::Socket(e) => e.header_mut(),
 			CerberusEvent::BpfProgLoad(e) => e.header_mut(),
 			CerberusEvent::BpfMap(e) => e.header_mut(),
+			CerberusEvent::InodeRename(e) => e.header_mut(),
 		}
 	}
 
@@ -217,6 +245,7 @@ impl Event for CerberusEvent {
 			CerberusEvent::Socket(e) => e.to_fields(),
 			CerberusEvent::BpfProgLoad(e) => e.to_fields(),
 			CerberusEvent::BpfMap(e) => e.to_fields(),
+			CerberusEvent::InodeRename(e) => e.to_fields(),
 		}
 	}
 }

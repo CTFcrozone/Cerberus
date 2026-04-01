@@ -78,6 +78,7 @@ fn handle_cerberus_event(event: &CerberusEvent, app_state: &mut AppState) {
 		CerberusEvent::BpfProgLoad(_) => &mut app_state.cerberus_evts_general,
 		CerberusEvent::Inode(_) => &mut app_state.cerberus_evts_general,
 		CerberusEvent::BpfMap(_) => &mut app_state.cerberus_evts_general,
+		CerberusEvent::InodeRename(_) => &mut app_state.cerberus_evts_general,
 	};
 
 	push_bounded(events, event);

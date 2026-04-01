@@ -10,7 +10,8 @@ use zerocopy_derive::{FromBytes, Immutable, KnownLayout};
 // 8 => EXEC (bprm_check_security)
 // 9 => BPF_PROG_LOAD
 // 10 => INODE
-// 11 => SCHED_PROCESS_EXEC
+// 11 => BPF_MAP
+// 12 => INODE_RENAME
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug, FromBytes, Immutable, KnownLayout)]
@@ -110,10 +111,10 @@ pub struct InodeEvent {
 #[derive(Clone, Copy, Debug, FromBytes, Immutable, KnownLayout)]
 pub struct InodeRenameEvent {
 	pub header: EventHeader,
-	pub old_filename: [u8; 64],
-	pub old_filename_len: u32,
 	pub new_filename: [u8; 64],
+	pub old_filename: [u8; 64],
 	pub new_filename_len: u32,
+	pub old_filename_len: u32,
 }
 
 #[repr(C)]
@@ -133,6 +134,7 @@ pub enum EbpfEvent {
 	InetSock(InetSockSetStateEvent),
 	Socket(SocketEvent),
 	Inode(InodeEvent),
+	InodeRename(InodeRenameEvent),
 	Module(ModuleEvent),
 	BprmSecurityCheck(BprmSecurityCheckEvent),
 	BpfProgLoad(BpfProgLoadEvent),

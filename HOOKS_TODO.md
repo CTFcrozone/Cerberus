@@ -29,7 +29,7 @@
 - [x] lsm::inode_rmdir
 - [x] lsm::inode_unlink
 - [ ] lsm::inode_symlink
-- [ ] lsm::inode_rename
+- [x] lsm::inode_rename
 - [ ] lsm::inode_link
 - [ ] lsm::inode_setattr
 - [ ] lsm::mmap_file

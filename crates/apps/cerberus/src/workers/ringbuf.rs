@@ -5,7 +5,7 @@ use crate::error::{Error, Result};
 use aya::maps::{MapData, RingBuf};
 use lib_common::event::{
 	BpfMapEvent, BpfProgLoadEvent, BprmSecurityEvent, CerberusEvent, EventHeader, InetSockEvent, InodeEvent,
-	ModuleEvent, RingBufEvent,
+	InodeRenameEvent, ModuleEvent, RingBufEvent,
 };
 use lib_ebpf_common::{EbpfEvent, FILE_PATH_LEN};
 use lib_event::trx::Tx;
@@ -84,6 +84,24 @@ fn parse_cerberus_event(evt: EbpfEvent) -> Result<CerberusEvent> {
 			},
 		}),
 
+		EbpfEvent::InodeRename(ref e) => CerberusEvent::InodeRename(InodeRenameEvent {
+			new_filename: Arc::from(String::from_utf8_lossy(&e.new_filename).trim_end_matches('\0')),
+			new_filename_len: e.new_filename_len,
+			old_filename: Arc::from(String::from_utf8_lossy(&e.old_filename).trim_end_matches('\0')),
+			old_filename_len: e.old_filename_len,
+			header: EventHeader {
+				cgroup_id: e.header.cgroup_id,
+				container: None,
+				ts: e.header.ts,
+				mnt_ns: e.header.mnt_ns,
+				pid: e.header.pid,
+				ppid: e.header.ppid,
+
+				uid: e.header.uid,
+				tgid: e.header.tgid,
+				comm: Arc::from(String::from_utf8_lossy(&e.header.comm).trim_end_matches('\0')),
+			},
+		}),
 		EbpfEvent::Module(ref e) => CerberusEvent::Module(ModuleEvent {
 			module_name: Arc::from(String::from_utf8_lossy(&e.module_name).trim_end_matches('\0')),
 			op: e.op,
@@ -281,6 +299,12 @@ fn parse_event_from_bytes(data: &[u8]) -> Result<EbpfEvent> {
 				.map_err(|_| Error::InvalidEventSize)?
 				.0;
 			Ok(EbpfEvent::BpfMap(*evt))
+		}
+		12 => {
+			let evt = lib_ebpf_common::InodeRenameEvent::ref_from_prefix(data)
+				.map_err(|_| Error::InvalidEventSize)?
+				.0;
+			Ok(EbpfEvent::InodeRename(*evt))
 		}
 		_ => Err(Error::UnknownEventType(header.event_type)),
 	}

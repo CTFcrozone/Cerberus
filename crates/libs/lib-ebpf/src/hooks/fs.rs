@@ -89,7 +89,7 @@ pub fn try_inode_rename(ctx: LsmContext) -> Result<i32, i32> {
 	let event = InodeRenameEvent {
 		header: EventHeader {
 			ts,
-			event_type: 10,
+			event_type: 12,
 			cgroup_id,
 			mnt_ns,
 			pid,

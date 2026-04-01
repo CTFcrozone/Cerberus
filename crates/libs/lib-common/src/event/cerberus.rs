@@ -21,6 +21,8 @@ pub enum CerberusEvent {
 	BpfProgLoad(BpfProgLoadEvent),
 	#[from]
 	BpfMap(BpfMapEvent),
+	#[from]
+	InodeRename(InodeRenameEvent),
 }
 
 // TODO: add unified EventHeader struct
@@ -42,6 +44,15 @@ pub struct EventHeader {
 	pub ppid: u32,
 	pub uid: u32,
 	pub tgid: u32,
+}
+
+#[derive(Debug, Clone)]
+pub struct InodeRenameEvent {
+	pub header: EventHeader,
+	pub new_filename: Arc<str>,
+	pub old_filename: Arc<str>,
+	pub new_filename_len: u32,
+	pub old_filename_len: u32,
 }
 
 #[derive(Debug, Clone)]
