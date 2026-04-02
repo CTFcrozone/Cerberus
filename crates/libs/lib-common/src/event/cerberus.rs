@@ -120,4 +120,5 @@ pub struct RingBufEvent {
 	pub header: EventHeader,
 	pub name: &'static str,
 	pub meta: u32,
+	pub meta_type: u16,
 }

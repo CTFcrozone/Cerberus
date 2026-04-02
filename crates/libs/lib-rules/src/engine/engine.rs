@@ -210,6 +210,7 @@ mod tests {
 				uid: 0,
 				comm: Arc::from("bash"),
 			},
+			meta_type: 0,
 			meta: 0,
 		});
 
@@ -270,6 +271,8 @@ mod tests {
 				uid: 1000,
 				comm: Arc::from("bash"),
 			},
+			meta_type: 0,
+
 			meta: 0,
 		});
 
@@ -367,6 +370,8 @@ mod tests {
 				uid: 1001,
 				comm: Arc::from("testproc"),
 			},
+			meta_type: 0,
+
 			meta: 0,
 		});
 

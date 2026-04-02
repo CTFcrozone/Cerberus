@@ -1,5 +1,6 @@
 use zerocopy_derive::{FromBytes, Immutable, KnownLayout};
 
+// EVT_TYPE
 // 1 => KILL,
 // 2 => IO_URING,
 // 3 => SOCKET,
@@ -28,12 +29,17 @@ pub struct EventHeader {
 	pub _pad0: [u8; 3], // 53..56
 }
 
+// META_TYPE
+// 0 = kill sig,
+// 1 = ptrace success flag
+
 #[repr(C)]
 #[derive(Clone, Copy, Debug, FromBytes, Immutable, KnownLayout)]
 pub struct GenericEvent {
 	pub header: EventHeader,
 	pub meta: u32, // syscall num, exit code, permission flags, etc
-	pub _pad0: [u8; 4],
+	pub meta_type: u16,
+	pub _pad0: [u8; 2],
 }
 
 #[repr(C)]

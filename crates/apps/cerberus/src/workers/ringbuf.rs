@@ -71,6 +71,7 @@ fn parse_cerberus_event(evt: EbpfEvent) -> Result<CerberusEvent> {
 				_ => "UNKNOWN",
 			},
 			meta: e.meta,
+			meta_type: e.meta_type,
 			header: EventHeader {
 				cgroup_id: e.header.cgroup_id,
 				container: None,

@@ -38,7 +38,8 @@ pub fn try_sys_enter_ptrace(ctx: TracePointContext) -> Result<u32, u32> {
 			_pad0: [0u8; 3],
 		},
 		meta: 0, // success flag
-		_pad0: [0u8; 4],
+		meta_type: 1,
+		_pad0: [0u8; 2],
 	};
 
 	if let Err(e) = EVT_MAP.output(&event, 0) {
@@ -80,7 +81,8 @@ pub fn try_sys_enter_kill(ctx: LsmContext) -> Result<i32, i32> {
 			_pad0: [0u8; 3],
 		},
 		meta: sig,
-		_pad0: [0u8; 4],
+		meta_type: 0,
+		_pad0: [0u8; 2],
 	};
 
 	if let Err(e) = EVT_MAP.output(&event, 0) {
