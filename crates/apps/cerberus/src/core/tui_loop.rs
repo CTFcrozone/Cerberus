@@ -38,23 +38,28 @@ pub fn run_ui_loop(
 
 	let handle = tokio::spawn(async move {
 		loop {
-			if shutdown.is_cancelled() {
-				let _ = term.clear();
-				break;
-			}
-
 			let frame_start = Instant::now();
 
-			process_app_state(&mut appstate);
-			let _ = terminal_draw(&mut term, &mut appstate);
+			let app_event = tokio::select! {
+				_ = shutdown.cancelled() => {
+					let _ = term.clear();
+					break;
+				}
 
-			let app_event = match app_rx.recv().await {
-				Ok(r) => r,
-				Err(_) => break,
+				event = app_rx.recv() => {
+					match event {
+						Ok(e) => e,
+						Err(_) => break,
+					}
+				}
 			};
 
 			let _ = _handle_app_event(&app_event, &mut appstate, shutdown.clone()).await;
 			appstate.last_app_event = app_event.into();
+
+			process_app_state(&mut appstate);
+			let _ = terminal_draw(&mut term, &mut appstate);
+
 			let elapsed = frame_start.elapsed();
 			if elapsed < FRAME_TIME {
 				sleep(FRAME_TIME - elapsed).await;

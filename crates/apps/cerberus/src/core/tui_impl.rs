@@ -20,9 +20,6 @@ use lib_event::trx::{Rx, Tx};
 use tokio_util::sync::CancellationToken;
 
 #[derive(Clone, From, Deref)]
-pub struct ExitTx(Tx<()>);
-
-#[derive(Clone, From, Deref)]
 pub struct AppTx(Tx<AppEvent>);
 
 pub async fn start_tui(

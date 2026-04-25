@@ -54,7 +54,7 @@ impl Tab {
 }
 
 pub struct AppState {
-	pub(in crate::core) ebpf: Ebpf,
+	pub(in crate::core) _ebpf: Ebpf,
 	pub(in crate::core) loaded_hooks: Vec<String>,
 	pub(in crate::core) last_app_event: LastAppEvent,
 	pub(in crate::core) cerberus_evts_general: VecDeque<CerberusEvent>,
@@ -77,7 +77,7 @@ impl AppState {
 		let loaded_hooks: Vec<String> = ebpf.programs().map(|(name, _)| name.to_string()).collect();
 
 		Ok(Self {
-			ebpf,
+			_ebpf: ebpf,
 			loaded_hooks,
 			event_scroll: 0,
 			last_app_event,
@@ -99,6 +99,32 @@ impl AppState {
 impl AppState {
 	pub fn current_tab(&self) -> &Tab {
 		&self.tab
+	}
+
+	pub fn clear_current_tab(&mut self) {
+		match self.current_tab() {
+			Tab::General => {
+				self.cerberus_evts_general.clear();
+			}
+			Tab::Network => {
+				self.cerberus_evts_network.clear();
+			}
+			Tab::MatchedRules => {
+				self.cerberus_evts_matched.clear();
+			}
+			Tab::CorrelatedRules => {
+				self.cerberus_evts_correlated.clear();
+			}
+		}
+		self.event_scroll = 0;
+	}
+
+	pub fn active_event_rule_count(&self) -> usize {
+		match self.tab {
+			Tab::MatchedRules => self.cerberus_evts_matched.len(),
+			Tab::CorrelatedRules => self.cerberus_evts_correlated.len(),
+			_ => 0,
+		}
 	}
 
 	pub fn set_tab(&mut self, tab: Tab) {
@@ -164,22 +190,21 @@ impl AppState {
 		self.selected_rule
 	}
 
-	pub fn next_rule(&mut self, max: usize) {
+	pub fn next_rule(&mut self) {
+		let max = self.active_event_rule_count();
 		if max == 0 {
 			return;
 		}
+
 		self.selected_rule = (self.selected_rule + 1) % max;
 	}
 
-	pub fn prev_rule(&mut self, max: usize) {
+	pub fn prev_rule(&mut self) {
+		let max = self.active_event_rule_count();
 		if max == 0 {
 			return;
 		}
-		if self.selected_rule == 0 {
-			self.selected_rule = max - 1;
-		} else {
-			self.selected_rule -= 1;
-		}
+		self.selected_rule = self.selected_rule.checked_sub(1).unwrap_or(max - 1);
 	}
 
 	pub fn toggle_rule_popup(&mut self) {
@@ -192,7 +217,10 @@ impl AppState {
 		&self.current_view
 	}
 
-	pub fn set_view(&mut self, view: View) {
-		self.current_view = view;
+	pub fn toggle_view(&mut self) {
+		self.current_view = match self.current_view {
+			View::Main => View::Summary,
+			View::Summary => View::Main,
+		};
 	}
 }
