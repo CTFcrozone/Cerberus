@@ -12,13 +12,29 @@ use tracing::warn;
 #[cfg_attr(test, derive(PartialEq))]
 #[derive(Debug, Deserialize, Clone)]
 pub struct RuleSet {
-	pub ruleset: Vec<Rule>,
+	rules: Vec<Rule>,
 
 	#[serde(skip)]
-	pub by_id: HashMap<Arc<str>, usize>,
+	by_id: HashMap<Arc<str>, usize>,
 }
 
 impl RuleSet {
+	pub fn new(rules: Vec<Rule>) -> RuleSet {
+		let mut by_id = HashMap::new();
+		for (idx, rule) in rules.iter().enumerate() {
+			let id_str = rule.inner.id.as_str();
+			match by_id.entry(id_str.into()) {
+				Entry::Vacant(e) => {
+					e.insert(idx);
+				}
+				Entry::Occupied(_) => {
+					warn!("Duplicate rule id '{}', skipping", id_str);
+				}
+			}
+		}
+		RuleSet { rules, by_id }
+	}
+
 	pub fn load_from_dir(dir: impl AsRef<Path>) -> Result<RuleSet> {
 		let mut rules = Vec::new();
 		let mut by_id = HashMap::new();
@@ -32,7 +48,7 @@ impl RuleSet {
 					let rule = Rule::from_file(&path)?;
 					let id_str = rule.inner.id.as_str();
 
-					match by_id.entry(Arc::from(id_str)) {
+					match by_id.entry(id_str.into()) {
 						Entry::Vacant(e) => {
 							let idx = rules.len();
 							e.insert(idx);
@@ -47,11 +63,20 @@ impl RuleSet {
 			}
 		}
 
-		Ok(RuleSet { ruleset: rules, by_id })
+		Ok(RuleSet { rules, by_id })
+	}
+
+	pub fn find_rule_by_id(&self, rule_id: &str) -> Option<&Rule> {
+		let idx = self.by_id.get(rule_id)?;
+		self.rules.get(*idx)
+	}
+
+	pub fn rules(&self) -> &[Rule] {
+		&self.rules
 	}
 
 	pub fn rule_count(&self) -> usize {
-		self.ruleset.len()
+		self.rules.len()
 	}
 }
 

@@ -2,22 +2,19 @@ use aya_ebpf::{
 	bindings::path,
 	cty::c_char,
 	helpers::{
-		bpf_get_current_comm, bpf_get_current_pid_tgid, bpf_get_current_uid_gid, bpf_probe_read_kernel_str_bytes,
-		bpf_probe_read_user_str_bytes,
+		bpf_get_current_comm, bpf_get_current_pid_tgid, bpf_get_current_uid_gid,
 		r#gen::{bpf_d_path, bpf_get_current_cgroup_id, bpf_ktime_get_ns},
 	},
 	macros::map,
 	maps::PerCpuArray,
-	programs::{LsmContext, TracePointContext},
-	EbpfContext,
+	programs::LsmContext,
 };
 use aya_log_ebpf::error;
 use lib_ebpf_common::{BprmSecurityCheckEvent, EventHeader, FILE_PATH_LEN};
-use zerocopy::IntoBytes;
 
 use crate::{
 	utils::{get_mnt_ns, get_ppid},
-	vmlinux::{linux_binprm, pid_t},
+	vmlinux::linux_binprm,
 	EVT_MAP,
 };
 

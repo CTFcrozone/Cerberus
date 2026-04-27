@@ -13,6 +13,7 @@ use simple_fs::SPath;
 pub struct Rule {
 	pub inner: RuleInner,
 	pub hash: [u8; 32],
+	pub hash_hex: Arc<str>,
 }
 
 #[derive(Deserialize)]
@@ -58,12 +59,15 @@ pub enum Response {
 
 impl Rule {
 	pub fn from_str(s: &str) -> Result<Self> {
-		let rule: Rule = toml::from_str(s)?;
-		Ok(rule)
-	}
+		let rule_raw: RuleRaw = toml::from_str(&s)?;
+		let hash = hash_utils::blake3(&s);
+		let hash_hex = hash_utils::hex_encode(hash);
 
-	pub fn hash_hex(&self) -> Arc<str> {
-		hex::encode(self.hash).into()
+		Ok(Rule {
+			inner: rule_raw.rule,
+			hash,
+			hash_hex,
+		})
 	}
 
 	pub fn from_file(rule_path: impl AsRef<Path>) -> Result<Self> {
@@ -76,10 +80,12 @@ impl Rule {
 		let str = std::fs::read_to_string(file_path)?;
 		let rule_raw: RuleRaw = toml::from_str(&str)?;
 		let hash = hash_utils::blake3(&str);
+		let hash_hex = hash_utils::hex_encode(hash);
 
 		Ok(Rule {
 			inner: rule_raw.rule,
 			hash,
+			hash_hex,
 		})
 	}
 }
@@ -130,6 +136,7 @@ mod tests {
 				187, 181, 245, 203, 20, 180, 1, 230, 228, 18, 86, 2, 144, 141, 180, 82, 76, 251, 69, 94, 56, 107, 41,
 				75, 70, 61, 5, 89, 32, 89, 243, 17,
 			],
+			hash_hex: Arc::from("bbb5f5cb14b401e6e4125602908db4524cfb455e386b294b463d05592059f311"),
 		};
 		// -- Exec
 		let rule = Rule::from_file(fx_rule_path)?;

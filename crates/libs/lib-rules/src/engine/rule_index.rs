@@ -100,19 +100,13 @@ impl RuleIndex {
 		let mut by_evt_kind: HashMap<EventKind, Vec<Arc<str>>> = HashMap::new();
 		let mut seq_listeners: HashMap<Arc<str>, Vec<Arc<str>>> = HashMap::new();
 
-		for rule in &ruleset.ruleset {
-			let mut supported = Vec::new();
+		for rule in ruleset.rules() {
 			let rule_id: Arc<str> = Arc::from(rule.inner.id.as_str());
 
 			for kind in EventKind::iter() {
-				let ok = rule.inner.conditions.iter().all(|c| field_in(kind, &c.field));
-				if ok {
-					supported.push(kind);
+				if rule.inner.conditions.iter().all(|c| field_in(kind, &c.field)) {
+					by_evt_kind.entry(kind).or_default().push(rule_id.clone());
 				}
-			}
-
-			for kind in supported {
-				by_evt_kind.entry(kind).or_default().push(rule_id.clone());
 			}
 
 			if let Some(seq) = &rule.inner.sequence {

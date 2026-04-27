@@ -44,5 +44,5 @@ impl ShardedCorrelator {
 }
 
 fn shard_key(ppid: u32, cgroup_id: u64) -> u64 {
-	(ppid as u64) ^ cgroup_id
+	(cgroup_id << 32) | ppid as u64
 }

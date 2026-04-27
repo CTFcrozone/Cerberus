@@ -1,13 +1,10 @@
 use arc_swap::ArcSwap;
 use lib_common::event::{CerberusEvent, Event, EventMeta};
-use parking_lot::Mutex;
 use std::time::Instant;
 use std::{path::Path, sync::Arc};
 
 use crate::engine::correlator::ShardedCorrelator;
-use crate::engine::{
-	CorrelatedEvent, Correlator, EngineEvent, EvalCtx, EvaluatedEvent, Evaluator, EventKind, RuleIndex,
-};
+use crate::engine::{CorrelatedEvent, EngineEvent, EvalCtx, EvaluatedEvent, Evaluator, EventKind, RuleIndex};
 use crate::error::Result;
 use crate::rule::Rule;
 use crate::{Error, RuleSet};
@@ -69,11 +66,6 @@ impl RuleEngine {
 		self.ruleset.load().rule_count()
 	}
 
-	fn find_rule_by_id<'a>(ruleset: &'a RuleSet, rule_id: &str) -> Option<&'a Rule> {
-		let idx = ruleset.by_id.get(rule_id)?;
-		ruleset.ruleset.get(*idx)
-	}
-
 	fn advance_sequences(
 		&self,
 		matched_rule: &Rule,
@@ -91,7 +83,7 @@ impl RuleEngine {
 		};
 
 		for root_id in root_ids {
-			let Some(root_rule) = Self::find_rule_by_id(ruleset, root_id) else {
+			let Some(root_rule) = ruleset.find_rule_by_id(root_id) else {
 				continue;
 			};
 
@@ -115,8 +107,8 @@ impl RuleEngine {
 					CorrelatedEvent {
 						base_rule_id: root_rule.inner.id.as_str().into(),
 						seq_rule_id: matched_rule.inner.id.as_str().into(),
-						base_rule_hash: root_rule.hash_hex(),
-						seq_rule_hash: matched_rule.hash_hex(),
+						base_rule_hash: root_rule.hash_hex.clone(),
+						seq_rule_hash: matched_rule.hash_hex.clone(),
 						event_meta: Self::event_meta(event),
 					}
 					.into(),
@@ -138,7 +130,7 @@ impl RuleEngine {
 
 		if let Some(candidates) = index.by_evt_kind.get(&evt_kind) {
 			for rule_id in candidates {
-				let Some(rule) = Self::find_rule_by_id(&ruleset, rule_id) else {
+				let Some(rule) = ruleset.find_rule_by_id(rule_id) else {
 					continue;
 				};
 
@@ -166,7 +158,7 @@ impl RuleEngine {
 	fn rule_to_eval_event(rule: &Rule, event_meta: EventMeta) -> EvaluatedEvent {
 		EvaluatedEvent {
 			rule_id: Arc::from(rule.inner.id.as_str()),
-			rule_hash: rule.hash_hex(),
+			rule_hash: rule.hash_hex.clone(),
 			severity: Arc::from(rule.inner.severity.as_deref().unwrap_or("unknown")),
 			rule_type: rule.inner.r#type.as_str().into(),
 			event_meta,
@@ -182,7 +174,7 @@ mod tests {
 
 	use super::*;
 	use lib_common::event::{Event, EventHeader, RingBufEvent};
-	use std::{collections::HashMap, sync::Arc};
+	use std::sync::Arc;
 	use toml::Value;
 
 	fn expect_matched(ev: &EngineEvent) -> &EvaluatedEvent {
@@ -245,15 +237,10 @@ mod tests {
 				response: None,
 			},
 			hash: [0u8; 32],
+			hash_hex: Arc::from("0".repeat(64)),
 		};
 
-		let mut by_id = HashMap::new();
-		by_id.insert(rule.inner.id.clone().into(), 0);
-
-		let ruleset = crate::RuleSet {
-			ruleset: vec![rule],
-			by_id,
-		};
+		let ruleset = crate::RuleSet::new(vec![rule]);
 
 		let engine = RuleEngine::new_from_ruleset(ruleset)?;
 
@@ -307,15 +294,10 @@ mod tests {
 				response: None,
 			},
 			hash: [0u8; 32],
+			hash_hex: Arc::from("0".repeat(64)),
 		};
 
-		let mut by_id = HashMap::new();
-		by_id.insert(rule.inner.id.clone().into(), 0);
-
-		let ruleset = crate::RuleSet {
-			ruleset: vec![rule],
-			by_id,
-		};
+		let ruleset = crate::RuleSet::new(vec![rule]);
 
 		let engine = RuleEngine::new_from_ruleset(ruleset)?;
 
@@ -380,7 +362,7 @@ mod tests {
 
 		let ruleset = engine.ruleset.load();
 		let matched_rule = ruleset
-			.ruleset
+			.rules()
 			.iter()
 			.find(|r| r.inner.id == "test-rule")
 			.expect("rule not loaded");

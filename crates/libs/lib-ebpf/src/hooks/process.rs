@@ -3,7 +3,7 @@ use aya_ebpf::{
 		bpf_get_current_comm, bpf_get_current_pid_tgid, bpf_get_current_uid_gid,
 		r#gen::{bpf_get_current_cgroup_id, bpf_ktime_get_ns},
 	},
-	programs::{LsmContext, ProbeContext, TracePointContext},
+	programs::{LsmContext, TracePointContext},
 };
 use aya_log_ebpf::error;
 use lib_ebpf_common::{EventHeader, GenericEvent};
