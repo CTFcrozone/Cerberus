@@ -1,13 +1,15 @@
 use std::time::Instant;
 
 use dashmap::DashMap;
+use lib_common::event::EventHeader;
 
 use crate::{
-	engine::correlator::{CorrelatedMatch, Correlator},
+	engine::{
+		correlator::{CorrelatedMatch, Correlator},
+		identity::ShardKey,
+	},
 	rule::Sequence,
 };
-
-type ShardKey = u64; // ppid
 
 pub struct ShardedCorrelator {
 	shards: DashMap<ShardKey, Correlator>,
@@ -18,31 +20,32 @@ impl ShardedCorrelator {
 		Self { shards: DashMap::new() }
 	}
 
-	fn get_correlator(&self, ppid: u32, cgroup_id: u64) -> dashmap::mapref::entry::Entry<'_, ShardKey, Correlator> {
-		let key = shard_key(ppid, cgroup_id);
+	fn get_correlator(&self, header: &EventHeader) -> dashmap::mapref::entry::Entry<'_, ShardKey, Correlator> {
+		let key = ShardKey::from(header);
 		self.shards.entry(key)
 	}
 
-	pub fn on_root_match(&self, ppid: u32, cgroup_id: u64, root_rule_id: &str, seq: &Sequence, now: Instant) {
-		let mut correlator = self.get_correlator(ppid, cgroup_id).or_insert_with(Correlator::new);
+	pub fn on_root_match(&self, header: &EventHeader, root_rule_id: &str, seq: &Sequence, now: Instant) {
+		let mut correlator = self.get_correlator(header).or_insert_with(Correlator::new);
 		correlator.on_root_match(root_rule_id, seq, now);
 	}
 
 	pub fn on_rule_match(
 		&self,
-		ppid: u32,
-		cgroup_id: u64,
+		header: &EventHeader,
 		matched_rule_id: &str,
 		seq: &Sequence,
 		root_rule_id: &str,
 		now: Instant,
-	) -> Option<CorrelatedMatch> {
-		let key = shard_key(ppid, cgroup_id);
-		let mut correlator = self.shards.get_mut(&key)?;
+	) -> Vec<CorrelatedMatch> {
+		let key = ShardKey::from(header);
+		let Some(mut correlator) = self.shards.get_mut(&key) else {
+			return Vec::new();
+		};
 		correlator.on_rule_match(matched_rule_id, seq, root_rule_id, now)
 	}
 }
 
-fn shard_key(ppid: u32, cgroup_id: u64) -> u64 {
-	(cgroup_id << 32) | ppid as u64
-}
+// fn shard_key(ppid: u32, cgroup_id: u64) -> u64 {
+// 	(cgroup_id << 32) | ppid as u64 // TODO: switch to key from identity.rs
+// }

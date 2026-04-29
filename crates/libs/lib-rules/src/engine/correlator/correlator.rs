@@ -1,6 +1,6 @@
 use std::{collections::HashMap, sync::Arc, time::Instant, usize};
 
-use crate::rule::{Sequence, SequenceProgress};
+use crate::rule::Sequence;
 
 //todo: 	// for pid scoping
 // active: HashMap<Arc<str>, HashMap<Option<u32>, HashMap<Arc<str>, Vec<SequenceProgress>>>>,
@@ -17,6 +17,14 @@ pub struct Correlator {
 pub struct CorrelatedMatch {
 	pub root_rule_id: Arc<str>,
 	pub steps: usize,
+}
+
+#[cfg_attr(test, derive(PartialEq))]
+#[derive(Debug, Clone)]
+pub struct SequenceProgress {
+	pub step_idx: usize,
+	pub last_match: Instant,
+	pub expiry: Instant,
 }
 
 impl Correlator {
@@ -46,44 +54,42 @@ impl Correlator {
 		seq: &Sequence,
 		root_rule_id: &str,
 		now: Instant,
-	) -> Option<CorrelatedMatch> {
-		let root = self.active.get_mut(root_rule_id)?;
+	) -> Vec<CorrelatedMatch> {
+		let root = match self.active.get_mut(root_rule_id) {
+			Some(r) => r,
+			None => return Vec::new(),
+		};
 
-		let queue = root.remove(matched_rule_id)?;
-		let mut remaining = Vec::new();
+		let Some(mut queue) = root.remove(matched_rule_id) else {
+			return Vec::new();
+		};
 
-		let mut completed = None;
+		queue.retain(|p| now <= p.expiry);
 
-		for mut prog in queue.into_iter() {
-			if now > prog.expiry {
-				continue;
-			}
+		let mut completed = Vec::new();
 
-			prog.step_idx += 1;
-			prog.last_match = now;
+		for mut seq_prog in queue.into_iter() {
+			seq_prog.step_idx += 1;
+			seq_prog.last_match = now;
 
-			if prog.step_idx == seq.steps.len() {
-				completed = Some(CorrelatedMatch {
+			if seq_prog.step_idx == seq.steps.len() {
+				completed.push(CorrelatedMatch {
 					root_rule_id: root_rule_id.into(),
 					steps: seq.steps.len(),
 				});
 				continue;
 			}
 
-			if let Some(next_step) = seq.steps.get(prog.step_idx) {
+			if let Some(next_step) = seq.steps.get(seq_prog.step_idx) {
 				let next_rule_id: Arc<str> = next_step.rule_id.clone().into();
-				prog.expiry = now + next_step.within;
-				root.entry(next_rule_id).or_default().push(prog);
-			} else {
-				remaining.push(prog);
+				seq_prog.expiry = now + next_step.within;
+				root.entry(next_rule_id).or_default().push(seq_prog);
 			}
 		}
 
 		// queue.retain(|p| p.step_idx != usize::MAX && now <= p.expiry);
 
-		if !remaining.is_empty() {
-			root.entry(matched_rule_id.into()).or_default().extend(remaining);
-		}
+		root.retain(|_, v| !v.is_empty());
 
 		if root.is_empty() {
 			self.active.remove(root_rule_id);
@@ -131,7 +137,7 @@ mod tests {
 
 		corr.on_root_match("kernel-module-loader", &seq, t0);
 		let res = corr.on_rule_match("port-scan", &seq, "kernel-module-loader", t0 + Duration::from_secs(5));
-		assert!(res.is_none());
+		assert!(res.is_empty());
 		let res = corr.on_rule_match(
 			"service-probe",
 			&seq,
@@ -140,8 +146,10 @@ mod tests {
 		);
 
 		// -- Check
-		let alert = res.expect("correlation should complete");
-		assert_eq!(alert.root_rule_id, "kernel-module-loader".into());
+		assert_eq!(res.len(), 1);
+
+		let alert = &res[0];
+		assert_eq!(alert.root_rule_id.as_ref(), "kernel-module-loader");
 		assert_eq!(alert.steps, 2);
 
 		Ok(())
@@ -159,7 +167,7 @@ mod tests {
 		let res = corr.on_rule_match("port-scan", &seq, "kernel-module-loader", t0 + Duration::from_secs(20));
 
 		// -- Check
-		assert!(res.is_none());
+		assert!(res.is_empty());
 		assert!(corr.active.is_empty());
 
 		Ok(())
@@ -180,7 +188,7 @@ mod tests {
 			t0 + Duration::from_secs(2),
 		);
 
-		assert!(res.is_none());
+		assert!(res.is_empty());
 
 		let root_map = &corr.active["kernel-module-loader"];
 		for queue in root_map.values() {
@@ -207,7 +215,7 @@ mod tests {
 			t0 + Duration::from_secs(2),
 		);
 
-		assert!(res.is_none());
+		assert!(res.is_empty());
 
 		let root_map = &corr.active["kernel-module-loader"];
 		for queue in root_map.values() {

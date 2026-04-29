@@ -3,6 +3,7 @@ mod ctx;
 mod engine;
 mod evaluator;
 mod event;
+mod identity;
 mod rule_index;
 
 use correlator::*;

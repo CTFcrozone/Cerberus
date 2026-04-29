@@ -33,11 +33,3 @@ pub struct Step {
 	#[serde(with = "humantime_serde")]
 	pub within: std::time::Duration,
 }
-
-#[cfg_attr(test, derive(PartialEq))]
-#[derive(Debug, Clone)]
-pub struct SequenceProgress {
-	pub step_idx: usize,
-	pub last_match: Instant,
-	pub expiry: Instant,
-}

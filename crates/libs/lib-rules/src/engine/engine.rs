@@ -91,28 +91,23 @@ impl RuleEngine {
 				continue;
 			};
 
-			if self
+			let matches = self
 				.correlator
-				.on_rule_match(
-					header.ppid,
-					header.cgroup_id,
-					&matched_rule.inner.id,
-					seq,
-					&root_rule.inner.id,
-					now,
-				)
-				.is_some()
-			{
-				out.push(
-					CorrelatedEvent {
-						base_rule_id: root_rule.inner.id.as_str().into(),
-						seq_rule_id: matched_rule.inner.id.as_str().into(),
-						base_rule_hash: root_rule.hash_hex.clone(),
-						seq_rule_hash: matched_rule.hash_hex.clone(),
-						event_meta: Self::event_meta(event),
-					}
-					.into(),
-				);
+				.on_rule_match(header, &matched_rule.inner.id, seq, &root_rule.inner.id, now);
+
+			if !matches.is_empty() {
+				for m in matches {
+					out.push(
+						CorrelatedEvent {
+							base_rule_id: m.root_rule_id,
+							seq_rule_id: matched_rule.inner.id.as_str().into(),
+							base_rule_hash: root_rule.hash_hex.clone(),
+							seq_rule_hash: matched_rule.hash_hex.clone(),
+							event_meta: Self::event_meta(event),
+						}
+						.into(),
+					);
+				}
 			}
 		}
 	}
@@ -141,8 +136,7 @@ impl RuleEngine {
 				out.push(Self::rule_to_eval_event(rule, Self::event_meta(event)).into());
 
 				if let Some(seq) = &rule.inner.sequence {
-					self.correlator
-						.on_root_match(header.ppid, header.cgroup_id, &rule.inner.id, seq, now);
+					self.correlator.on_root_match(header, &rule.inner.id, seq, now);
 				}
 				self.advance_sequences(rule, now, &ruleset, &index, &mut out, event);
 			}
