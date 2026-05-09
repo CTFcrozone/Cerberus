@@ -153,7 +153,7 @@ impl RuleEngine {
 		EvaluatedEvent {
 			rule_id: Arc::from(rule.inner.id.as_str()),
 			rule_hash: rule.hash_hex.clone(),
-			severity: Arc::from(rule.inner.severity.as_deref().unwrap_or("unknown")),
+			severity: rule.inner.severity,
 			rule_type: rule.inner.r#type.as_str().into(),
 			event_meta,
 		}
@@ -165,6 +165,8 @@ impl RuleEngine {
 #[cfg(test)]
 mod tests {
 	type Result<T> = core::result::Result<T, Box<dyn std::error::Error>>;
+
+	use crate::rule::Severity;
 
 	use super::*;
 	use lib_common::event::{Event, EventHeader, RingBufEvent};
@@ -206,7 +208,7 @@ mod tests {
 		let matched = expect_matched(&res[0]);
 		let header = event.header(); // via Event trait
 		assert_eq!(matched.rule_id, "pid-exists".into());
-		assert_eq!(matched.severity, "low".into());
+		assert_eq!(matched.severity, Severity::Low);
 		assert_eq!(matched.rule_type, "exec".into());
 		assert_eq!(matched.event_meta.pid, header.pid);
 
@@ -220,7 +222,7 @@ mod tests {
 				id: "pid-zero-only".to_string(),
 				description: "Matches only pid=0".to_string(),
 				r#type: "exec".to_string(),
-				severity: Some("high".to_string()),
+				severity: Severity::High,
 				category: None,
 				conditions: vec![crate::rule::Condition {
 					field: "process.pid".to_string(),
@@ -270,7 +272,7 @@ mod tests {
 				id: "tcp-state-change".to_string(),
 				description: "Detect TCP state transitions".to_string(),
 				r#type: "network".to_string(),
-				severity: Some("medium".to_string()),
+				severity: Severity::Medium,
 				category: None,
 				conditions: vec![
 					crate::rule::Condition {
@@ -363,7 +365,7 @@ mod tests {
 
 		let matched = Evaluator::rule_matches(&matched_rule.inner, &ctx);
 		assert!(matched);
-		assert_eq!(matched_rule.inner.severity.as_deref(), Some("very-low"));
+		assert_eq!(matched_rule.inner.severity, Severity::VeryLow);
 		assert_eq!(matched_rule.inner.category.as_deref(), Some("test"));
 
 		Ok(())

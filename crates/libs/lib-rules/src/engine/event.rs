@@ -3,7 +3,7 @@ use std::sync::Arc;
 use derive_more::From;
 use lib_common::event::EventMeta;
 
-use crate::Response;
+use crate::{rule::Severity, Response};
 
 #[derive(Debug, Clone, From)]
 pub enum EngineEvent {
@@ -19,7 +19,7 @@ pub enum EngineEvent {
 pub struct EvaluatedEvent {
 	pub rule_id: Arc<str>,
 	pub rule_hash: Arc<str>,
-	pub severity: Arc<str>,
+	pub severity: Severity,
 	pub rule_type: Arc<str>,
 	pub event_meta: EventMeta,
 }

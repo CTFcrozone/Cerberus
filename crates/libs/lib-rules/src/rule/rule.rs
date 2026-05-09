@@ -27,13 +27,24 @@ pub struct RuleInner {
 	pub id: String,
 	pub description: String,
 	pub r#type: String,
-	pub severity: Option<String>,
+	pub severity: Severity,
 	pub category: Option<String>,
 	pub conditions: Vec<Condition>,
 	#[serde(default)]
 	pub sequence: Option<Sequence>,
 	#[serde(default)]
 	pub response: Option<Response>,
+}
+
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq, Hash, Copy)]
+#[serde(rename_all = "kebab-case")]
+pub enum Severity {
+	Info,
+	VeryLow,
+	Low,
+	Medium,
+	High,
+	Critical,
 }
 
 #[cfg_attr(test, derive(PartialEq))]
@@ -112,7 +123,7 @@ mod tests {
 			id: "test-rule".to_string(),
 			description: "Suspicious action in /tmp".to_string(),
 			r#type: "file_event".to_string(),
-			severity: Some("very-low".to_string()),
+			severity: Severity::VeryLow,
 			category: Some("test".to_string()),
 
 			conditions: vec![

@@ -2,7 +2,7 @@ use std::collections::{HashMap, VecDeque};
 use std::sync::Arc;
 
 use aya::Ebpf;
-use lib_rules::{CorrelatedEvent, EvaluatedEvent, RuleEngine};
+use lib_rules::{CorrelatedEvent, EvaluatedEvent, RuleEngine, Severity};
 
 use crate::event::LastAppEvent;
 use crate::Result;
@@ -62,7 +62,7 @@ pub struct AppState {
 	pub(in crate::core) cerberus_evts_network: VecDeque<CerberusEvent>,
 	pub(in crate::core) cerberus_evts_matched: HashMap<EvaluatedKey, EvaluatedEntry>,
 	pub(in crate::core) rule_type_counts: HashMap<Arc<str>, u64>,
-	pub(in crate::core) severity_counts: HashMap<Arc<str>, u64>,
+	pub(in crate::core) severity_counts: HashMap<Severity, u64>,
 
 	pub current_view: View,
 	pub tab: Tab,
@@ -152,7 +152,7 @@ impl AppState {
 	}
 
 	pub fn barchart_severity(&self) -> Vec<(&str, u64)> {
-		self.severity_counts.iter().map(|(k, v)| (k.as_ref(), *v)).collect()
+		self.severity_counts.iter().map(|(k, v)| (k.as_str(), *v)).collect()
 	}
 
 	pub fn cerberus_evts_correlated(&self) -> impl Iterator<Item = &CorrelatedEvent> {

@@ -20,6 +20,10 @@ impl ShardedCorrelator {
 		Self { shards: DashMap::new() }
 	}
 
+	pub fn shard_count(&self) -> usize {
+		self.shards.len()
+	}
+
 	fn get_correlator(&self, header: &EventHeader) -> dashmap::mapref::entry::Entry<'_, ShardKey, Correlator> {
 		let key = ShardKey::from(header);
 		self.shards.entry(key)

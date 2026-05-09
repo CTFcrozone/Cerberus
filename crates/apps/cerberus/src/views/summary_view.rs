@@ -53,7 +53,7 @@ fn render_loaded_hooks(area: Rect, buf: &mut Buffer, state: &mut AppState, block
 pub fn render_loaded_rules_count(area: Rect, buf: &mut Buffer, state: &AppState) {
 	let count = state.rule_engine.as_ref().map_or(0, |engine| engine.rule_count());
 
-	let paragraph = Paragraph::new(format!("Loaded Rules: {}", count))
+	let paragraph = Paragraph::new(format!("Loaded Rules: {count}"))
 		.block(Block::bordered().title("Rules"))
 		.style(Style::default().fg(Color::Cyan));
 
@@ -68,7 +68,7 @@ fn render_last_event_meta(area: Rect, buf: &mut Buffer, state: &AppState) {
 			format!(
 				"Rule: {}\nSeverity: {}\nType: {}\nPID: {} \nUID: {} \nCOMM: {}",
 				evt.event.rule_id,
-				evt.event.severity,
+				evt.event.severity.as_str(),
 				evt.event.rule_type,
 				evt.event.event_meta.pid,
 				evt.event.event_meta.uid,

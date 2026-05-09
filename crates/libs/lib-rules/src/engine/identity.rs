@@ -1,6 +1,6 @@
 use lib_common::event::EventHeader;
 
-#[derive(Debug, Clone, PartialEq, Hash, Eq)]
+#[derive(Debug, Clone, PartialEq, Copy, Hash, Eq)]
 pub struct ShardKey {
 	pub mnt_ns: u32,
 	pub cgroup_id: u64,

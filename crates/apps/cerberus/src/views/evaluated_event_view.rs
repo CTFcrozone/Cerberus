@@ -1,4 +1,5 @@
 use crate::core::AppState;
+use lib_rules::Severity;
 use ratatui::{
 	buffer::Buffer,
 	layout::{Constraint, Flex, Layout, Rect},
@@ -8,13 +9,19 @@ use ratatui::{
 
 use ratatui::style::{Color, Style};
 
-fn severity_style(sev: &str) -> Style {
+fn severity_style(sev: Severity) -> Style {
 	match sev {
-		"critical" => Style::default().fg(Color::Red),
-		"high" => Style::default().fg(Color::LightRed),
-		"medium" => Style::default().fg(Color::Yellow),
-		"low" => Style::default().fg(Color::Green),
-		_ => Style::default().fg(Color::Gray),
+		Severity::Critical => Style::default().fg(Color::Rgb(255, 64, 64)),
+
+		Severity::High => Style::default().fg(Color::Rgb(255, 140, 0)),
+
+		Severity::Medium => Style::default().fg(Color::Rgb(255, 215, 0)),
+
+		Severity::Low => Style::default().fg(Color::Rgb(80, 200, 120)),
+
+		Severity::VeryLow => Style::default().fg(Color::Rgb(120, 220, 160)),
+
+		Severity::Info => Style::default().fg(Color::Rgb(100, 180, 255)),
 	}
 }
 
@@ -42,7 +49,7 @@ fn render_evaluated_events(area: Rect, buf: &mut Buffer, state: &mut AppState, b
 		.cerberus_evts_matched()
 		.enumerate()
 		.map(|(idx, entry)| {
-			let mut style = severity_style(&entry.event.severity);
+			let mut style = severity_style(entry.event.severity);
 
 			if idx == state.selected_rule() {
 				style = style.bg(Color::DarkGray);
@@ -76,7 +83,7 @@ pub fn render_rule_popup(frame: &mut ratatui::Frame, state: &AppState) {
 	if let Some(entry) = selected {
 		let text = vec![
 			Line::from(format!("Rule ID: {}", entry.event.rule_id)),
-			Line::from(format!("Severity: {}", entry.event.severity)),
+			Line::from(format!("Severity: {}", entry.event.severity.as_str())),
 			Line::from(format!("Type: {}", entry.event.rule_type)),
 			Line::from(format!("Matches: {}", entry.count)),
 			Line::from(""),

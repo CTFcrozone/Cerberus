@@ -225,7 +225,7 @@ mod tests {
 			id: "ok".into(),
 			description: "ok".into(),
 			r#type: "generic_event".into(),
-			severity: None,
+			severity: crate::rule::Severity::Info,
 			category: None,
 			conditions: vec![
 				cond("pid", "equals", Value::Integer(123)),
@@ -241,7 +241,7 @@ mod tests {
 			id: "fail".into(),
 			description: "fail".into(),
 			r#type: "generic_event".into(),
-			severity: None,
+			severity: crate::rule::Severity::Info,
 			category: None,
 			conditions: vec![
 				cond("pid", "equals", Value::Integer(123)),
