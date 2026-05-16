@@ -6,7 +6,6 @@ mod event;
 mod identity;
 mod rule_index;
 
-use correlator::*;
 use ctx::*;
 use evaluator::*;
 use rule_index::*;

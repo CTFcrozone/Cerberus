@@ -45,7 +45,7 @@ impl RuleEngineWorker {
 
 	pub async fn run(self) -> Result<()> {
 		while let Ok(evt) = self.ringbuf_rx.recv().await {
-			for alert in self.rule_engine.process_event(&evt)? {
+			for alert in self.rule_engine.process_event(&evt) {
 				self.tx.send(AppEvent::Engine(alert)).await?;
 			}
 

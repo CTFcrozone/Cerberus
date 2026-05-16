@@ -1,7 +1,7 @@
 use aya_ebpf::helpers::{bpf_probe_read_kernel, r#gen::bpf_get_current_task};
 use lib_ebpf_common::FILE_NAME_LEN;
 
-use crate::vmlinux::{dentry, mnt_namespace, nsproxy, pid_type::PIDTYPE_SID, signal_struct};
+use crate::vmlinux::{dentry, mnt_namespace, nsproxy};
 
 pub unsafe fn get_ppid() -> i32 {
 	let task = bpf_get_current_task() as *const crate::vmlinux::task_struct;

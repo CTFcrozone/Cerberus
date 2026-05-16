@@ -4,6 +4,7 @@ use std::time::Instant;
 use std::{path::Path, sync::Arc};
 
 use crate::engine::correlator::ShardedCorrelator;
+use crate::engine::identity::ShardKey;
 use crate::engine::{CorrelatedEvent, EngineEvent, EvalCtx, EvaluatedEvent, Evaluator, EventKind, RuleIndex};
 use crate::error::Result;
 use crate::rule::Rule;
@@ -68,6 +69,7 @@ impl RuleEngine {
 
 	fn advance_sequences(
 		&self,
+		shard_key: &ShardKey,
 		matched_rule: &Rule,
 		now: Instant,
 		ruleset: &RuleSet,
@@ -75,10 +77,9 @@ impl RuleEngine {
 		out: &mut Vec<EngineEvent>,
 		event: &CerberusEvent,
 	) {
-		let key: Arc<str> = matched_rule.inner.id.as_str().into();
-		let header = event.header();
+		let key = matched_rule.inner.id.as_str();
 
-		let Some(root_ids) = index.seq_listeners.get(&key) else {
+		let Some(root_ids) = index.seq_listeners.get(key) else {
 			return;
 		};
 
@@ -91,28 +92,26 @@ impl RuleEngine {
 				continue;
 			};
 
-			let matches = self
-				.correlator
-				.on_rule_match(header, &matched_rule.inner.id, seq, &root_rule.inner.id, now);
+			let matches =
+				self.correlator
+					.on_rule_match(shard_key, &matched_rule.inner.id, seq, &root_rule.inner.id, now);
 
-			if !matches.is_empty() {
-				for m in matches {
-					out.push(
-						CorrelatedEvent {
-							base_rule_id: m.root_rule_id,
-							seq_rule_id: matched_rule.inner.id.as_str().into(),
-							base_rule_hash: root_rule.hash_hex.clone(),
-							seq_rule_hash: matched_rule.hash_hex.clone(),
-							event_meta: Self::event_meta(event),
-						}
-						.into(),
-					);
-				}
+			for m in matches {
+				out.push(
+					CorrelatedEvent {
+						base_rule_id: m.root_rule_id,
+						seq_rule_id: matched_rule.inner.id.as_str().into(),
+						base_rule_hash: root_rule.hash_hex.clone(),
+						seq_rule_hash: matched_rule.hash_hex.clone(),
+						event_meta: Self::event_meta(event),
+					}
+					.into(),
+				);
 			}
 		}
 	}
 
-	pub fn process_event(&self, event: &CerberusEvent) -> Result<Vec<EngineEvent>> {
+	pub fn process_event(&self, event: &CerberusEvent) -> Vec<EngineEvent> {
 		let ctx = Self::event_to_ctx(event);
 		let ruleset = self.ruleset.load();
 
@@ -122,6 +121,8 @@ impl RuleEngine {
 		// let mut corr = self.correlator.lock();
 		let evt_kind = EventKind::from(event);
 		let header = event.header();
+		let meta = Self::event_meta(event);
+		let shard_key = ShardKey::from(header);
 
 		if let Some(candidates) = index.by_evt_kind.get(&evt_kind) {
 			for rule_id in candidates {
@@ -133,16 +134,16 @@ impl RuleEngine {
 					continue;
 				}
 
-				out.push(Self::rule_to_eval_event(rule, Self::event_meta(event)).into());
+				out.push(Self::rule_to_eval_event(rule, meta.clone()).into());
 
 				if let Some(seq) = &rule.inner.sequence {
-					self.correlator.on_root_match(header, &rule.inner.id, seq, now);
+					self.correlator.on_root_match(&shard_key, &rule.inner.id, seq, now);
 				}
-				self.advance_sequences(rule, now, &ruleset, &index, &mut out, event);
+				self.advance_sequences(&shard_key, rule, now, &ruleset, &index, &mut out, event);
 			}
 		}
 
-		Ok(out)
+		out
 	}
 
 	fn event_to_ctx<E: Event>(event: &E) -> EvalCtx {
@@ -202,7 +203,7 @@ mod tests {
 			meta: 0,
 		});
 
-		let res = engine.process_event(&event)?;
+		let res = engine.process_event(&event);
 		assert!(!res.is_empty());
 
 		let matched = expect_matched(&res[0]);
@@ -259,7 +260,7 @@ mod tests {
 			meta: 0,
 		});
 
-		let res = engine.process_event(&event)?;
+		let res = engine.process_event(&event);
 		assert!(res.is_empty());
 
 		Ok(())
@@ -320,7 +321,7 @@ mod tests {
 		};
 
 		let event = CerberusEvent::InetSock(inet_evt);
-		let res = engine.process_event(&event)?;
+		let res = engine.process_event(&event);
 
 		assert_eq!(res.len(), 1);
 		let matched = expect_matched(&res[0]);

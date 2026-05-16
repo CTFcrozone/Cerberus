@@ -1,7 +1,6 @@
 use std::time::Instant;
 
-use dashmap::DashMap;
-use lib_common::event::EventHeader;
+use dashmap::{mapref::one::RefMut, DashMap};
 
 use crate::{
 	engine::{
@@ -25,28 +24,28 @@ impl ShardedCorrelator {
 		self.shards.len()
 	}
 
-	fn get_correlator(&self, header: &EventHeader) -> dashmap::mapref::entry::Entry<'_, ShardKey, Correlator> {
-		let key = ShardKey::from(header);
-		self.shards.entry(key)
+	fn get_or_create(&self, shard_key: &ShardKey) -> RefMut<'_, ShardKey, Correlator> {
+		use dashmap::mapref::entry::Entry;
+		match self.shards.entry(shard_key.clone()) {
+			Entry::Occupied(o) => o.into_ref(),
+			Entry::Vacant(v) => v.insert(Correlator::new()),
+		}
 	}
 
-	pub fn on_root_match(&self, header: &EventHeader, root_rule_id: &str, seq: &Sequence, now: Instant) {
-		let mut correlator = self.get_correlator(header).or_insert_with(Correlator::new);
+	pub fn on_root_match(&self, shard_key: &ShardKey, root_rule_id: &str, seq: &Sequence, now: Instant) {
+		let mut correlator = self.get_or_create(shard_key);
 		correlator.on_root_match(root_rule_id, seq, now);
 	}
 
 	pub fn on_rule_match(
 		&self,
-		header: &EventHeader,
+		shard_key: &ShardKey,
 		matched_rule_id: &str,
 		seq: &Sequence,
 		root_rule_id: &str,
 		now: Instant,
 	) -> Vec<CorrelatedMatch> {
-		let key = ShardKey::from(header);
-		let Some(mut correlator) = self.shards.get_mut(&key) else {
-			return Vec::new();
-		};
+		let mut correlator = self.get_or_create(shard_key);
 		correlator.on_rule_match(matched_rule_id, seq, root_rule_id, now)
 	}
 }
