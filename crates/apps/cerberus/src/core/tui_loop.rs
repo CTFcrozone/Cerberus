@@ -13,7 +13,7 @@ use lib_event::trx::Rx;
 use lib_rules::RuleEngine;
 use ratatui::DefaultTerminal;
 use tokio::task::JoinHandle;
-use tokio::time::{sleep, Instant};
+use tokio::time::interval;
 use tokio_util::sync::CancellationToken;
 
 // use super::event_handler::handle_app_event;
@@ -33,38 +33,35 @@ pub fn run_ui_loop(
 	shutdown: CancellationToken,
 ) -> Result<UiRuntime> {
 	let mut appstate = AppState::new(ebpf, LastAppEvent::default())?;
-
 	appstate.rule_engine = Some(rule_engine.clone());
 
 	let handle = tokio::spawn(async move {
-		loop {
-			let frame_start = Instant::now();
+		let mut tick = interval(FRAME_TIME);
+		let mut dirty = true;
 
-			let app_event = tokio::select! {
-				_ = shutdown.cancelled() => {
-					let _ = term.clear();
-					break;
+		loop {
+			tokio::select! {
+				_ = shutdown.cancelled() => break,
+
+				maybe_event = app_rx.recv() => {
+					let Ok(event) = maybe_event else {
+						break;
+					};
+					let _ = _handle_app_event(&event, &mut appstate, shutdown.clone()).await;
+					appstate.last_app_event = event.into();
+					dirty = true;
 				}
 
-				event = app_rx.recv() => {
-					match event {
-						Ok(e) => e,
-						Err(_) => break,
+				_ = tick.tick() => {
+					if dirty {
+						process_app_state(&mut appstate);
+						let _ = terminal_draw(&mut term, &mut appstate);
+						dirty = false;
 					}
 				}
-			};
-
-			let _ = _handle_app_event(&app_event, &mut appstate, shutdown.clone()).await;
-			appstate.last_app_event = app_event.into();
-
-			process_app_state(&mut appstate);
-			let _ = terminal_draw(&mut term, &mut appstate);
-
-			let elapsed = frame_start.elapsed();
-			if elapsed < FRAME_TIME {
-				sleep(FRAME_TIME - elapsed).await;
 			}
 		}
+
 		let _ = term.clear();
 	});
 

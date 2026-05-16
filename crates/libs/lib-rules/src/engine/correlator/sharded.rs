@@ -20,6 +20,7 @@ impl ShardedCorrelator {
 		Self { shards: DashMap::new() }
 	}
 
+	#[allow(unused)]
 	pub fn shard_count(&self) -> usize {
 		self.shards.len()
 	}
