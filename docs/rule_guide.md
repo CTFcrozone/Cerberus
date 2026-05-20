@@ -381,6 +381,7 @@ type = "exec"
 severity = "high"
 
 [rule.sequence]
+id = "example-seq"
 kind = "rule"
 
 [[rule.sequence.steps]]
