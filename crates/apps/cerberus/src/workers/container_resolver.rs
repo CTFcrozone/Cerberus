@@ -3,8 +3,7 @@ use crate::error::Result;
 use lib_common::event::{CerberusEvent, Event};
 use lib_container::container_manager::ContainerManager;
 
-use lib_event::trx::{Rx, Tx};
-
+use lib_event::unbound::{Rx, Tx};
 use tracing::debug;
 
 pub struct ContainerResolver {
@@ -28,7 +27,7 @@ impl ContainerResolver {
 				debug!("{info:?}");
 			}
 
-			self.tx.send(evt).await?;
+			self.tx.send(evt)?;
 		}
 
 		Ok(())

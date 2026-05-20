@@ -596,6 +596,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d0a5c400df2834b80a4c3327b3aad3a4c4cd4de0629063962b03235697506a28"
 
 [[package]]
+name = "crossfire"
+version = "3.1.12"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "72bdfcf389b100bb85fcf39ad434f67b617813cf0608095c905b79f6b2194aea"
+dependencies = [
+ "crossbeam-utils",
+ "futures-core",
+ "parking_lot",
+ "smallvec",
+]
+
+[[package]]
 name = "crossterm"
 version = "0.28.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1396,6 +1408,7 @@ dependencies = [
 name = "lib-event"
 version = "0.1.0"
 dependencies = [
+ "crossfire",
  "crossterm",
  "derive_more",
  "flume",
@@ -1403,8 +1416,6 @@ dependencies = [
  "serde_json",
  "tracing",
  "tracing-subscriber",
- "zerocopy",
- "zerocopy-derive",
 ]
 
 [[package]]

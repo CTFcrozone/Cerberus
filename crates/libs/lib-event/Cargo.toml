@@ -14,8 +14,7 @@ derive_more = { version = "2.0.0", features = [
     "into",
     "deref",
 ] }
-zerocopy = { workspace = true }
-zerocopy-derive = { workspace = true }
+crossfire = {workspace = true}
 crossterm = { version = "0.28", features = ["event-stream"] }
 flume = { workspace = true }
 tracing = { workspace = true }

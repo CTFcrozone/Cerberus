@@ -2,7 +2,7 @@ use derive_more::From;
 use lib_common::event::CerberusEvent;
 use lib_rules::EngineEvent;
 
-#[derive(From)]
+#[derive(From, Clone)]
 pub enum AppEvent {
 	#[from]
 	Term(crossterm::event::Event),

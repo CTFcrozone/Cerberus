@@ -7,4 +7,14 @@ max_width = 120
 chain_width = 80
 array_width = 80
 
-# imports_granularity = "Module" # no effect on rust analyzer
+
+## Unstable (nightly component rustfmt needed)
+imports_granularity = "Module"
+group_imports = "One"
+
+## Install rustfmt nightly
+# rustup toolchain nightly nightly
+# rustup component add rustfmt --toolchain nightly
+
+## Run cargo fmt
+# cargo +nightly fmt

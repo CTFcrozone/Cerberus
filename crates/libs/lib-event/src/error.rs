@@ -8,35 +8,13 @@ pub type Result<T> = core::result::Result<T, Error>;
 pub enum Error {
 	#[from(String, &String, &str)]
 	Custom(String),
-	EventSend(String),
-	EventRecv(RecvError),
-	EventRecvTimeout(RecvTimeoutError),
-	EbpfProgNotFound,
-	InvalidEventAlign,
-	InvalidEventSize,
-	UnknownEventType(u8),
-	MutexPoison,
+	#[display("Send on channel '{name}' fail.\nCause: {cause}")]
+	ChannelTx { name: &'static str, cause: String },
+	#[display("Recieve on channel '{name}' fail.\nCause: {cause}")]
+	ChannelRx { name: &'static str, cause: String },
 
 	#[from]
 	Io(std::io::Error), // as example
-}
-
-impl<T> From<SendError<T>> for Error {
-	fn from(value: SendError<T>) -> Self {
-		Self::EventSend(value.to_string())
-	}
-}
-
-impl From<RecvTimeoutError> for Error {
-	fn from(err: RecvTimeoutError) -> Self {
-		Self::EventRecvTimeout(err)
-	}
-}
-
-impl From<RecvError> for Error {
-	fn from(err: RecvError) -> Self {
-		Self::EventRecv(err)
-	}
 }
 
 // region:    --- Custom

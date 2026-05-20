@@ -23,6 +23,23 @@ pub struct EvaluatedEvent {
 	pub rule_type: Arc<str>,
 	pub event_meta: EventMeta,
 }
+#[derive(Debug, Clone)]
+pub enum CorrelationEvent {
+	Step {
+		base_rule_id: Arc<str>,
+		seq_rule_id: Arc<str>,
+		base_rule_hash: Arc<str>,
+		seq_rule_hash: Arc<str>,
+		event_meta: EventMeta,
+	},
+	Completed {
+		root_rule_id: Arc<str>,
+		sequence_rule_id: Arc<str>,
+		path: Vec<Arc<str>>,
+		steps: usize,
+		event_meta: EventMeta,
+	},
+}
 
 #[derive(Debug, Clone)]
 pub struct CorrelatedEvent {

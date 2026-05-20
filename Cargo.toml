@@ -29,6 +29,7 @@ anyhow = { version = "1", default-features = false }
 zerocopy = "0.8"
 dns-lookup = "1.0"
 zerocopy-derive = "0.8"
+crossfire = "3.1.12"
 # `std` feature is currently required to build `clap`.
 #
 # See https://github.com/clap-rs/clap/blob/61f5ee5/clap_builder/src/lib.rs#L15.

@@ -26,10 +26,10 @@ use aya::{
 	Btf, Ebpf,
 };
 use clap::Parser;
-use core::AppTx;
+
 use lib_common::event::CerberusEvent;
 use lib_container::{container_manager::ContainerManager, runtime::k8s_connect};
-use lib_event::trx::new_channel;
+use lib_event::unbound::new_channel_unbounded_async;
 use lib_rules::RuleEngine;
 use std::sync::Arc;
 use tracing_subscriber::EnvFilter;
@@ -72,10 +72,9 @@ async fn main() -> Result<()> {
 
 	let ringbuf_fd = load_hooks(&mut ebpf)?;
 
-	let (app_tx, app_rx) = new_channel::<AppEvent>("app_event");
-	let app_tx = AppTx::from(app_tx);
+	let (app_tx, app_rx) = new_channel_unbounded_async::<AppEvent>("app_event");
 
-	let (ringbuf_tx, ringbuf_rx) = new_channel::<CerberusEvent>("ringbuf");
+	let (ringbuf_tx, ringbuf_rx) = new_channel_unbounded_async::<CerberusEvent>("ringbuf");
 
 	let mut supervisor = Supervisor::new();
 
@@ -84,7 +83,8 @@ async fn main() -> Result<()> {
 	let rule_input_rx = if args.container_resolver {
 		let k8s_client = k8s_connect().await?;
 		let container_mgr = ContainerManager::new(k8s_client)?;
-		let (container_resolver_tx, container_resolver_rx) = new_channel::<CerberusEvent>("container_resolver");
+		let (container_resolver_tx, container_resolver_rx) =
+			new_channel_unbounded_async::<CerberusEvent>("container_resolver");
 		let container_resolver_worker = ContainerResolver::start(container_resolver_tx, ringbuf_rx, container_mgr)?;
 
 		supervisor.spawn(container_resolver_worker.run());

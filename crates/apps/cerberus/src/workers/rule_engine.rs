@@ -7,7 +7,6 @@ use std::{
 };
 
 use crate::{
-	core::AppTx,
 	error::{Error, Result},
 	event::AppEvent,
 };
@@ -15,11 +14,11 @@ use crate::{
 use governor::{DefaultDirectRateLimiter, Quota};
 use lib_common::event::CerberusEvent;
 
-use lib_event::trx::Rx;
+use lib_event::unbound::{Rx, Tx};
 use lib_rules::RuleEngine;
 
 pub struct RuleEngineWorker {
-	pub tx: AppTx,
+	pub tx: Tx<AppEvent>,
 	pub ringbuf_rx: Rx<CerberusEvent>,
 	pub rule_engine: Arc<RuleEngine>,
 	limiter: DefaultDirectRateLimiter,
@@ -28,7 +27,7 @@ pub struct RuleEngineWorker {
 
 // TODO: make it shutdown aware
 impl RuleEngineWorker {
-	pub fn start(rule_engine: Arc<RuleEngine>, tx: AppTx, ringbuf_rx: Rx<CerberusEvent>) -> Result<Self> {
+	pub fn start(rule_engine: Arc<RuleEngine>, tx: Tx<AppEvent>, ringbuf_rx: Rx<CerberusEvent>) -> Result<Self> {
 		let rate = NonZeroU32::new(10).ok_or(Error::InvalidRate)?;
 		let burst = NonZeroU32::new(50).ok_or(Error::InvalidRate)?;
 
@@ -43,10 +42,10 @@ impl RuleEngineWorker {
 		})
 	}
 
-	pub async fn run(self) -> Result<()> {
+	pub async fn run(mut self) -> Result<()> {
 		while let Ok(evt) = self.ringbuf_rx.recv().await {
 			for alert in self.rule_engine.process_event(&evt) {
-				self.tx.send(AppEvent::Engine(alert)).await?;
+				self.tx.send(AppEvent::Engine(alert))?;
 			}
 
 			if self.limiter.check().is_err() {
@@ -54,7 +53,7 @@ impl RuleEngineWorker {
 				continue;
 			}
 
-			self.tx.send(AppEvent::Cerberus(evt)).await?;
+			self.tx.send(AppEvent::Cerberus(evt))?;
 		}
 		Ok(())
 	}

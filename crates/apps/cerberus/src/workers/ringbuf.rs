@@ -8,7 +8,7 @@ use lib_common::event::{
 	InodeRenameEvent, ModuleEvent, RingBufEvent,
 };
 use lib_ebpf_common::{EbpfEvent, FILE_PATH_LEN};
-use lib_event::trx::Tx;
+use lib_event::unbound::Tx;
 use tokio::io::unix::AsyncFd;
 
 use zerocopy::FromBytes;
@@ -44,7 +44,7 @@ impl RingBufWorker {
 				match parse_event_from_bytes(data) {
 					Ok(evt) => {
 						let cerberus_evt = parse_cerberus_event(evt)?;
-						self.tx.send(cerberus_evt).await?;
+						self.tx.send(cerberus_evt)?;
 					}
 					Err(_) => continue,
 				}

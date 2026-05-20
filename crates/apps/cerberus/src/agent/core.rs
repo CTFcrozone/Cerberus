@@ -2,12 +2,12 @@ use crate::{error::Result, event::AppEvent};
 
 use humantime::Duration;
 use lib_common::event::{CerberusEvent, Event};
-use lib_event::trx::Rx;
+use lib_event::unbound::Rx;
 use lib_rules::EngineEvent;
 use tokio_util::sync::CancellationToken;
 use tracing::{info, warn};
 
-pub async fn _run_agent_sink(rx: Rx<AppEvent>, shutdown: CancellationToken) -> Result<()> {
+pub async fn _run_agent_sink(mut rx: Rx<AppEvent>, shutdown: CancellationToken) -> Result<()> {
 	info!("Agent sink started, waiting for events...");
 	loop {
 		if shutdown.is_cancelled() {

@@ -9,7 +9,7 @@ use crate::views::correlated_event_view::render_correlation_popup;
 use crate::views::{render_rule_popup, MainView, SummaryView};
 use crate::Result;
 use aya::Ebpf;
-use lib_event::trx::Rx;
+use lib_event::unbound::Rx;
 use lib_rules::RuleEngine;
 use ratatui::DefaultTerminal;
 use tokio::task::JoinHandle;
@@ -29,7 +29,7 @@ pub fn run_ui_loop(
 	mut term: DefaultTerminal,
 	ebpf: Ebpf,
 	rule_engine: Arc<RuleEngine>,
-	app_rx: Rx<AppEvent>,
+	mut app_rx: Rx<AppEvent>,
 	shutdown: CancellationToken,
 ) -> Result<UiRuntime> {
 	let mut appstate = AppState::new(ebpf, LastAppEvent::default())?;

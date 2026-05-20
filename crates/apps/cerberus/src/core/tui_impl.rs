@@ -12,20 +12,17 @@ use crossterm::{
 	terminal::{DisableLineWrap, EnterAlternateScreen, LeaveAlternateScreen},
 };
 use derive_more::{Deref, From};
+use lib_event::unbound::{Rx, Tx};
 use lib_rules::RuleEngine;
 use ratatui::DefaultTerminal;
 
 use crate::event::AppEvent;
-use lib_event::trx::{Rx, Tx};
 use tokio_util::sync::CancellationToken;
-
-#[derive(Clone, From, Deref)]
-pub struct AppTx(Tx<AppEvent>);
 
 pub async fn start_tui(
 	ebpf: Ebpf,
 	rule_engine: Arc<RuleEngine>,
-	app_tx: AppTx,
+	app_tx: Tx<AppEvent>,
 	app_rx: Rx<AppEvent>,
 	shutdown: CancellationToken,
 ) -> Result<()> {
@@ -50,14 +47,14 @@ pub async fn start_tui(
 async fn exec_app(
 	mut terminal: DefaultTerminal,
 	ebpf: Ebpf,
-	app_tx: AppTx,
+	app_tx: Tx<AppEvent>,
 	rule_engine: Arc<RuleEngine>,
 	app_rx: Rx<AppEvent>,
 	shutdown: CancellationToken,
 ) -> Result<()> {
 	terminal.clear()?;
 
-	let term_handle = run_term_read(app_tx.clone())?;
+	let term_handle = run_term_read(app_tx)?;
 	let ui = run_ui_loop(terminal, ebpf, rule_engine, app_rx, shutdown.clone())?;
 
 	let _ = ui.ui_handle.await;
