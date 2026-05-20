@@ -16,28 +16,46 @@ pub struct RuleSet {
 
 	#[serde(skip)]
 	by_id: HashMap<Arc<str>, usize>,
+	#[serde(skip)]
+	seq_by_id: HashMap<Arc<str>, Arc<str>>,
 }
 
 impl RuleSet {
-	pub fn new(rules: Vec<Rule>) -> RuleSet {
+	pub fn new(rules: Vec<Rule>) -> Result<RuleSet> {
 		let mut by_id = HashMap::new();
+		let mut seq_by_id = HashMap::new();
 		for (idx, rule) in rules.iter().enumerate() {
-			let id_str = rule.inner.id.as_str();
-			match by_id.entry(id_str.into()) {
-				Entry::Vacant(e) => {
-					e.insert(idx);
+			let rule_id: Arc<str> = rule.inner.id.as_str().into();
+
+			if by_id.contains_key(&rule_id) {
+				return Err(crate::Error::DuplicateRuleId {
+					id: rule_id.to_string(),
+				});
+			}
+
+			by_id.insert(rule_id.clone(), idx);
+
+			if let Some(seq) = &rule.inner.sequence {
+				let seq_id: Arc<str> = seq.id.as_str().into();
+
+				if seq_by_id.contains_key(&seq_id) {
+					return Err(crate::Error::DuplicateSequenceId { id: seq_id.to_string() });
 				}
-				Entry::Occupied(_) => {
-					warn!("Duplicate rule id '{}', skipping", id_str);
-				}
+
+				seq_by_id.insert(seq_id, rule_id.clone());
 			}
 		}
-		RuleSet { rules, by_id }
+		Ok(RuleSet {
+			rules,
+			by_id,
+			seq_by_id,
+		})
 	}
 
 	pub fn load_from_dir(dir: impl AsRef<Path>) -> Result<RuleSet> {
 		let mut rules = Vec::new();
 		let mut by_id = HashMap::new();
+		let mut seq_by_id = HashMap::new();
 
 		// Make sure the path is like: `rules/` or `some/stuff/rules/` and not `rules`
 		let pattern = format!("{}/**/*.toml", dir.as_ref().display());
@@ -46,24 +64,38 @@ impl RuleSet {
 			match glob {
 				Ok(path) => {
 					let rule = Rule::from_file(&path)?;
-					let id_str = rule.inner.id.as_str();
+					let rule_id: Arc<str> = rule.inner.id.as_str().into();
 
-					match by_id.entry(id_str.into()) {
-						Entry::Vacant(e) => {
-							let idx = rules.len();
-							e.insert(idx);
-							rules.push(rule);
-						}
-						Entry::Occupied(_) => {
-							warn!("Duplicate rule id '{}' in {:?}, skipping", id_str, path);
-						}
+					if by_id.contains_key(&rule_id) {
+						return Err(crate::Error::DuplicateRuleId {
+							id: rule_id.to_string(),
+						});
 					}
+
+					let idx = rules.len();
+					by_id.insert(rule_id.clone(), idx);
+
+					if let Some(seq) = &rule.inner.sequence {
+						let seq_id: Arc<str> = seq.id.as_str().into();
+
+						if seq_by_id.contains_key(&seq_id) {
+							return Err(crate::Error::DuplicateSequenceId { id: seq_id.to_string() });
+						}
+
+						seq_by_id.insert(seq_id, rule_id.clone());
+					}
+
+					rules.push(rule);
 				}
 				Err(e) => warn!("Glob pattern error: {:?}", e),
 			}
 		}
 
-		Ok(RuleSet { rules, by_id })
+		Ok(RuleSet {
+			rules,
+			by_id,
+			seq_by_id,
+		})
 	}
 
 	pub fn find_rule_by_id(&self, rule_id: &str) -> Option<&Rule> {

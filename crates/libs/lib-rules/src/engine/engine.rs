@@ -99,6 +99,7 @@ impl RuleEngine {
 			for m in matches {
 				out.push(
 					CorrelatedEvent {
+						seq_id: seq.id.as_str().into(),
 						base_rule_id: m.root_rule_id,
 						seq_rule_id: matched_rule.inner.id.as_str().into(),
 						base_rule_hash: root_rule.hash_hex.clone(),
@@ -237,7 +238,7 @@ mod tests {
 			hash_hex: Arc::from("0".repeat(64)),
 		};
 
-		let ruleset = crate::RuleSet::new(vec![rule]);
+		let ruleset = crate::RuleSet::new(vec![rule])?;
 
 		let engine = RuleEngine::new_from_ruleset(ruleset)?;
 
@@ -294,7 +295,7 @@ mod tests {
 			hash_hex: Arc::from("0".repeat(64)),
 		};
 
-		let ruleset = crate::RuleSet::new(vec![rule]);
+		let ruleset = crate::RuleSet::new(vec![rule])?;
 
 		let engine = RuleEngine::new_from_ruleset(ruleset)?;
 

@@ -113,6 +113,7 @@ mod tests {
 
 	fn mk_seq() -> Sequence {
 		Sequence {
+			id: "test".into(),
 			kind: SequenceKind::Rule,
 			steps: vec![
 				Step {
@@ -255,6 +256,7 @@ mod tests {
 		let mut corr = Correlator::new();
 		let t0 = Instant::now();
 		let seq = Sequence {
+			id: "test".into(),
 			kind: SequenceKind::Rule,
 			steps: vec![],
 			scope: None,

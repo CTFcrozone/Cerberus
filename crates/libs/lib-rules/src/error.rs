@@ -26,6 +26,12 @@ pub enum Error {
 	NoRulesInDir(String),
 	#[from]
 	Regex(regex::Error),
+	DuplicateRuleId {
+		id: String,
+	},
+	DuplicateSequenceId {
+		id: String,
+	},
 	// -- Externals
 	#[from]
 	#[display("{_0}")]

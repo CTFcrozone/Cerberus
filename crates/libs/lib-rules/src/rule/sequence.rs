@@ -18,6 +18,7 @@ pub enum Scope {
 #[cfg_attr(test, derive(PartialEq))]
 #[derive(Debug, Deserialize, Clone)]
 pub struct Sequence {
+	pub id: String,
 	pub kind: SequenceKind,
 	pub steps: Vec<Step>,
 	#[serde(default)]

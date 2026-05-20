@@ -11,6 +11,7 @@ op = "contains"
 value = "/"
 
 [rule.sequence]
+id = "test-seq"
 kind = "rule"
 
 [[rule.sequence.steps]]

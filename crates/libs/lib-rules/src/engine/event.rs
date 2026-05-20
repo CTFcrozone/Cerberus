@@ -43,6 +43,7 @@ pub enum CorrelationEvent {
 
 #[derive(Debug, Clone)]
 pub struct CorrelatedEvent {
+	pub seq_id: Arc<str>,
 	pub base_rule_id: Arc<str>,
 	pub seq_rule_id: Arc<str>,
 	pub base_rule_hash: Arc<str>,

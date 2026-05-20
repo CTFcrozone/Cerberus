@@ -68,14 +68,13 @@ pub fn render_correlation_popup(frame: &mut ratatui::Frame, state: &AppState) {
 
 	if let Some(event) = selected {
 		let text = vec![
+			Line::from(format!("Sequence ID: {}", event.seq_id)),
 			Line::from(format!("Base Rule ID: {}", event.base_rule_id)),
-			Line::from(format!("Base Rule Hash: {}", event.base_rule_hash)),
 			Line::from(""),
 			Line::from(format!("Sequence Rule ID: {}", event.seq_rule_id)),
-			Line::from(format!("Sequence Rule Hash: {}", event.seq_rule_hash)),
 			Line::from(""),
 			Line::from(format!("Event PID: {}", event.event_meta.pid)),
-			Line::from(format!("Event UID: {}", event.event_meta.uid)),
+			// Line::from(format!("Event UID: {}", event.event_meta.uid)),
 			Line::from(format!("Command: {}", event.event_meta.comm)),
 		];
 
