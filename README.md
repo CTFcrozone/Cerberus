@@ -1,9 +1,9 @@
 # Cerberus
 
-![Cerberus TUI General](images/general.png)
-![Cerberus TUI Network](images/network.png)
-![Cerberus TUI Matched Rules](images/matches.png)
-![Cerberus TUI Correlations](images/correlation.png)
+![Cerberus TUI General](images/general_v.png)
+![Cerberus TUI Network](images/network_v.png)
+![Cerberus TUI Matched Rules](images/matches_v.png)
+![Cerberus TUI Correlations](images/correlation_v.png)
 ![Cerberus TUI Summary](images/summary.png)
 
 ## Prerequisites
