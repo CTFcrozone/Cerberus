@@ -3,6 +3,7 @@
 ![Cerberus TUI General](images/general.png)
 ![Cerberus TUI Network](images/network.png)
 ![Cerberus TUI Matched Rules](images/matches.png)
+![Cerberus TUI Correlations](images/correlation.png)
 ![Cerberus TUI Summary](images/summary.png)
 
 ## Prerequisites
