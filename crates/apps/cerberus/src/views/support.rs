@@ -147,10 +147,18 @@ pub fn line_from_event(evt: &CerberusEvent) -> Line<'static> {
 			h.uid, h.pid, h.tgid, h.comm, b.filepath
 		)),
 
-		CerberusEvent::InodeRename(b) => Line::raw(format!(
-			"[INODE_RENAME] UID:{} | PID:{} | TGID:{} | CMD:{} | NEW_FNAME:{} | OLD_FNAME:{}",
-			h.uid, h.pid, h.tgid, h.comm, b.new_filename, b.old_filename
-		)),
+		CerberusEvent::InodeMutation(m) => {
+			let mutation_str = match m.mutation {
+				0 => "RENAME",
+				1 => "LINK",
+				_ => "UNKOWN",
+			};
+
+			Line::raw(format!(
+				"[INODE_{}] UID:{} | PID:{} | TGID:{} | CMD:{} | NEW_FNAME:{} | OLD_FNAME:{}",
+				mutation_str, h.uid, h.pid, h.tgid, h.comm, m.new_filename, m.old_filename
+			))
+		}
 
 		CerberusEvent::Inode(u) => {
 			let op_str = match u.op {

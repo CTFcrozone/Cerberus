@@ -5,7 +5,7 @@ use crate::error::{Error, Result};
 use aya::maps::{MapData, RingBuf};
 use lib_common::event::{
 	BpfMapEvent, BpfProgLoadEvent, BprmSecurityEvent, CerberusEvent, EventHeader, InetSockEvent, InodeEvent,
-	InodeRenameEvent, ModuleEvent, RingBufEvent,
+	InodeMutationEvent, ModuleEvent, RingBufEvent,
 };
 use lib_ebpf_common::{EbpfEvent, FILE_PATH_LEN};
 use lib_event::unbound::Tx;
@@ -85,11 +85,12 @@ fn parse_cerberus_event(evt: EbpfEvent) -> Result<CerberusEvent> {
 			},
 		}),
 
-		EbpfEvent::InodeRename(ref e) => CerberusEvent::InodeRename(InodeRenameEvent {
+		EbpfEvent::InodeMutation(ref e) => CerberusEvent::InodeMutation(InodeMutationEvent {
 			new_filename: Arc::from(String::from_utf8_lossy(&e.new_filename).trim_end_matches('\0')),
 			new_filename_len: e.new_filename_len,
 			old_filename: Arc::from(String::from_utf8_lossy(&e.old_filename).trim_end_matches('\0')),
 			old_filename_len: e.old_filename_len,
+			mutation: e.mutation,
 			header: EventHeader {
 				cgroup_id: e.header.cgroup_id,
 				container: None,
@@ -302,10 +303,10 @@ fn parse_event_from_bytes(data: &[u8]) -> Result<EbpfEvent> {
 			Ok(EbpfEvent::BpfMap(*evt))
 		}
 		12 => {
-			let evt = lib_ebpf_common::InodeRenameEvent::ref_from_prefix(data)
+			let evt = lib_ebpf_common::InodeMutationEvent::ref_from_prefix(data)
 				.map_err(|_| Error::InvalidEventSize)?
 				.0;
-			Ok(EbpfEvent::InodeRename(*evt))
+			Ok(EbpfEvent::InodeMutation(*evt))
 		}
 		_ => Err(Error::UnknownEventType(header.event_type)),
 	}

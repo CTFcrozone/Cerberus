@@ -30,7 +30,7 @@
 - [x] lsm::inode_unlink
 - [ ] lsm::inode_symlink
 - [x] lsm::inode_rename
-- [ ] lsm::inode_link
+- [x] lsm::inode_link
 - [ ] lsm::inode_setattr
 - [ ] lsm::mmap_file
 - [ ] lsm::file_mprotect

@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::event::{
 	BpfMapEvent, BpfProgLoadEvent, BprmSecurityEvent, CerberusEvent, Event, EventHeader, InetSockEvent, InodeEvent,
-	InodeRenameEvent, ModuleEvent, RingBufEvent, SocketEvent,
+	InodeMutationEvent, ModuleEvent, RingBufEvent, SocketEvent,
 };
 
 impl Event for RingBufEvent {
@@ -83,7 +83,7 @@ impl Event for BprmSecurityEvent {
 	}
 }
 
-impl Event for InodeRenameEvent {
+impl Event for InodeMutationEvent {
 	fn header(&self) -> &EventHeader {
 		&self.header
 	}
@@ -104,6 +104,7 @@ impl Event for InodeRenameEvent {
 			"inode.old_filename".into(),
 			toml::Value::String(self.old_filename.to_string()),
 		);
+		f.insert("inode.mutation.type".into(), toml::Value::Integer(self.mutation as i64));
 
 		f
 	}
@@ -217,7 +218,7 @@ impl Event for CerberusEvent {
 			CerberusEvent::Socket(e) => e.header(),
 			CerberusEvent::BpfProgLoad(e) => e.header(),
 			CerberusEvent::BpfMap(e) => e.header(),
-			CerberusEvent::InodeRename(e) => e.header(),
+			CerberusEvent::InodeMutation(e) => e.header(),
 		}
 	}
 
@@ -231,7 +232,7 @@ impl Event for CerberusEvent {
 			CerberusEvent::Socket(e) => e.header_mut(),
 			CerberusEvent::BpfProgLoad(e) => e.header_mut(),
 			CerberusEvent::BpfMap(e) => e.header_mut(),
-			CerberusEvent::InodeRename(e) => e.header_mut(),
+			CerberusEvent::InodeMutation(e) => e.header_mut(),
 		}
 	}
 
@@ -245,7 +246,7 @@ impl Event for CerberusEvent {
 			CerberusEvent::Socket(e) => e.to_fields(),
 			CerberusEvent::BpfProgLoad(e) => e.to_fields(),
 			CerberusEvent::BpfMap(e) => e.to_fields(),
-			CerberusEvent::InodeRename(e) => e.to_fields(),
+			CerberusEvent::InodeMutation(e) => e.to_fields(),
 		}
 	}
 }

@@ -115,12 +115,14 @@ pub struct InodeEvent {
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug, FromBytes, Immutable, KnownLayout)]
-pub struct InodeRenameEvent {
+pub struct InodeMutationEvent {
 	pub header: EventHeader,
 	pub new_filename: [u8; 64],
 	pub old_filename: [u8; 64],
 	pub new_filename_len: u32,
 	pub old_filename_len: u32,
+	pub mutation: u8, // 0 = rename, 1 = link
+	pub _pad0: [u8; 7],
 }
 
 #[repr(C)]
@@ -140,7 +142,7 @@ pub enum EbpfEvent {
 	InetSock(InetSockSetStateEvent),
 	Socket(SocketEvent),
 	Inode(InodeEvent),
-	InodeRename(InodeRenameEvent),
+	InodeMutation(InodeMutationEvent),
 	Module(ModuleEvent),
 	BprmSecurityCheck(BprmSecurityCheckEvent),
 	BpfProgLoad(BpfProgLoadEvent),
