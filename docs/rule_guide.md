@@ -51,6 +51,27 @@ description = "Detect suspicious BPF program loads"
 
 ---
 
+## severity
+
+Indicates alert importance.
+
+Recommended values:
+
+    info
+    very-low
+    low
+    medium
+    high
+    critical
+
+Example:
+
+```toml
+severity = "high"
+```
+
+---
+
 ## type
 
 Defines what **event type** the rule applies to.
@@ -66,26 +87,6 @@ Examples:
 ---
 
 # Optional Fields
-
-## severity
-
-Indicates alert importance.
-
-Recommended values:
-
-    very-low
-    low
-    medium
-    high
-    critical
-
-Example:
-
-```toml
-severity = "high"
-```
-
----
 
 ## category
 
@@ -125,57 +126,6 @@ Each condition has:
 - field - event field
 - op - operator
 - value - value to compare
-
----
-
-# Available Fields
-
-## Process Fields
-
-    process.pid
-    process.tgid
-    process.uid
-    process.comm
-    process.filepath
-
----
-
-## Network Fields
-
-    network.sport
-    network.dport
-    network.protocol
-
----
-
-## Socket Fields
-
-    socket.port
-    socket.family
-    socket.op
-    socket.old_state
-    socket.new_state
-
----
-
-## Module Fields
-
-    module.name
-
----
-
-## BPF Fields
-
-    bpf.prog.type
-    bpf.prog.flags
-    bpf.prog.attach_type
-    bpf.prog.tag
-
----
-
-## Other
-
-    inode.filename
 
 ---
 
@@ -451,12 +401,6 @@ message = "Suspicious activity detected"
 ---
 
 # Best Practices
-
-Use normalized fields:
-
-    process.pid
-    process.uid
-    bpf.prog.type
 
 Keep rules simple.
 
