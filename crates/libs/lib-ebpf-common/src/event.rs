@@ -109,7 +109,7 @@ pub struct InodeEvent {
 	pub header: EventHeader,
 	pub filename: [u8; 64],
 	pub filename_len: u32,
-	pub op: u8, // 0 = unlink, 1 = mkdir, 2 = rmdir, 3 = symlink, 4 = rename etc.
+	pub op: u8, // 0 = unlink, 1 = mkdir, 2 = rmdir
 	pub _pad0: [u8; 3],
 }
 
@@ -121,7 +121,7 @@ pub struct InodeMutationEvent {
 	pub old_filename: [u8; 64],
 	pub new_filename_len: u32,
 	pub old_filename_len: u32,
-	pub mutation: u8, // 0 = rename, 1 = link
+	pub mutation: u8, // 0 = rename, 1 = link, 2 = symlink
 	pub _pad0: [u8; 7],
 }
 

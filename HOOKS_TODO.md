@@ -28,7 +28,7 @@
 - [x] lsm::inode_mkdir
 - [x] lsm::inode_rmdir
 - [x] lsm::inode_unlink
-- [ ] lsm::inode_symlink
+- [x] lsm::inode_symlink
 - [x] lsm::inode_rename
 - [x] lsm::inode_link
 - [ ] lsm::inode_setattr

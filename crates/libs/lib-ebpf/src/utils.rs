@@ -70,15 +70,16 @@ pub fn read_dentry_name(dentry: *const dentry, buf: &mut [u8; FILE_NAME_LEN]) ->
 			return None;
 		}
 
-		let mut len = d.__bindgen_anon_1.d_name.__bindgen_anon_1.__bindgen_anon_1.len as usize;
-		if len > FILE_NAME_LEN {
-			len = FILE_NAME_LEN;
-		}
+		let len = d.__bindgen_anon_1.d_name.__bindgen_anon_1.__bindgen_anon_1.len as usize;
+		let copy_len = core::cmp::min(len, FILE_NAME_LEN);
 
-		let slice = core::slice::from_raw_parts(name_ptr, len);
-		let copy_len = core::cmp::min(slice.len(), buf.len());
-		buf[..copy_len].copy_from_slice(&slice[..copy_len]);
+		let name = match bpf_probe_read_kernel::<[u8; FILE_NAME_LEN]>(name_ptr as *const _) {
+			Ok(v) => v,
+			Err(_) => return None,
+		};
 
-		Some(len as u32)
+		buf[..copy_len].copy_from_slice(&name[..copy_len]);
+
+		Some(copy_len as u32)
 	}
 }

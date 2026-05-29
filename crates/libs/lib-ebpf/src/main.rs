@@ -48,6 +48,14 @@ pub fn inode_rmdir(ctx: LsmContext) -> i32 {
 	}
 }
 
+#[lsm(hook = "inode_symlink")]
+pub fn inode_symlink(ctx: LsmContext) -> i32 {
+	match hooks::try_inode_symlink(ctx) {
+		Ok(ret) => ret,
+		Err(ret) => ret,
+	}
+}
+
 #[lsm(hook = "inode_link")]
 pub fn inode_link(ctx: LsmContext) -> i32 {
 	match hooks::try_inode_link(ctx) {

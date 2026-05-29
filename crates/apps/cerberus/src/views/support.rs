@@ -151,6 +151,7 @@ pub fn line_from_event(evt: &CerberusEvent) -> Line<'static> {
 			let mutation_str = match m.mutation {
 				0 => "RENAME",
 				1 => "LINK",
+				2 => "SYMLINK",
 				_ => "UNKOWN",
 			};
 

@@ -153,6 +153,10 @@ pub fn load_hooks(ebpf: &mut Ebpf) -> Result<AsyncFd<RingBuf<MapData>>> {
 	lsm_inode_link.load("inode_link", &btf)?;
 	lsm_inode_link.attach()?;
 
+	let lsm_inode_symlink: &mut Lsm = ebpf.program_mut("inode_symlink").ok_or(Error::EbpfProgNotFound)?.try_into()?;
+	lsm_inode_symlink.load("inode_symlink", &btf)?;
+	lsm_inode_symlink.attach()?;
+
 	let lsm_inode_rename: &mut Lsm = ebpf.program_mut("inode_rename").ok_or(Error::EbpfProgNotFound)?.try_into()?;
 	lsm_inode_rename.load("inode_rename", &btf)?;
 	lsm_inode_rename.attach()?;
