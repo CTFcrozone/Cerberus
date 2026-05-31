@@ -5,9 +5,13 @@ use crate::error::{Error, Result};
 use aya::maps::{MapData, RingBuf};
 use lib_common::event::{
 	BpfMapEvent, BpfProgLoadEvent, BprmSecurityEvent, CerberusEvent, EventHeader, InetSockEvent, InodeEvent,
-	InodeMutationEvent, ModuleEvent, RingBufEvent,
+	InodeMutationEvent, ModuleEvent, PtraceAccessCheckEvent, RingBufEvent,
 };
-use lib_ebpf_common::{EbpfEvent, FILE_PATH_LEN};
+use lib_ebpf_common::{
+	EbpfEvent, EVT_BPF_MAP, EVT_BPF_PROG_LOAD, EVT_BPRM_CHECK_SEC, EVT_COMMIT_CREDS, EVT_ENTER_PTRACE,
+	EVT_INET_SOCK_SET_STATE, EVT_INODE, EVT_INODE_MUTATE, EVT_IO_URING, EVT_KILL, EVT_MODULE, EVT_PTRACE_ACCESS_CHECK,
+	EVT_SOCKET, FILE_PATH_LEN,
+};
 use lib_event::unbound::Tx;
 use tokio::io::unix::AsyncFd;
 
@@ -56,22 +60,51 @@ impl RingBufWorker {
 	}
 }
 
+pub const fn event_name(event_type: u8) -> &'static str {
+	match event_type {
+		EVT_KILL => "KILL",
+		EVT_IO_URING => "IO_URING",
+		EVT_SOCKET => "SOCKET",
+		EVT_COMMIT_CREDS => "COMMIT_CREDS",
+		EVT_MODULE => "MODULE",
+		EVT_INET_SOCK_SET_STATE => "INET_SOCK_SET_STATE",
+		EVT_ENTER_PTRACE => "ENTER_PTRACE",
+		EVT_BPRM_CHECK_SEC => "EXEC",
+		EVT_BPF_PROG_LOAD => "BPF_PROG_LOAD",
+		EVT_INODE => "INODE",
+		EVT_BPF_MAP => "BPF_MAP",
+		EVT_INODE_MUTATE => "INODE_MUTATE",
+		EVT_PTRACE_ACCESS_CHECK => "PTRACE_ACCESS_CHECK",
+		_ => "UNKNOWN",
+	}
+}
+
 fn parse_cerberus_event(evt: EbpfEvent) -> Result<CerberusEvent> {
 	let cerberus_evt = match evt {
 		EbpfEvent::Generic(ref e) => CerberusEvent::Generic(RingBufEvent {
-			name: match e.header.event_type {
-				1 => "KILL",
-				2 => "IO_URING",
-				3 => "SOCKET_CONNECT",
-				4 => "COMMIT_CREDS",
-				5 => "MODULE_INIT",
-				6 => "INET_SOCK_SET_STATE",
-				7 => "ENTER_PTRACE",
-				8 => "BPRM_CHECK",
-				_ => "UNKNOWN",
-			},
+			name: event_name(e.header.event_type),
 			meta: e.meta,
 			meta_type: e.meta_type,
+			header: EventHeader {
+				cgroup_id: e.header.cgroup_id,
+				container: None,
+				ts: e.header.ts,
+				mnt_ns: e.header.mnt_ns,
+				pid: e.header.pid,
+				ppid: e.header.ppid,
+				uid: e.header.uid,
+				tgid: e.header.tgid,
+				comm: Arc::from(String::from_utf8_lossy(&e.header.comm).trim_end_matches('\0')),
+			},
+		}),
+
+		EbpfEvent::PtraceAccessCheck(ref e) => CerberusEvent::PtraceAccessCheck(PtraceAccessCheckEvent {
+			target_comm: Arc::from(String::from_utf8_lossy(&e.header.comm).trim_end_matches('\0')),
+			target_pid: e.target_pid,
+			target_tgid: e.target_tgid,
+			target_uid: e.target_uid,
+			mode: e.mode,
+			stage: e.stage,
 			header: EventHeader {
 				cgroup_id: e.header.cgroup_id,
 				container: None,
@@ -252,61 +285,68 @@ fn parse_event_from_bytes(data: &[u8]) -> Result<EbpfEvent> {
 		.0;
 
 	match header.event_type {
-		1 | 4 => {
+		EVT_KILL | EVT_COMMIT_CREDS => {
 			let evt = lib_ebpf_common::GenericEvent::ref_from_prefix(data)
 				.map_err(|_| Error::InvalidEventSize)?
 				.0;
 			Ok(EbpfEvent::Generic(*evt))
 		}
 
-		3 => {
+		EVT_SOCKET => {
 			let evt = lib_ebpf_common::SocketEvent::ref_from_prefix(data)
 				.map_err(|_| Error::InvalidEventSize)?
 				.0;
 			Ok(EbpfEvent::Socket(*evt))
 		}
 
-		5 => {
+		EVT_MODULE => {
 			let evt = lib_ebpf_common::ModuleEvent::ref_from_prefix(data)
 				.map_err(|_| Error::InvalidEventSize)?
 				.0;
 			Ok(EbpfEvent::Module(*evt))
 		}
-		6 => {
+		EVT_INET_SOCK_SET_STATE => {
 			let evt = lib_ebpf_common::InetSockSetStateEvent::ref_from_prefix(data)
 				.map_err(|_| Error::InvalidEventSize)?
 				.0;
 			Ok(EbpfEvent::InetSock(*evt))
 		}
-		8 => {
+		EVT_BPRM_CHECK_SEC => {
 			let evt = lib_ebpf_common::BprmSecurityCheckEvent::ref_from_prefix(data)
 				.map_err(|_| Error::InvalidEventSize)?
 				.0;
 			Ok(EbpfEvent::BprmSecurityCheck(*evt))
 		}
-		9 => {
+		EVT_BPF_PROG_LOAD => {
 			let evt = lib_ebpf_common::BpfProgLoadEvent::ref_from_prefix(data)
 				.map_err(|_| Error::InvalidEventSize)?
 				.0;
 			Ok(EbpfEvent::BpfProgLoad(*evt))
 		}
-		10 => {
+		EVT_INODE => {
 			let evt = lib_ebpf_common::InodeEvent::ref_from_prefix(data)
 				.map_err(|_| Error::InvalidEventSize)?
 				.0;
 			Ok(EbpfEvent::Inode(*evt))
 		}
-		11 => {
+		EVT_BPF_MAP => {
 			let evt = lib_ebpf_common::BpfMapEvent::ref_from_prefix(data)
 				.map_err(|_| Error::InvalidEventSize)?
 				.0;
 			Ok(EbpfEvent::BpfMap(*evt))
 		}
-		12 => {
+		EVT_INODE_MUTATE => {
 			let evt = lib_ebpf_common::InodeMutationEvent::ref_from_prefix(data)
 				.map_err(|_| Error::InvalidEventSize)?
 				.0;
 			Ok(EbpfEvent::InodeMutation(*evt))
+		}
+
+		EVT_PTRACE_ACCESS_CHECK => {
+			let evt = lib_ebpf_common::PtraceAccessCheckEvent::ref_from_prefix(data)
+				.map_err(|_| Error::InvalidEventSize)?
+				.0;
+			Ok(EbpfEvent::PtraceAccessCheck(*evt))
 		}
 		_ => Err(Error::UnknownEventType(header.event_type)),
 	}

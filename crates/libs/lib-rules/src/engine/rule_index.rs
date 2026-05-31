@@ -13,6 +13,7 @@ pub enum EventKind {
 	Socket,
 	Module,
 	BpfProgLoad,
+	PtraceAccessCheck,
 	BpfMap,
 	Inode,
 	InodeMutate,
@@ -31,6 +32,7 @@ impl From<&CerberusEvent> for EventKind {
 			CerberusEvent::Inode(_) => EventKind::Inode,
 			CerberusEvent::BpfMap(_) => EventKind::BpfMap,
 			CerberusEvent::InodeMutation(_) => EventKind::InodeMutate,
+			CerberusEvent::PtraceAccessCheck(_) => EventKind::PtraceAccessCheck,
 		}
 	}
 }
@@ -54,6 +56,19 @@ fn field_in(kind: EventKind, field: &str) -> bool {
 			field,
 			"process.uid" | "process.pid" | "process.tgid" | "process.comm" | "inode.filename" | "inode.op"
 		),
+		EventKind::PtraceAccessCheck => {
+			matches!(
+				field,
+				"process.uid"
+					| "process.pid" | "process.tgid"
+					| "process.comm"
+					| "process.target.pid"
+					| "process.target.tgid"
+					| "process.target.uid"
+					| "process.target.comm"
+					| "ptrace.mode" | "ptrace.stage"
+			)
+		}
 		EventKind::InodeMutate => matches!(
 			field,
 			"process.uid"

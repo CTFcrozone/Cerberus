@@ -1,25 +1,49 @@
-use lib_common::event::{CerberusEvent, Event};
-use lib_ebpf_common::{FLAG_GPL, FLAG_JITED, FLAG_KPROBE_OVR, FLAG_SLEEPABLE};
-use ratatui::text::Line;
+use lib_ebpf_common::{consts::*, FLAG_GPL, FLAG_JITED, FLAG_KPROBE_OVR, FLAG_SLEEPABLE};
 
-fn flags_to_string(flags: u32) -> String {
-	let mut s = Vec::new();
-	if flags & FLAG_JITED != 0 {
-		s.push("JIT");
+pub fn module_op_to_string(op: u8) -> &'static str {
+	match op {
+		MODULE_OP_INIT => "INIT",
+		MODULE_OP_DELETE => "DELETE",
+		MODULE_OP_REQUEST => "REQUEST",
+		_ => "UNKNOWN",
 	}
-	if flags & FLAG_SLEEPABLE != 0 {
-		s.push("SLEEPABLE");
-	}
-	if flags & FLAG_GPL != 0 {
-		s.push("GPL");
-	}
-	if flags & FLAG_KPROBE_OVR != 0 {
-		s.push("KPROBE_OVR");
-	}
-	s.join(",")
 }
 
-fn attach_type_to_string(atype: u32) -> &'static str {
+pub fn inode_op_to_string(op: u8) -> &'static str {
+	match op {
+		INODE_OP_UNLINK => "UNLINK",
+		INODE_OP_MKDIR => "MKDIR",
+		INODE_OP_RMDIR => "RMDIR",
+		_ => "UNKNOWN",
+	}
+}
+
+pub fn inode_mutation_to_string(m: u8) -> &'static str {
+	match m {
+		INODE_MUTATION_RENAME => "RENAME",
+		INODE_MUTATION_LINK => "LINK",
+		INODE_MUTATION_SYMLINK => "SYMLINK",
+		_ => "UNKNOWN",
+	}
+}
+
+pub fn ptrace_stage_to_string(stage: u8) -> &'static str {
+	match stage {
+		PTRACE_STAGE_REQUEST => "REQUEST",
+		PTRACE_STAGE_DECISION => "DECISION",
+		_ => "UNKNOWN",
+	}
+}
+
+pub fn socket_op_to_string(op: u8) -> &'static str {
+	match op {
+		SOCKET_OP_BIND => "BIND",
+		SOCKET_OP_CONNECT => "CONNECT",
+		_ => "UNKNOWN",
+	}
+}
+
+pub fn attach_type_to_string(atype: u32) -> &'static str {
 	match atype {
 		0 => "CGROUP_INET_INGRESS",
 		1 => "CGROUP_INET_EGRESS",
@@ -83,7 +107,7 @@ fn attach_type_to_string(atype: u32) -> &'static str {
 	}
 }
 
-fn prog_type_to_string(ptype: u32) -> &'static str {
+pub fn prog_type_to_string(ptype: u32) -> &'static str {
 	match ptype {
 		0 => "UNSPEC",
 		1 => "SOCKET_FILTER",
@@ -122,107 +146,12 @@ fn prog_type_to_string(ptype: u32) -> &'static str {
 	}
 }
 
-pub fn line_from_event(evt: &CerberusEvent) -> Line<'static> {
-	let h = evt.header();
-	match evt {
-		CerberusEvent::Generic(g) => Line::raw(format!(
-			"[{}] UID:{} | PID:{} | TGID:{} | CMD:{} | META:{}",
-			g.name, h.uid, h.pid, h.tgid, h.comm, g.meta
-		)),
-		CerberusEvent::Module(m) => {
-			let op_str = match m.op {
-				0 => "INIT",
-				1 => "DELETE",
-				2 => "REQUEST",
-				_ => "UNKNOWN",
-			};
-
-			Line::raw(format!(
-				"[MODULE_{}] UID:{} | PID:{} | TGID:{} | CMD:{} | MODULE_NAME:{}",
-				op_str, h.uid, h.pid, h.tgid, h.comm, m.module_name
-			))
-		}
-		CerberusEvent::Bprm(b) => Line::raw(format!(
-			"[BRPM_SEC_CHECK] UID:{} | PID:{} | TGID:{} | CMD:{} | FILEPATH:{}",
-			h.uid, h.pid, h.tgid, h.comm, b.filepath
-		)),
-
-		CerberusEvent::InodeMutation(m) => {
-			let mutation_str = match m.mutation {
-				0 => "RENAME",
-				1 => "LINK",
-				2 => "SYMLINK",
-				_ => "UNKOWN",
-			};
-
-			Line::raw(format!(
-				"[INODE_{}] UID:{} | PID:{} | TGID:{} | CMD:{} | NEW_FNAME:{} | OLD_FNAME:{}",
-				mutation_str, h.uid, h.pid, h.tgid, h.comm, m.new_filename, m.old_filename
-			))
-		}
-
-		CerberusEvent::Inode(u) => {
-			let op_str = match u.op {
-				0 => "UNLINK",
-				1 => "MKDIR",
-				2 => "RMDIR",
-				_ => "UNKOWN",
-			};
-
-			Line::raw(format!(
-				"[INODE_{}] UID:{} | PID:{} | TGID:{} | CMD:{} | FILENAME:{}",
-				op_str, h.uid, h.pid, h.tgid, h.comm, u.filename,
-			))
-		}
-
-		CerberusEvent::Socket(s) => {
-			let op_str = match s.op {
-				0 => "BIND",
-				1 => "CONNECT",
-				_ => "UNKNOWN",
-			};
-
-			Line::raw(format!(
-				"[SOCKET] {}:{} | Family: {} | OP: {}",
-				ip_to_string(s.addr),
-				s.port,
-				family_to_string(s.family),
-				op_str
-			))
-		}
-		CerberusEvent::InetSock(n) => Line::raw(format!(
-			"[INET_SOCK] {}:{} → {}:{} | Proto: {} | {} → {}",
-			ip_to_string(n.saddr),
-			n.sport,
-			ip_to_string(n.daddr),
-			n.dport,
-			n.protocol,
-			n.old_state,
-			n.new_state
-		)),
-		CerberusEvent::BpfProgLoad(b) => {
-			let prog_type_str = prog_type_to_string(b.prog_type);
-			let attach_type_str = attach_type_to_string(b.attach_type);
-			let flags_str = flags_to_string(b.flags);
-
-			Line::raw(format!(
-				"[BPF_PROG_LOAD] UID:{} | PID:{} | CMD:{} | TYPE:{} | ATTACH:{} | FLAGS:{}",
-				h.uid, h.pid, h.comm, prog_type_str, attach_type_str, flags_str,
-			))
-		}
-		CerberusEvent::BpfMap(b) => Line::raw(format!(
-			"[BPF_MAP] UID:{} | PID:{} | CMD:{} | MAP_NAME:{} | MAP_TYPE:{} | MAP_ID:{}",
-			h.uid, h.pid, h.comm, b.map_name, b.map_type, b.map_id,
-		)),
-	}
-}
-
-fn ip_to_string(ip: u32) -> String {
+pub fn ip_to_string(ip: u32) -> String {
 	let octets = ip.to_le_bytes();
 	format!("{}.{}.{}.{}", octets[0], octets[1], octets[2], octets[3])
 }
 
-fn family_to_string<T: Into<i32>>(family: T) -> &'static str {
+pub fn family_to_string<T: Into<i32>>(family: T) -> &'static str {
 	let family = family.into();
 	match family {
 		libc::AF_UNSPEC => "AF_UNSPEC",         // 0
@@ -268,4 +197,21 @@ fn family_to_string<T: Into<i32>>(family: T) -> &'static str {
 		libc::AF_XDP => "AF_XDP",               // 40 - XDP sockets
 		_ => "UNKNOWN_FAMILY",
 	}
+}
+
+pub fn flags_to_string(flags: u32) -> String {
+	let mut s = Vec::new();
+	if flags & FLAG_JITED != 0 {
+		s.push("JIT");
+	}
+	if flags & FLAG_SLEEPABLE != 0 {
+		s.push("SLEEPABLE");
+	}
+	if flags & FLAG_GPL != 0 {
+		s.push("GPL");
+	}
+	if flags & FLAG_KPROBE_OVR != 0 {
+		s.push("KPROBE_OVR");
+	}
+	s.join(",")
 }

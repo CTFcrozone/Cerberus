@@ -23,6 +23,8 @@ pub enum CerberusEvent {
 	BpfMap(BpfMapEvent),
 	#[from]
 	InodeMutation(InodeMutationEvent),
+	#[from]
+	PtraceAccessCheck(PtraceAccessCheckEvent),
 }
 
 // TODO: add unified EventHeader struct
@@ -44,6 +46,17 @@ pub struct EventHeader {
 	pub ppid: u32,
 	pub uid: u32,
 	pub tgid: u32,
+}
+
+#[derive(Debug, Clone)]
+pub struct PtraceAccessCheckEvent {
+	pub header: EventHeader,
+	pub target_pid: u32,
+	pub target_tgid: u32,
+	pub target_uid: u32,
+	pub mode: u32,
+	pub stage: u8,
+	pub target_comm: Arc<str>,
 }
 
 #[derive(Debug, Clone)]

@@ -9,7 +9,10 @@ use aya_ebpf::{
 	programs::LsmContext,
 };
 use aya_log_ebpf::error;
-use lib_ebpf_common::{EventHeader, InodeEvent, InodeMutationEvent, FILE_NAME_LEN};
+use lib_ebpf_common::{
+	EventHeader, InodeEvent, InodeMutationEvent, EVT_INODE, EVT_INODE_MUTATE, FILE_NAME_LEN, INODE_MUTATION_LINK,
+	INODE_MUTATION_RENAME, INODE_MUTATION_SYMLINK, INODE_OP_MKDIR, INODE_OP_RMDIR, INODE_OP_UNLINK,
+};
 
 use crate::{
 	utils::{get_mnt_ns, get_ppid, read_dentry_name},
@@ -40,7 +43,7 @@ pub fn try_inode_unlink(ctx: LsmContext) -> Result<i32, i32> {
 	let event = InodeEvent {
 		header: EventHeader {
 			ts,
-			event_type: 10,
+			event_type: EVT_INODE,
 			cgroup_id,
 			mnt_ns,
 			pid,
@@ -52,7 +55,7 @@ pub fn try_inode_unlink(ctx: LsmContext) -> Result<i32, i32> {
 		},
 		filename,
 		filename_len: len,
-		op: 0,
+		op: INODE_OP_UNLINK,
 		_pad0: [0u8; 3],
 	};
 
@@ -92,7 +95,7 @@ pub fn try_inode_rename(ctx: LsmContext) -> Result<i32, i32> {
 	let event = InodeMutationEvent {
 		header: EventHeader {
 			ts,
-			event_type: 12,
+			event_type: EVT_INODE_MUTATE,
 			cgroup_id,
 			mnt_ns,
 			pid,
@@ -106,7 +109,7 @@ pub fn try_inode_rename(ctx: LsmContext) -> Result<i32, i32> {
 		old_filename,
 		new_filename_len,
 		old_filename_len,
-		mutation: 0,
+		mutation: INODE_MUTATION_RENAME,
 		_pad0: [0u8; 7],
 	};
 
@@ -138,7 +141,7 @@ pub fn try_inode_mkdir(ctx: LsmContext) -> Result<i32, i32> {
 	let event = InodeEvent {
 		header: EventHeader {
 			ts,
-			event_type: 10,
+			event_type: EVT_INODE,
 			cgroup_id,
 			mnt_ns,
 			pid,
@@ -150,7 +153,7 @@ pub fn try_inode_mkdir(ctx: LsmContext) -> Result<i32, i32> {
 		},
 		filename,
 		filename_len: len,
-		op: 1,
+		op: INODE_OP_MKDIR,
 		_pad0: [0u8; 3],
 	};
 
@@ -190,7 +193,7 @@ pub fn try_inode_link(ctx: LsmContext) -> Result<i32, i32> {
 	let event = InodeMutationEvent {
 		header: EventHeader {
 			ts,
-			event_type: 12,
+			event_type: EVT_INODE_MUTATE,
 			cgroup_id,
 			mnt_ns,
 			pid,
@@ -204,7 +207,7 @@ pub fn try_inode_link(ctx: LsmContext) -> Result<i32, i32> {
 		old_filename,
 		new_filename_len,
 		old_filename_len,
-		mutation: 1,
+		mutation: INODE_MUTATION_LINK,
 		_pad0: [0u8; 7],
 	};
 
@@ -246,7 +249,7 @@ pub fn try_inode_symlink(ctx: LsmContext) -> Result<i32, i32> {
 	let event = InodeMutationEvent {
 		header: EventHeader {
 			ts,
-			event_type: 12,
+			event_type: EVT_INODE_MUTATE,
 			cgroup_id,
 			mnt_ns,
 			pid,
@@ -260,7 +263,7 @@ pub fn try_inode_symlink(ctx: LsmContext) -> Result<i32, i32> {
 		old_filename,
 		new_filename_len,
 		old_filename_len,
-		mutation: 2,
+		mutation: INODE_MUTATION_SYMLINK,
 		_pad0: [0u8; 7],
 	};
 
@@ -292,7 +295,7 @@ pub fn try_inode_rmdir(ctx: LsmContext) -> Result<i32, i32> {
 	let event = InodeEvent {
 		header: EventHeader {
 			ts,
-			event_type: 10,
+			event_type: EVT_INODE,
 			cgroup_id,
 			mnt_ns,
 			pid,
@@ -304,7 +307,7 @@ pub fn try_inode_rmdir(ctx: LsmContext) -> Result<i32, i32> {
 		},
 		filename,
 		filename_len: len,
-		op: 2,
+		op: INODE_OP_RMDIR,
 		_pad0: [0u8; 3],
 	};
 

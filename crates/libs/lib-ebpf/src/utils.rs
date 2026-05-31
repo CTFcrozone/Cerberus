@@ -1,5 +1,12 @@
-use aya_ebpf::helpers::{bpf_probe_read_kernel, r#gen::bpf_get_current_task};
-use lib_ebpf_common::FILE_NAME_LEN;
+use aya_ebpf::{
+	bindings::path,
+	cty::c_char,
+	helpers::{
+		bpf_probe_read_kernel,
+		r#gen::{bpf_d_path, bpf_get_current_task},
+	},
+};
+use lib_ebpf_common::{FILE_NAME_LEN, FILE_PATH_LEN};
 
 use crate::vmlinux::{dentry, mnt_namespace, nsproxy};
 
@@ -82,4 +89,21 @@ pub fn read_dentry_name(dentry: *const dentry, buf: &mut [u8; FILE_NAME_LEN]) ->
 
 		Some(copy_len as u32)
 	}
+}
+
+#[inline(always)]
+pub unsafe fn resolve_file_path(file: *mut crate::vmlinux::file, buf: *mut [u8; FILE_PATH_LEN]) -> u32 {
+	if file.is_null() || buf.is_null() {
+		return 0;
+	}
+
+	let f_path = &(*file).__bindgen_anon_1.f_path as *const _ as *mut path;
+
+	let ret = bpf_d_path(f_path, (*buf).as_mut_ptr() as *mut c_char, FILE_PATH_LEN as u32);
+
+	if ret <= 0 || ret as usize > FILE_PATH_LEN {
+		return 0;
+	}
+
+	ret as u32
 }

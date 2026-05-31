@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::event::{
 	BpfMapEvent, BpfProgLoadEvent, BprmSecurityEvent, CerberusEvent, Event, EventHeader, InetSockEvent, InodeEvent,
-	InodeMutationEvent, ModuleEvent, RingBufEvent, SocketEvent,
+	InodeMutationEvent, ModuleEvent, PtraceAccessCheckEvent, RingBufEvent, SocketEvent,
 };
 
 impl Event for RingBufEvent {
@@ -106,6 +106,44 @@ impl Event for InodeMutationEvent {
 		);
 		f.insert("inode.mutation.type".into(), toml::Value::Integer(self.mutation as i64));
 
+		f
+	}
+}
+
+impl Event for PtraceAccessCheckEvent {
+	fn header(&self) -> &EventHeader {
+		&self.header
+	}
+	fn header_mut(&mut self) -> &mut EventHeader {
+		&mut self.header
+	}
+	fn to_fields(&self) -> HashMap<String, toml::Value> {
+		let mut f = HashMap::new();
+		f.insert("process.uid".into(), toml::Value::Integer(self.header.uid as i64));
+		f.insert("process.pid".into(), toml::Value::Integer(self.header.pid as i64));
+		f.insert("process.tgid".into(), toml::Value::Integer(self.header.tgid as i64));
+		f.insert("process.comm".into(), toml::Value::String(self.header.comm.to_string()));
+		f.insert(
+			"process.target.pid".into(),
+			toml::Value::Integer(self.target_pid as i64),
+		);
+		f.insert(
+			"process.target.tgid".into(),
+			toml::Value::Integer(self.target_tgid as i64),
+		);
+
+		f.insert(
+			"process.target.uid".into(),
+			toml::Value::Integer(self.target_uid as i64),
+		);
+
+		f.insert(
+			"process.target.comm".into(),
+			toml::Value::String(self.target_comm.to_string()),
+		);
+
+		f.insert("ptrace.mode".into(), toml::Value::Integer(self.mode as i64));
+		f.insert("ptrace.stage".into(), toml::Value::Integer(self.stage as i64));
 		f
 	}
 }
@@ -219,6 +257,7 @@ impl Event for CerberusEvent {
 			CerberusEvent::BpfProgLoad(e) => e.header(),
 			CerberusEvent::BpfMap(e) => e.header(),
 			CerberusEvent::InodeMutation(e) => e.header(),
+			CerberusEvent::PtraceAccessCheck(e) => e.header(),
 		}
 	}
 
@@ -233,6 +272,7 @@ impl Event for CerberusEvent {
 			CerberusEvent::BpfProgLoad(e) => e.header_mut(),
 			CerberusEvent::BpfMap(e) => e.header_mut(),
 			CerberusEvent::InodeMutation(e) => e.header_mut(),
+			CerberusEvent::PtraceAccessCheck(e) => e.header_mut(),
 		}
 	}
 
@@ -247,6 +287,7 @@ impl Event for CerberusEvent {
 			CerberusEvent::BpfProgLoad(e) => e.to_fields(),
 			CerberusEvent::BpfMap(e) => e.to_fields(),
 			CerberusEvent::InodeMutation(e) => e.to_fields(),
+			CerberusEvent::PtraceAccessCheck(e) => e.to_fields(),
 		}
 	}
 }

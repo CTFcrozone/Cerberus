@@ -93,3 +93,18 @@
 - `process.tgid`
 - `process.comm`
 - `process.filepath`
+
+---
+
+## PtraceAccessCheck
+
+- `process.uid`
+- `process.pid`
+- `process.tgid`
+- `process.comm`
+- `process.target.pid`
+- `process.target.tgid`
+- `process.target.uid`
+- `process.target.comm`
+- `ptrace.mode`
+- `ptrace.stage`

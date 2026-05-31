@@ -173,6 +173,13 @@ pub fn load_hooks(ebpf: &mut Ebpf) -> Result<AsyncFd<RingBuf<MapData>>> {
 	kp_module_init.load()?;
 	kp_module_init.attach("do_init_module", 0)?;
 
+	let ptrace_acs_check: &mut Lsm = ebpf
+		.program_mut("ptrace_access_check")
+		.ok_or(Error::EbpfProgNotFound)?
+		.try_into()?;
+	ptrace_acs_check.load("ptrace_access_check", &btf)?;
+	ptrace_acs_check.attach()?;
+
 	let bprm: &mut Lsm = ebpf
 		.program_mut("bprm_check_security")
 		.ok_or(Error::EbpfProgNotFound)?
@@ -180,27 +187,12 @@ pub fn load_hooks(ebpf: &mut Ebpf) -> Result<AsyncFd<RingBuf<MapData>>> {
 	bprm.load("bprm_check_security", &btf)?;
 	bprm.attach()?;
 
-	// FIXME: Not found???
-	// let kp_module_delete: &mut KProbe = ebpf
-	// 	.program_mut("do_delete_module")
-	// 	.ok_or(Error::EbpfProgNotFound)?
-	// 	.try_into()?;
-	// kp_module_delete.load()?;
-	// kp_module_delete.attach("do_delete_module", 0)?;
-
 	let tp_inet_sock_set_state: &mut TracePoint = ebpf
 		.program_mut("inet_sock_set_state")
 		.ok_or(Error::EbpfProgNotFound)?
 		.try_into()?;
 	tp_inet_sock_set_state.load()?;
 	tp_inet_sock_set_state.attach("sock", "inet_sock_set_state")?;
-
-	let tp_inet_sock_set_state: &mut TracePoint = ebpf
-		.program_mut("sys_enter_delete_module")
-		.ok_or(Error::EbpfProgNotFound)?
-		.try_into()?;
-	tp_inet_sock_set_state.load()?;
-	tp_inet_sock_set_state.attach("syscalls", "sys_enter_delete_module")?;
 
 	let sys_enter_ptrace: &mut TracePoint = ebpf
 		.program_mut("sys_enter_ptrace")

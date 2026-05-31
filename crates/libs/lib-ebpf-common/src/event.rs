@@ -8,11 +8,12 @@ use zerocopy_derive::{FromBytes, Immutable, KnownLayout};
 // 5 => MODULE,
 // 6 => INET_SOCK_SET_STATE,
 // 7 => ENTER_PTRACE
-// 8 => EXEC (bprm_check_security)
+// 8 => EVT_BPRM_CHECK_SEC
 // 9 => BPF_PROG_LOAD
 // 10 => INODE
 // 11 => BPF_MAP
-// 12 => INODE_RENAME
+// 12 => INODE_MUTATE
+// 13 => PTRACE_ACCESS_CHECK
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug, FromBytes, Immutable, KnownLayout)]
@@ -40,6 +41,19 @@ pub struct GenericEvent {
 	pub meta: u32, // syscall num, exit code, permission flags, etc
 	pub meta_type: u16,
 	pub _pad0: [u8; 2],
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Debug, FromBytes, Immutable, KnownLayout)]
+pub struct PtraceAccessCheckEvent {
+	pub header: EventHeader,
+	pub target_pid: u32,
+	pub target_tgid: u32,
+	pub target_uid: u32,
+	pub mode: u32,
+	pub stage: u8, // 0 = requested, 1 = denied
+	pub target_comm: [u8; 16],
+	pub _pad0: [u8; 7],
 }
 
 #[repr(C)]
@@ -143,6 +157,7 @@ pub enum EbpfEvent {
 	Socket(SocketEvent),
 	Inode(InodeEvent),
 	InodeMutation(InodeMutationEvent),
+	PtraceAccessCheck(PtraceAccessCheckEvent),
 	Module(ModuleEvent),
 	BprmSecurityCheck(BprmSecurityCheckEvent),
 	BpfProgLoad(BpfProgLoadEvent),

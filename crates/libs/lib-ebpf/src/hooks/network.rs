@@ -6,7 +6,9 @@ use aya_ebpf::{
 	programs::{LsmContext, TracePointContext},
 };
 use aya_log_ebpf::error;
-use lib_ebpf_common::{EventHeader, InetSockSetStateEvent, SocketEvent};
+use lib_ebpf_common::{
+	EVT_INET_SOCK_SET_STATE, EVT_SOCKET, EventHeader, InetSockSetStateEvent, SOCKET_OP_BIND, SOCKET_OP_CONNECT, SocketEvent
+};
 
 use crate::{
 	utils::{get_mnt_ns, get_ppid},
@@ -55,7 +57,7 @@ pub fn try_socket_connect(ctx: LsmContext) -> Result<i32, i32> {
 	let event = SocketEvent {
 		header: EventHeader {
 			ts,
-			event_type: 3,
+			event_type: EVT_SOCKET,
 			cgroup_id,
 			mnt_ns,
 			pid,
@@ -68,7 +70,7 @@ pub fn try_socket_connect(ctx: LsmContext) -> Result<i32, i32> {
 		addr,
 		port,
 		family,
-		op: 1,
+		op: SOCKET_OP_CONNECT,
 		_pad0: [0u8; 7],
 	};
 
@@ -117,7 +119,7 @@ pub fn try_socket_bind(ctx: LsmContext) -> Result<i32, i32> {
 	let event = SocketEvent {
 		header: EventHeader {
 			ts,
-			event_type: 3,
+			event_type: EVT_SOCKET,
 			cgroup_id,
 			mnt_ns,
 			pid,
@@ -130,7 +132,7 @@ pub fn try_socket_bind(ctx: LsmContext) -> Result<i32, i32> {
 		addr,
 		port,
 		family,
-		op: 0,
+		op: SOCKET_OP_BIND,
 		_pad0: [0u8; 7],
 	};
 
@@ -165,7 +167,7 @@ pub fn try_inet_sock_set_state(ctx: TracePointContext) -> Result<u32, u32> {
 	let event = InetSockSetStateEvent {
 		header: EventHeader {
 			ts,
-			event_type: 6,
+			event_type: EVT_INET_SOCK_SET_STATE,
 			cgroup_id,
 			mnt_ns,
 			pid,

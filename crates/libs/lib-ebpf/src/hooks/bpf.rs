@@ -1,13 +1,14 @@
 use aya_ebpf::{
 	helpers::{
-		bpf_get_current_comm, bpf_get_current_pid_tgid, bpf_get_current_uid_gid,
+		bpf_get_current_comm, bpf_get_current_pid_tgid, bpf_get_current_uid_gid, bpf_probe_read_kernel,
 		r#gen::{bpf_get_current_cgroup_id, bpf_ktime_get_ns},
 	},
 	programs::LsmContext,
 };
 use aya_log_ebpf::error;
 use lib_ebpf_common::{
-	BpfMapEvent, BpfProgLoadEvent, EventHeader, FLAG_GPL, FLAG_JITED, FLAG_KPROBE_OVR, FLAG_SLEEPABLE,
+	BpfMapEvent, BpfProgLoadEvent, EventHeader, EVT_BPF_MAP, EVT_BPF_PROG_LOAD, FLAG_GPL, FLAG_JITED, FLAG_KPROBE_OVR,
+	FLAG_SLEEPABLE,
 };
 
 use crate::{
@@ -60,7 +61,7 @@ pub fn try_bpf_prog_load(ctx: LsmContext) -> Result<i32, i32> {
 	let event = BpfProgLoadEvent {
 		header: EventHeader {
 			ts,
-			event_type: 9,
+			event_type: EVT_BPF_PROG_LOAD,
 			cgroup_id,
 			mnt_ns,
 			pid,
@@ -108,14 +109,20 @@ pub fn try_bpf_map(ctx: LsmContext) -> Result<i32, i32> {
 	let mut map_name = [0u8; 64];
 
 	unsafe {
-		let name_ptr = (*map).name.as_ptr() as *const u8;
-		core::ptr::copy_nonoverlapping(name_ptr, map_name.as_mut_ptr(), 16);
+		let name: [i8; 16] = match bpf_probe_read_kernel(&(*map).name) {
+			Ok(v) => v,
+			Err(_) => [0i8; 16],
+		};
+
+		let name: [u8; 16] = core::mem::transmute(name);
+
+		map_name[..16].copy_from_slice(&name);
 	}
 
 	let event = BpfMapEvent {
 		header: EventHeader {
 			ts,
-			event_type: 11,
+			event_type: EVT_BPF_MAP,
 			cgroup_id,
 			mnt_ns,
 			pid,

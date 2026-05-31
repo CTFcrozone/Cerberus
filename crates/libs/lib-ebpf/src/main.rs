@@ -128,9 +128,9 @@ pub fn bprm_check_security(ctx: LsmContext) -> i32 {
 	}
 }
 
-#[tracepoint]
-pub fn sys_enter_delete_module(ctx: TracePointContext) -> u32 {
-	match hooks::try_sys_enter_delete_module(ctx) {
+#[lsm(hook = "ptrace_access_check")]
+pub fn ptrace_access_check(ctx: LsmContext) -> i32 {
+	match hooks::try_ptrace_access_check(ctx) {
 		Ok(ret) => ret,
 		Err(ret) => ret,
 	}
