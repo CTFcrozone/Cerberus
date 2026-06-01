@@ -18,7 +18,7 @@
 - [ ] lsm::bprm_committing_creds
 - [ ] lsm::task_alloc
 - [ ] lsm::task_kill
-- [ ] lsm::ptrace_access_check
+- [x] lsm::ptrace_access_check
 - [ ] lsm::capable
 - [ ] lsm::capset
 
