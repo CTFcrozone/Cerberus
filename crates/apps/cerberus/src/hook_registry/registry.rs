@@ -10,13 +10,10 @@ pub struct HookRegistry {
 
 impl HookRegistry {
 	pub fn disable(&mut self, name: &str, ebpf: &mut Ebpf) -> Result<()> {
-		match self.hooks.get_mut(name) {
-			Some(hook) => {
-				hook.disable(ebpf)?;
-				Ok(())
-			}
-			None => return Err(Error::HookNotFound { hook: name.into() }),
-		}
+		self.hooks
+			.get_mut(name)
+			.ok_or(Error::HookNotFound { hook: name.into() })?
+			.disable(ebpf)
 	}
 
 	pub fn enable(&mut self, name: &str, ebpf: &mut Ebpf) -> Result<()> {
