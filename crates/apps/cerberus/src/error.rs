@@ -13,7 +13,18 @@ pub enum Error {
 	Custom(String),
 	EventSend(String),
 	EventRecv(RecvError),
-	EbpfProgNotFound,
+	EbpfProgNotFound {
+		program: String,
+	},
+	EbpfMapNotFound {
+		map: String,
+	},
+	HookAlreadyDisabled {
+		program: String,
+	},
+	HookNotFound {
+		hook: String,
+	},
 	InvalidEventAlign,
 	InvalidEventSize,
 	#[display("Timed run is only possible in 'agent' mode")]

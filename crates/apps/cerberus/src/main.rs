@@ -4,6 +4,7 @@ mod cli;
 mod core;
 mod error;
 mod event;
+mod hook_registry;
 mod styles;
 mod supervisor;
 mod views;
@@ -125,83 +126,153 @@ async fn main() -> Result<()> {
 
 pub fn load_hooks(ebpf: &mut Ebpf) -> Result<AsyncFd<RingBuf<MapData>>> {
 	let btf = Btf::from_sys_fs()?;
-	let program: &mut Lsm = ebpf.program_mut("sys_enter_kill").ok_or(Error::EbpfProgNotFound)?.try_into()?;
+	let program: &mut Lsm = ebpf
+		.program_mut("sys_enter_kill")
+		.ok_or(Error::EbpfProgNotFound {
+			program: "sys_enter_kill".into(),
+		})?
+		.try_into()?;
 	program.load("task_kill", &btf)?;
 	program.attach()?;
-
-	let lsm_socket_connect: &mut Lsm = ebpf.program_mut("socket_connect").ok_or(Error::EbpfProgNotFound)?.try_into()?;
+	let lsm_socket_connect: &mut Lsm = ebpf
+		.program_mut("socket_connect")
+		.ok_or(Error::EbpfProgNotFound {
+			program: "socket_connect".into(),
+		})?
+		.try_into()?;
 	lsm_socket_connect.load("socket_connect", &btf)?;
 	lsm_socket_connect.attach()?;
 
-	let lsm_socket_bind: &mut Lsm = ebpf.program_mut("socket_bind").ok_or(Error::EbpfProgNotFound)?.try_into()?;
+	let lsm_socket_bind: &mut Lsm = ebpf
+		.program_mut("socket_bind")
+		.ok_or(Error::EbpfProgNotFound {
+			program: "socket_bind".into(),
+		})?
+		.try_into()?;
 	lsm_socket_bind.load("socket_bind", &btf)?;
 	lsm_socket_bind.attach()?;
 
-	let lsm_inode_unlink: &mut Lsm = ebpf.program_mut("inode_unlink").ok_or(Error::EbpfProgNotFound)?.try_into()?;
+	let lsm_inode_unlink: &mut Lsm = ebpf
+		.program_mut("inode_unlink")
+		.ok_or(Error::EbpfProgNotFound {
+			program: "inode_unlink".into(),
+		})?
+		.try_into()?;
 	lsm_inode_unlink.load("inode_unlink", &btf)?;
 	lsm_inode_unlink.attach()?;
 
-	let lsm_inode_mkdir: &mut Lsm = ebpf.program_mut("inode_mkdir").ok_or(Error::EbpfProgNotFound)?.try_into()?;
+	let lsm_inode_mkdir: &mut Lsm = ebpf
+		.program_mut("inode_mkdir")
+		.ok_or(Error::EbpfProgNotFound {
+			program: "inode_mkdir".into(),
+		})?
+		.try_into()?;
 	lsm_inode_mkdir.load("inode_mkdir", &btf)?;
 	lsm_inode_mkdir.attach()?;
 
-	let lsm_inode_rmdir: &mut Lsm = ebpf.program_mut("inode_rmdir").ok_or(Error::EbpfProgNotFound)?.try_into()?;
+	let lsm_inode_rmdir: &mut Lsm = ebpf
+		.program_mut("inode_rmdir")
+		.ok_or(Error::EbpfProgNotFound {
+			program: "inode_rmdir".into(),
+		})?
+		.try_into()?;
 	lsm_inode_rmdir.load("inode_rmdir", &btf)?;
 	lsm_inode_rmdir.attach()?;
 
-	let lsm_inode_link: &mut Lsm = ebpf.program_mut("inode_link").ok_or(Error::EbpfProgNotFound)?.try_into()?;
+	let lsm_inode_link: &mut Lsm = ebpf
+		.program_mut("inode_link")
+		.ok_or(Error::EbpfProgNotFound {
+			program: "inode_link".into(),
+		})?
+		.try_into()?;
 	lsm_inode_link.load("inode_link", &btf)?;
 	lsm_inode_link.attach()?;
 
-	let lsm_inode_symlink: &mut Lsm = ebpf.program_mut("inode_symlink").ok_or(Error::EbpfProgNotFound)?.try_into()?;
+	let lsm_inode_symlink: &mut Lsm = ebpf
+		.program_mut("inode_symlink")
+		.ok_or(Error::EbpfProgNotFound {
+			program: "inode_symlink".into(),
+		})?
+		.try_into()?;
 	lsm_inode_symlink.load("inode_symlink", &btf)?;
 	lsm_inode_symlink.attach()?;
 
-	let lsm_inode_rename: &mut Lsm = ebpf.program_mut("inode_rename").ok_or(Error::EbpfProgNotFound)?.try_into()?;
+	let lsm_inode_rename: &mut Lsm = ebpf
+		.program_mut("inode_rename")
+		.ok_or(Error::EbpfProgNotFound {
+			program: "inode_rename".into(),
+		})?
+		.try_into()?;
 	lsm_inode_rename.load("inode_rename", &btf)?;
 	lsm_inode_rename.attach()?;
 
-	let lsm_bpf_prog_load: &mut Lsm = ebpf.program_mut("bpf_prog_load").ok_or(Error::EbpfProgNotFound)?.try_into()?;
+	let lsm_bpf_prog_load: &mut Lsm = ebpf
+		.program_mut("bpf_prog_load")
+		.ok_or(Error::EbpfProgNotFound {
+			program: "bpf_prog_load".into(),
+		})?
+		.try_into()?;
 	lsm_bpf_prog_load.load("bpf_prog_load", &btf)?;
 	lsm_bpf_prog_load.attach()?;
 
-	let lsm_bpf_map: &mut Lsm = ebpf.program_mut("bpf_map").ok_or(Error::EbpfProgNotFound)?.try_into()?;
+	let lsm_bpf_map: &mut Lsm = ebpf
+		.program_mut("bpf_map")
+		.ok_or(Error::EbpfProgNotFound {
+			program: "bpf_map".into(),
+		})?
+		.try_into()?;
 	lsm_bpf_map.load("bpf_map", &btf)?;
 	lsm_bpf_map.attach()?;
 	//
-	let kp_module_init: &mut KProbe = ebpf.program_mut("do_init_module").ok_or(Error::EbpfProgNotFound)?.try_into()?;
+	let kp_module_init: &mut KProbe = ebpf
+		.program_mut("do_init_module")
+		.ok_or(Error::EbpfProgNotFound {
+			program: "do_init_module".into(),
+		})?
+		.try_into()?;
 	kp_module_init.load()?;
 	kp_module_init.attach("do_init_module", 0)?;
 
 	let ptrace_acs_check: &mut Lsm = ebpf
 		.program_mut("ptrace_access_check")
-		.ok_or(Error::EbpfProgNotFound)?
+		.ok_or(Error::EbpfProgNotFound {
+			program: "ptrace_access_check".into(),
+		})?
 		.try_into()?;
 	ptrace_acs_check.load("ptrace_access_check", &btf)?;
 	ptrace_acs_check.attach()?;
 
 	let bprm: &mut Lsm = ebpf
 		.program_mut("bprm_check_security")
-		.ok_or(Error::EbpfProgNotFound)?
+		.ok_or(Error::EbpfProgNotFound {
+			program: "bprm_check_security".into(),
+		})?
 		.try_into()?;
 	bprm.load("bprm_check_security", &btf)?;
 	bprm.attach()?;
 
 	let tp_inet_sock_set_state: &mut TracePoint = ebpf
 		.program_mut("inet_sock_set_state")
-		.ok_or(Error::EbpfProgNotFound)?
+		.ok_or(Error::EbpfProgNotFound {
+			program: "inet_sock_set_state".into(),
+		})?
 		.try_into()?;
 	tp_inet_sock_set_state.load()?;
 	tp_inet_sock_set_state.attach("sock", "inet_sock_set_state")?;
 
 	let sys_enter_ptrace: &mut TracePoint = ebpf
 		.program_mut("sys_enter_ptrace")
-		.ok_or(Error::EbpfProgNotFound)?
+		.ok_or(Error::EbpfProgNotFound {
+			program: "sys_enter_ptrace".into(),
+		})?
 		.try_into()?;
 	sys_enter_ptrace.load()?;
 	sys_enter_ptrace.attach("syscalls", "sys_enter_ptrace")?;
 
-	let ring_buf = RingBuf::try_from(ebpf.take_map("EVT_MAP").ok_or(Error::EbpfProgNotFound)?)?;
+	let ring_buf = RingBuf::try_from(
+		ebpf.take_map("EVT_MAP")
+			.ok_or(Error::EbpfMapNotFound { map: "EVT_MAP".into() })?,
+	)?;
 	let fd = AsyncFd::new(ring_buf)?;
 	Ok(fd)
 }
