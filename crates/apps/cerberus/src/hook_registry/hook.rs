@@ -38,38 +38,42 @@ impl Hook {
 	}
 
 	pub fn unload(&mut self, ebpf: &mut Ebpf) -> Result<()> {
-		let link = self.link.take().ok_or(Error::HookAlreadyDisabled {
-			program: self.program_name.clone(),
-		})?;
-		match link {
-			HookLink::Lsm(_) => {
+		match &self.kind {
+			HookKind::Lsm => {
 				let prog: &mut Lsm = ebpf
 					.program_mut(&self.program_name)
 					.ok_or(Error::EbpfProgNotFound {
 						program: self.program_name.clone(),
 					})?
 					.try_into()?;
+
 				prog.unload()?;
 			}
-			HookLink::Tracepoint(_) => {
+
+			HookKind::Tracepoint { .. } => {
 				let prog: &mut TracePoint = ebpf
 					.program_mut(&self.program_name)
 					.ok_or(Error::EbpfProgNotFound {
 						program: self.program_name.clone(),
 					})?
 					.try_into()?;
+
 				prog.unload()?;
 			}
-			HookLink::Kprobe(_) => {
+
+			HookKind::Kprobe { .. } => {
 				let prog: &mut KProbe = ebpf
 					.program_mut(&self.program_name)
 					.ok_or(Error::EbpfProgNotFound {
 						program: self.program_name.clone(),
 					})?
 					.try_into()?;
+
 				prog.unload()?;
 			}
 		}
+		self.link = None;
+
 		Ok(())
 	}
 

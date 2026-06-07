@@ -25,6 +25,9 @@ pub enum Error {
 	HookNotFound {
 		hook: String,
 	},
+	HookAlreadyExists {
+		hook: String,
+	},
 	InvalidEventAlign,
 	InvalidEventSize,
 	#[display("Timed run is only possible in 'agent' mode")]

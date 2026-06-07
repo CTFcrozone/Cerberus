@@ -11,7 +11,6 @@ use crossterm::{
 	execute,
 	terminal::{DisableLineWrap, EnterAlternateScreen, LeaveAlternateScreen},
 };
-use derive_more::{Deref, From};
 use lib_event::unbound::{Rx, Tx};
 use lib_rules::RuleEngine;
 use ratatui::DefaultTerminal;

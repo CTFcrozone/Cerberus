@@ -1,9 +1,10 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::{hash_map::Entry, HashMap, HashSet};
 
 use aya::Ebpf;
 
 use crate::{hook_registry::hook::Hook, Error, Result};
 
+#[derive(Default)]
 pub struct HookRegistry {
 	hooks: HashMap<String, Hook>,
 }
@@ -36,6 +37,30 @@ impl HookRegistry {
 			let _ = hook.enable(ebpf);
 		}
 		Ok(())
+	}
+
+	pub fn add(&mut self, hook: Hook) -> Result<()> {
+		match self.hooks.entry(hook.program_name.clone()) {
+			Entry::Occupied(_) => Err(Error::HookAlreadyExists {
+				hook: hook.program_name,
+			}),
+			Entry::Vacant(v) => {
+				v.insert(hook);
+				Ok(())
+			}
+		}
+	}
+
+	pub fn remove(&mut self, name: &str) -> Option<Hook> {
+		self.hooks.remove(name)
+	}
+
+	pub fn get(&self, name: &str) -> Option<&Hook> {
+		self.hooks.get(name)
+	}
+
+	pub fn get_mut(&mut self, name: &str) -> Option<&mut Hook> {
+		self.hooks.get_mut(name)
 	}
 
 	pub fn disable_all(&mut self, ebpf: &mut Ebpf) -> Result<()> {
