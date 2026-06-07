@@ -1,5 +1,4 @@
 use derive_more::{Display, From};
-use flume::{RecvError, RecvTimeoutError, SendError};
 
 pub type Result<T> = core::result::Result<T, Error>;
 

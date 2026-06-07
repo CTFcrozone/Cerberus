@@ -1,5 +1,5 @@
 use aya::{
-	programs::{kprobe::KProbeLinkId, lsm::LsmLinkId, trace_point::TracePointLinkId, KProbe, Lsm, Program, TracePoint},
+	programs::{kprobe::KProbeLinkId, lsm::LsmLinkId, trace_point::TracePointLinkId, KProbe, Lsm, TracePoint},
 	Ebpf,
 };
 use derive_more::From;

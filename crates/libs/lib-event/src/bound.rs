@@ -1,10 +1,4 @@
-use std::time::Duration;
-
-use crossfire::{
-	flavor::Flavor,
-	mpsc::{Array, List},
-	AsyncRx, AsyncRxTrait, TryRecvError,
-};
+use crossfire::{mpsc::Array, AsyncRx};
 
 use crate::{error::Result, Error};
 

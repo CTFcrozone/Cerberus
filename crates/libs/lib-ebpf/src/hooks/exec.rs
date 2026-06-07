@@ -1,9 +1,7 @@
 use aya_ebpf::{
-	bindings::path,
-	cty::c_char,
 	helpers::{
 		bpf_get_current_comm, bpf_get_current_pid_tgid, bpf_get_current_uid_gid,
-		r#gen::{bpf_d_path, bpf_get_current_cgroup_id, bpf_ktime_get_ns},
+		r#gen::{bpf_get_current_cgroup_id, bpf_ktime_get_ns},
 	},
 	macros::map,
 	maps::PerCpuArray,

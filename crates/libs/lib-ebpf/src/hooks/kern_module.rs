@@ -1,12 +1,10 @@
 use aya_ebpf::{
 	helpers::{
 		bpf_get_current_comm, bpf_get_current_pid_tgid, bpf_get_current_uid_gid, bpf_probe_read_kernel,
-		bpf_probe_read_kernel_str_bytes, bpf_probe_read_user_str_bytes,
 		r#gen::{bpf_get_current_cgroup_id, bpf_ktime_get_ns},
 	},
-	programs::{LsmContext, ProbeContext, TracePointContext},
+	programs::ProbeContext,
 };
-use aya_log_ebpf::error;
 use lib_ebpf_common::{EventHeader, ModuleEvent, EVT_MODULE, MODULE_OP_INIT};
 
 use crate::{
