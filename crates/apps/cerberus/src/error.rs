@@ -1,7 +1,6 @@
 use std::str::Utf8Error;
 
 use derive_more::{Display, From};
-use flume::{RecvError, SendError};
 use tokio::task::JoinError;
 
 pub type Result<T> = core::result::Result<T, Error>;
@@ -11,8 +10,6 @@ pub type Result<T> = core::result::Result<T, Error>;
 pub enum Error {
 	#[from(String, &String, &str)]
 	Custom(String),
-	EventSend(String),
-	EventRecv(RecvError),
 	EbpfProgNotFound {
 		program: String,
 	},
@@ -75,18 +72,6 @@ pub enum Error {
 impl<T> From<std::sync::PoisonError<T>> for Error {
 	fn from(_val: std::sync::PoisonError<T>) -> Self {
 		Self::LockPoison
-	}
-}
-
-impl<T> From<SendError<T>> for Error {
-	fn from(value: SendError<T>) -> Self {
-		Self::EventSend(value.to_string())
-	}
-}
-
-impl From<RecvError> for Error {
-	fn from(err: RecvError) -> Self {
-		Self::EventRecv(err)
 	}
 }
 
