@@ -1,12 +1,10 @@
 use std::time::Instant;
 
-use dashmap::{mapref::one::RefMut, DashMap};
+use dashmap::{DashMap, mapref::one::RefMut};
+use lib_common::event::EventMeta;
 
 use crate::{
-	engine::{
-		correlator::{CorrelatedMatch, Correlator},
-		identity::ShardKey,
-	},
+	engine::{CorrelationEvent, correlator::Correlator, identity::ShardKey},
 	rule::Sequence,
 };
 
@@ -44,9 +42,10 @@ impl ShardedCorrelator {
 		seq: &Sequence,
 		root_rule_id: &str,
 		now: Instant,
-	) -> Vec<CorrelatedMatch> {
+		event_meta: &EventMeta,
+	) -> Vec<CorrelationEvent> {
 		let mut correlator = self.get_or_create(shard_key);
-		correlator.on_rule_match(matched_rule_id, seq, root_rule_id, now)
+		correlator.on_rule_match(matched_rule_id, seq, root_rule_id, now, event_meta)
 	}
 }
 

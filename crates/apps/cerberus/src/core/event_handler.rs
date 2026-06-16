@@ -8,7 +8,7 @@ use crate::{
 };
 use crossterm::event::{Event, KeyCode, KeyEventKind, KeyModifiers};
 use lib_common::event::CerberusEvent;
-use lib_rules::{CorrelatedEvent, EngineEvent, EvaluatedEvent};
+use lib_rules::{CorrelationEvent, EngineEvent, EvaluatedEvent};
 use tokio_util::sync::CancellationToken;
 
 const MAX_EVENTS: usize = 250; // Reduced from 1000
@@ -40,7 +40,7 @@ fn handle_engine_event(event: &EngineEvent, app_state: &mut AppState) {
 			handle_cerberus_eval_event(evt, app_state);
 		}
 
-		EngineEvent::Correlated(evt) => {
+		EngineEvent::Correlation(evt) => {
 			handle_correlation_event(evt, app_state);
 		}
 		_ => {}
@@ -85,7 +85,7 @@ fn handle_cerberus_event(event: &CerberusEvent, app_state: &mut AppState) {
 	push_bounded(events, event);
 }
 
-fn handle_correlation_event(event: &CorrelatedEvent, app_state: &mut AppState) {
+fn handle_correlation_event(event: &CorrelationEvent, app_state: &mut AppState) {
 	push_bounded(&mut app_state.cerberus_evts_correlated, event);
 }
 

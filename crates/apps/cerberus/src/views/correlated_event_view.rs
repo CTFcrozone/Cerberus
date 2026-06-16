@@ -1,5 +1,8 @@
 use crate::core::AppState;
+use lib_rules::CorrelationEvent;
 use ratatui::style::{Color, Style};
+use ratatui::text::Span;
+use ratatui::widgets::Wrap;
 use ratatui::{
 	buffer::Buffer,
 	layout::{Constraint, Flex, Layout, Rect},
@@ -26,22 +29,76 @@ impl StatefulWidget for CorrelatedEventView {
 }
 
 fn render_correlated_events(area: Rect, buf: &mut Buffer, state: &mut AppState, block: Block) {
-	let lines: Vec<Line> = state
-		.cerberus_evts_correlated()
-		.enumerate()
-		.map(|(idx, event)| {
-			let mut style = Style::default().fg(Color::Cyan);
+	let mut groups = state.correlated_groups();
 
-			if idx == state.selected_rule() {
-				style = style.bg(Color::DarkGray);
+	groups.sort_by(|a, b| a.root_rule_id.cmp(&b.root_rule_id).then(a.seq_id.cmp(&b.seq_id)));
+
+	let mut lines: Vec<Line> = Vec::new();
+
+	for (group_idx, group) in groups.iter().enumerate() {
+		let is_selected = group_idx == state.selected_rule();
+
+		let header_style = if is_selected {
+			Style::default().fg(Color::Yellow).bg(Color::DarkGray)
+		} else {
+			Style::default().fg(Color::Yellow)
+		};
+
+		lines.push(Line::styled(
+			format!("▶ {} :: {}", group.root_rule_id, group.seq_id),
+			header_style,
+		));
+
+		let mut events = group.events.clone();
+		events.sort_by(|a, b| {
+			let rank = |e: &CorrelationEvent| match e {
+				CorrelationEvent::Step { step_idx, .. } => *step_idx as i32,
+				CorrelationEvent::Completed { .. } => i32::MAX,
+			};
+
+			rank(a).cmp(&rank(b))
+		});
+
+		for evt in events {
+			match evt {
+				CorrelationEvent::Step {
+					step_idx,
+					matched_rule_id,
+					..
+				} => {
+					let idx_str = format!("[{}] ", step_idx + 1);
+					let rule = matched_rule_id.as_ref().to_string();
+
+					lines.push(Line::from(vec![
+						Span::styled("   ├─ ", Style::default().fg(Color::DarkGray)),
+						Span::styled(idx_str, Style::default().fg(Color::Cyan)),
+						Span::styled(rule, Style::default().fg(Color::Green)),
+						Span::styled(" ✓", Style::default().fg(Color::Green)),
+					]));
+				}
+
+				CorrelationEvent::Completed { steps, path, .. } => {
+					lines.push(Line::from(vec![
+						Span::styled("   └─ ", Style::default().fg(Color::Magenta)),
+						Span::styled(
+							format!("COMPLETED ({} steps)", steps),
+							Style::default().fg(Color::Magenta),
+						),
+					]));
+
+					lines.push(Line::from(vec![
+						Span::styled("      ", Style::default()),
+						Span::styled(
+							format!("{}", path.iter().map(|p| p.as_ref()).collect::<Vec<_>>().join(" → ")),
+							Style::default().fg(Color::DarkGray),
+						),
+					]));
+				}
 			}
+		}
 
-			Line::styled(
-				format!("Correlation: {} -> {}", event.base_rule_id, event.seq_rule_id),
-				style,
-			)
-		})
-		.collect();
+		lines.push(Line::from(""));
+	}
 
 	let line_count = lines.len();
 	let max_scroll = line_count.saturating_sub(area.height as usize) as u16;
@@ -67,20 +124,44 @@ pub fn render_correlation_popup(frame: &mut ratatui::Frame, state: &AppState) {
 	let selected = state.cerberus_evts_correlated().nth(state.selected_rule());
 
 	if let Some(event) = selected {
-		let text = vec![
-			Line::from(format!("Sequence ID: {}", event.seq_id)),
-			Line::from(format!("Base Rule ID: {}", event.base_rule_id)),
-			Line::from(""),
-			Line::from(format!("Sequence Rule ID: {}", event.seq_rule_id)),
-			Line::from(""),
-			Line::from(format!("Event PID: {}", event.event_meta.pid)),
-			// Line::from(format!("Event UID: {}", event.event_meta.uid)),
-			Line::from(format!("Command: {}", event.event_meta.comm)),
-		];
+		let mut text = vec![];
+
+		match event {
+			CorrelationEvent::Step {
+				root_rule_id,
+				seq_id,
+				step_idx,
+				matched_rule_id,
+				..
+			} => {
+				text.push(Line::from(format!("Root: {}", root_rule_id)));
+				text.push(Line::from(format!("Sequence: {}", seq_id)));
+				text.push(Line::from(""));
+				text.push(Line::from(format!("Step: {}", step_idx + 1)));
+				text.push(Line::from(format!("Rule: {}", matched_rule_id)));
+			}
+
+			CorrelationEvent::Completed {
+				root_rule_id,
+				seq_id,
+				steps,
+				path,
+				..
+			} => {
+				text.push(Line::from(format!("Root: {}", root_rule_id)));
+				text.push(Line::from(format!("Sequence: {}", seq_id)));
+				text.push(Line::from(""));
+				text.push(Line::from(format!("Steps: {}", steps)));
+				text.push(Line::from("Path:"));
+				text.push(Line::from(
+					path.iter().map(|p| p.as_ref()).collect::<Vec<_>>().join(" → "),
+				));
+			}
+		}
 
 		let popup = Paragraph::new(text)
 			.block(Block::bordered().title("Correlation Details"))
-			.wrap(ratatui::widgets::Wrap { trim: true });
+			.wrap(Wrap { trim: true });
 
 		frame.render_widget(popup, area);
 	}

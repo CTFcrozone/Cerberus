@@ -1,6 +1,9 @@
 use std::{collections::HashMap, sync::Arc, time::Instant, usize};
 
-use crate::rule::Sequence;
+use lib_common::event::EventMeta;
+use uuid::Uuid;
+
+use crate::{engine::CorrelationEvent, rule::Sequence};
 
 //todo: 	// for pid scoping
 // active: HashMap<Arc<str>, HashMap<Option<u32>, HashMap<Arc<str>, Vec<SequenceProgress>>>>,
@@ -8,8 +11,8 @@ pub struct Correlator {
 	// root rule_id -> progress sequence
 	// active: HashMap<Arc<str>, Vec<SequenceProgress>>,
 
-	// root_rule_id -> next_step_rule_id -> Vec<SequenceProgress>
-	active: HashMap<Arc<str>, HashMap<Arc<str>, Vec<SequenceProgress>>>,
+	// root_rule_id -> <seq_instance_id, progress>
+	active: HashMap<Arc<str>, HashMap<Arc<str>, SequenceProgress>>,
 }
 
 #[allow(dead_code)]
@@ -22,7 +25,9 @@ pub struct CorrelatedMatch {
 #[cfg_attr(test, derive(PartialEq))]
 #[derive(Debug, Clone)]
 pub struct SequenceProgress {
+	pub seq_id: Arc<str>,
 	pub step_idx: usize,
+	pub path: Vec<Arc<str>>,
 	pub last_match: Instant,
 	pub expiry: Instant,
 }
@@ -33,19 +38,23 @@ impl Correlator {
 	}
 
 	pub fn on_root_match(&mut self, root_rule_id: &str, seq: &Sequence, now: Instant) {
-		let first = match seq.steps.first() {
-			Some(f) => f,
-			None => return,
-		};
+		if seq.steps.is_empty() {
+			return;
+		}
 
 		let root = self.active.entry(root_rule_id.into()).or_insert_with(HashMap::new);
-		let first_rule_id: Arc<str> = first.rule_id.clone().into();
+		let instance_id: Arc<str> = Uuid::new_v4().to_string().into();
 
-		root.entry(first_rule_id).or_default().push(SequenceProgress {
-			step_idx: 0,
-			last_match: now,
-			expiry: now + first.within,
-		});
+		root.insert(
+			instance_id.clone(),
+			SequenceProgress {
+				seq_id: seq.id.clone().into(),
+				path: Vec::new(),
+				step_idx: 0,
+				last_match: now,
+				expiry: now + seq.steps[0].within,
+			},
+		);
 	}
 
 	pub fn on_rule_match(
@@ -54,48 +63,66 @@ impl Correlator {
 		seq: &Sequence,
 		root_rule_id: &str,
 		now: Instant,
-	) -> Vec<CorrelatedMatch> {
-		let root = match self.active.get_mut(root_rule_id) {
-			Some(r) => r,
-			None => return Vec::new(),
-		};
-
-		let Some(mut queue) = root.remove(matched_rule_id) else {
+		event_meta: &EventMeta,
+	) -> Vec<CorrelationEvent> {
+		let Some(root) = self.active.get_mut(root_rule_id) else {
 			return Vec::new();
 		};
 
-		queue.retain(|p| now <= p.expiry);
+		let mut out = Vec::new();
 
-		let mut completed = Vec::new();
-
-		for mut seq_prog in queue.into_iter() {
-			seq_prog.step_idx += 1;
-			seq_prog.last_match = now;
-
-			if seq_prog.step_idx == seq.steps.len() {
-				completed.push(CorrelatedMatch {
-					root_rule_id: root_rule_id.into(),
-					steps: seq.steps.len(),
-				});
+		for (instance_id, prog) in root.iter_mut() {
+			if prog.seq_id.as_ref() != seq.id {
 				continue;
 			}
 
-			if let Some(next_step) = seq.steps.get(seq_prog.step_idx) {
-				let next_rule_id: Arc<str> = next_step.rule_id.clone().into();
-				seq_prog.expiry = now + next_step.within;
-				root.entry(next_rule_id).or_default().push(seq_prog);
+			if now > prog.expiry {
+				continue;
+			}
+			let expected = match seq.steps.get(prog.step_idx) {
+				Some(s) => s,
+				None => continue,
+			};
+
+			if expected.rule_id != matched_rule_id {
+				continue;
+			}
+
+			let prev_idx = prog.step_idx;
+			prog.step_idx += 1;
+			prog.last_match = now;
+			prog.path.push(matched_rule_id.into());
+			let seq_id = prog.seq_id.clone();
+
+			out.push(CorrelationEvent::Step {
+				root_rule_id: root_rule_id.into(),
+				seq_id: seq_id.clone(),
+				seq_instance_id: instance_id.clone(),
+				step_idx: prev_idx,
+				matched_rule_id: matched_rule_id.into(),
+			});
+
+			if prog.step_idx == seq.steps.len() {
+				out.push(CorrelationEvent::Completed {
+					root_rule_id: root_rule_id.into(),
+					seq_id,
+					seq_instance_id: instance_id.clone(),
+					path: prog.path.clone(),
+					steps: seq.steps.len(),
+					event_meta: event_meta.clone(),
+				});
+			} else {
+				prog.expiry = now + seq.steps[prog.step_idx].within;
 			}
 		}
 
-		// queue.retain(|p| p.step_idx != usize::MAX && now <= p.expiry);
-
-		root.retain(|_, v| !v.is_empty());
+		root.retain(|_, p| now <= p.expiry && p.step_idx < seq.steps.len());
 
 		if root.is_empty() {
 			self.active.remove(root_rule_id);
 		}
 
-		completed
+		out
 	}
 }
 
@@ -105,7 +132,7 @@ impl Correlator {
 mod tests {
 	type Result<T> = core::result::Result<T, Box<dyn std::error::Error>>; // For tests.
 
-	use std::time::Duration;
+	use std::{panic, time::Duration};
 
 	use crate::rule::{SequenceKind, Step};
 
@@ -128,30 +155,71 @@ mod tests {
 			scope: None,
 		}
 	}
+
+	fn mk_meta() -> EventMeta {
+		EventMeta {
+			uid: 0,
+			pid: 0,
+			comm: "DDD".into(),
+		}
+	}
 	#[test]
 	fn rule_sequence_completes() -> Result<()> {
-		// -- Setup & Fixtures
 		let mut corr = Correlator::new();
 		let seq = mk_seq();
 		let t0 = Instant::now();
-		// -- Exec
 
 		corr.on_root_match("kernel-module-loader", &seq, t0);
-		let res = corr.on_rule_match("port-scan", &seq, "kernel-module-loader", t0 + Duration::from_secs(5));
-		assert!(res.is_empty());
+
+		let res = corr.on_rule_match(
+			"port-scan",
+			&seq,
+			"kernel-module-loader",
+			t0 + Duration::from_secs(5),
+			&mk_meta(),
+		);
+
+		assert_eq!(res.len(), 1);
+
+		match &res[0] {
+			CorrelationEvent::Step {
+				root_rule_id, step_idx, ..
+			} => {
+				assert_eq!(root_rule_id.as_ref(), "kernel-module-loader");
+				assert_eq!(*step_idx, 0);
+			}
+			_ => panic!("expected Step"),
+		}
+
 		let res = corr.on_rule_match(
 			"service-probe",
 			&seq,
 			"kernel-module-loader",
 			t0 + Duration::from_secs(10),
+			&mk_meta(),
 		);
 
-		// -- Check
-		assert_eq!(res.len(), 1);
+		assert_eq!(res.len(), 2);
 
-		let alert = &res[0];
-		assert_eq!(alert.root_rule_id.as_ref(), "kernel-module-loader");
-		assert_eq!(alert.steps, 2);
+		match &res[0] {
+			CorrelationEvent::Step {
+				root_rule_id, step_idx, ..
+			} => {
+				assert_eq!(root_rule_id.as_ref(), "kernel-module-loader");
+				assert_eq!(*step_idx, 1);
+			}
+			_ => panic!("expected Step"),
+		}
+
+		match &res[1] {
+			CorrelationEvent::Completed {
+				root_rule_id, steps, ..
+			} => {
+				assert_eq!(root_rule_id.as_ref(), "kernel-module-loader");
+				assert_eq!(*steps, 2);
+			}
+			_ => panic!("expected Completed"),
+		}
 
 		Ok(())
 	}
@@ -165,7 +233,13 @@ mod tests {
 
 		// -- Exec
 		corr.on_root_match("kernel-module-loader", &seq, t0);
-		let res = corr.on_rule_match("port-scan", &seq, "kernel-module-loader", t0 + Duration::from_secs(20));
+		let res = corr.on_rule_match(
+			"port-scan",
+			&seq,
+			"kernel-module-loader",
+			t0 + Duration::from_secs(20),
+			&mk_meta(),
+		);
 
 		// -- Check
 		assert!(res.is_empty());
@@ -187,16 +261,10 @@ mod tests {
 			&seq,
 			"kernel-module-loader",
 			t0 + Duration::from_secs(2),
+			&mk_meta(),
 		);
 
 		assert!(res.is_empty());
-
-		let root_map = &corr.active["kernel-module-loader"];
-		for queue in root_map.values() {
-			for prog in queue {
-				assert_eq!(prog.step_idx, 0);
-			}
-		}
 
 		Ok(())
 	}
@@ -214,16 +282,10 @@ mod tests {
 			&seq,
 			"kernel-module-loader",
 			t0 + Duration::from_secs(2),
+			&mk_meta(),
 		);
 
 		assert!(res.is_empty());
-
-		let root_map = &corr.active["kernel-module-loader"];
-		for queue in root_map.values() {
-			for prog in queue {
-				assert_eq!(prog.step_idx, 0);
-			}
-		}
 
 		Ok(())
 	}
@@ -237,16 +299,19 @@ mod tests {
 		corr.on_root_match("kernel-module-loader", &seq, t0);
 		corr.on_root_match("kernel-module-loader", &seq, t0 + Duration::from_secs(1));
 
-		let _ = corr.on_rule_match("port-scan", &seq, "kernel-module-loader", t0 + Duration::from_secs(3));
+		let res = corr.on_rule_match(
+			"port-scan",
+			&seq,
+			"kernel-module-loader",
+			t0 + Duration::from_secs(3),
+			&mk_meta(),
+		);
 
-		let root_map = &corr.active["kernel-module-loader"];
-		let mut all_progress: Vec<&SequenceProgress> = vec![];
-		for queue in root_map.values() {
-			all_progress.extend(queue.iter());
-		}
+		// Should affect BOTH instances → so multiple Step events
+		assert_eq!(res.len(), 2);
 
-		assert_eq!(all_progress.len(), 2);
-		assert!(all_progress.iter().all(|p| p.step_idx == 1));
+		assert!(matches!(res[0], CorrelationEvent::Step { .. }));
+		assert!(matches!(res[1], CorrelationEvent::Step { .. }));
 
 		Ok(())
 	}

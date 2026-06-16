@@ -42,3 +42,4 @@ blake3 = "1.8.2"
 hex = "0.4.3"
 humantime = "2.3.0"
 dashmap = "6.1.0"
+uuid = {version="1.23.3", features=["v4"]}

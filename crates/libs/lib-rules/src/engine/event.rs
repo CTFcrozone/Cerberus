@@ -3,14 +3,14 @@ use std::sync::Arc;
 use derive_more::From;
 use lib_common::event::EventMeta;
 
-use crate::{rule::Severity, Response};
+use crate::{Response, rule::Severity};
 
 #[derive(Debug, Clone, From)]
 pub enum EngineEvent {
 	#[from]
 	Matched(EvaluatedEvent),
 	#[from]
-	Correlated(CorrelatedEvent),
+	Correlation(CorrelationEvent),
 	#[from]
 	Response(ResponseRequest),
 }
@@ -26,29 +26,20 @@ pub struct EvaluatedEvent {
 #[derive(Debug, Clone)]
 pub enum CorrelationEvent {
 	Step {
-		base_rule_id: Arc<str>,
-		seq_rule_id: Arc<str>,
-		base_rule_hash: Arc<str>,
-		seq_rule_hash: Arc<str>,
-		event_meta: EventMeta,
+		root_rule_id: Arc<str>,
+		seq_id: Arc<str>,
+		seq_instance_id: Arc<str>,
+		step_idx: usize,
+		matched_rule_id: Arc<str>,
 	},
 	Completed {
 		root_rule_id: Arc<str>,
-		sequence_rule_id: Arc<str>,
+		seq_id: Arc<str>,
+		seq_instance_id: Arc<str>,
 		path: Vec<Arc<str>>,
 		steps: usize,
 		event_meta: EventMeta,
 	},
-}
-
-#[derive(Debug, Clone)]
-pub struct CorrelatedEvent {
-	pub seq_id: Arc<str>,
-	pub base_rule_id: Arc<str>,
-	pub seq_rule_id: Arc<str>,
-	pub base_rule_hash: Arc<str>,
-	pub seq_rule_hash: Arc<str>,
-	pub event_meta: EventMeta,
 }
 
 #[derive(Debug, Clone)]

@@ -68,11 +68,8 @@ fn print_alert(e: &EngineEvent) {
 				ev.rule_type, ev.rule_id, ev.event_meta.pid, ev.event_meta.uid
 			);
 		}
-		EngineEvent::Correlated(ev) => {
-			warn!(
-				"[{} -> {}] {} (PID: {}, UID: {})",
-				ev.base_rule_id, ev.seq_rule_id, ev.base_rule_hash, ev.event_meta.pid, ev.event_meta.uid
-			);
+		EngineEvent::Correlation(ev) => {
+			warn!("[TODO)",);
 		}
 		_ => {}
 	}

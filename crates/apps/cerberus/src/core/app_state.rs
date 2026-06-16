@@ -2,7 +2,7 @@ use std::collections::{HashMap, VecDeque};
 use std::sync::Arc;
 
 use aya::Ebpf;
-use lib_rules::{CorrelatedEvent, EvaluatedEvent, RuleEngine, Severity};
+use lib_rules::{CorrelationEvent, EvaluatedEvent, RuleEngine, Severity};
 
 use crate::event::LastAppEvent;
 use crate::Result;
@@ -12,6 +12,23 @@ use lib_common::event::CerberusEvent;
 pub struct EvaluatedEntry {
 	pub event: EvaluatedEvent,
 	pub count: u64,
+}
+
+fn event_key(evt: &CorrelationEvent) -> (Arc<str>, Arc<str>) {
+	match evt {
+		CorrelationEvent::Step {
+			root_rule_id, seq_id, ..
+		} => (root_rule_id.clone(), seq_id.clone()),
+		CorrelationEvent::Completed {
+			root_rule_id, seq_id, ..
+		} => (root_rule_id.clone(), seq_id.clone()),
+	}
+}
+
+pub struct CorrelationGroup {
+	pub root_rule_id: Arc<str>,
+	pub seq_id: Arc<str>,
+	pub events: Vec<CorrelationEvent>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -58,7 +75,7 @@ pub struct AppState {
 	pub(in crate::core) loaded_hooks: Vec<String>,
 	pub(in crate::core) last_app_event: LastAppEvent,
 	pub(in crate::core) cerberus_evts_general: VecDeque<CerberusEvent>,
-	pub(in crate::core) cerberus_evts_correlated: VecDeque<CorrelatedEvent>,
+	pub(in crate::core) cerberus_evts_correlated: VecDeque<CorrelationEvent>,
 	pub(in crate::core) cerberus_evts_network: VecDeque<CerberusEvent>,
 	pub(in crate::core) cerberus_evts_matched: HashMap<EvaluatedKey, EvaluatedEntry>,
 	pub(in crate::core) rule_type_counts: HashMap<Arc<str>, u64>,
@@ -151,11 +168,28 @@ impl AppState {
 		self.rule_type_counts.iter().map(|(k, v)| (k.as_ref(), *v)).collect()
 	}
 
+	pub fn correlated_groups(&self) -> Vec<CorrelationGroup> {
+		let mut map: HashMap<(Arc<str>, Arc<str>), Vec<CorrelationEvent>> = HashMap::new();
+
+		for evt in self.cerberus_evts_correlated() {
+			let key = event_key(evt);
+			map.entry(key).or_default().push(evt.clone());
+		}
+
+		map.into_iter()
+			.map(|((root_rule_id, seq_id), events)| CorrelationGroup {
+				root_rule_id,
+				seq_id,
+				events,
+			})
+			.collect()
+	}
+
 	pub fn barchart_severity(&self) -> Vec<(&str, u64)> {
 		self.severity_counts.iter().map(|(k, v)| (k.as_str(), *v)).collect()
 	}
 
-	pub fn cerberus_evts_correlated(&self) -> impl Iterator<Item = &CorrelatedEvent> {
+	pub fn cerberus_evts_correlated(&self) -> impl Iterator<Item = &CorrelationEvent> {
 		self.cerberus_evts_correlated.iter()
 	}
 

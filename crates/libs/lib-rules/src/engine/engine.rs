@@ -5,7 +5,7 @@ use std::{path::Path, sync::Arc};
 
 use crate::engine::correlator::ShardedCorrelator;
 use crate::engine::identity::ShardKey;
-use crate::engine::{CorrelatedEvent, EngineEvent, EvalCtx, EvaluatedEvent, Evaluator, EventKind, RuleIndex};
+use crate::engine::{EngineEvent, EvalCtx, EvaluatedEvent, Evaluator, EventKind, RuleIndex};
 use crate::error::Result;
 use crate::rule::Rule;
 use crate::{Error, RuleSet};
@@ -75,7 +75,7 @@ impl RuleEngine {
 		ruleset: &RuleSet,
 		index: &RuleIndex,
 		out: &mut Vec<EngineEvent>,
-		event: &CerberusEvent,
+		meta: &EventMeta,
 	) {
 		let key = matched_rule.inner.id.as_str();
 
@@ -94,20 +94,10 @@ impl RuleEngine {
 
 			let matches =
 				self.correlator
-					.on_rule_match(shard_key, &matched_rule.inner.id, seq, &root_rule.inner.id, now);
+					.on_rule_match(shard_key, &matched_rule.inner.id, seq, &root_rule.inner.id, now, meta);
 
 			for m in matches {
-				out.push(
-					CorrelatedEvent {
-						seq_id: seq.id.as_str().into(),
-						base_rule_id: m.root_rule_id,
-						seq_rule_id: matched_rule.inner.id.as_str().into(),
-						base_rule_hash: root_rule.hash_hex.clone(),
-						seq_rule_hash: matched_rule.hash_hex.clone(),
-						event_meta: Self::event_meta(event),
-					}
-					.into(),
-				);
+				out.push(m.into());
 			}
 		}
 	}
@@ -140,7 +130,7 @@ impl RuleEngine {
 				if let Some(seq) = &rule.inner.sequence {
 					self.correlator.on_root_match(&shard_key, &rule.inner.id, seq, now);
 				}
-				self.advance_sequences(&shard_key, rule, now, &ruleset, &index, &mut out, event);
+				self.advance_sequences(&shard_key, rule, now, &ruleset, &index, &mut out, &meta);
 			}
 		}
 
