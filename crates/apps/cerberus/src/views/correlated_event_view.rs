@@ -39,13 +39,15 @@ fn render_correlated_events(area: Rect, buf: &mut Buffer, state: &mut AppState, 
 		let is_selected = group_idx == state.selected_rule();
 
 		let header_style = if is_selected {
-			Style::default().fg(Color::Yellow).bg(Color::DarkGray)
+			Style::default().fg(Color::Cyan).bg(Color::DarkGray)
 		} else {
-			Style::default().fg(Color::Yellow)
+			Style::default().fg(Color::Gray)
 		};
 
+		let prefix = if is_selected { "▌ " } else { "  " };
+
 		lines.push(Line::styled(
-			format!("▶ {} :: {}", group.root_rule_id, group.seq_id),
+			format!("{prefix}{} :: {}", group.root_rule_id, group.seq_id),
 			header_style,
 		));
 
@@ -70,26 +72,22 @@ fn render_correlated_events(area: Rect, buf: &mut Buffer, state: &mut AppState, 
 					let rule = matched_rule_id.as_ref().to_string();
 
 					lines.push(Line::from(vec![
-						Span::styled("   ├─ ", Style::default().fg(Color::DarkGray)),
-						Span::styled(idx_str, Style::default().fg(Color::Cyan)),
-						Span::styled(rule, Style::default().fg(Color::Green)),
-						Span::styled(" ✓", Style::default().fg(Color::Green)),
+						Span::styled("   ├── ", Style::default().fg(Color::DarkGray)),
+						Span::styled(idx_str, Style::default().fg(Color::DarkGray)),
+						Span::styled(rule, Style::default().fg(Color::White)),
 					]));
 				}
 
 				CorrelationEvent::Completed { steps, path, .. } => {
 					lines.push(Line::from(vec![
-						Span::styled("   └─ ", Style::default().fg(Color::Magenta)),
-						Span::styled(
-							format!("COMPLETED ({} steps)", steps),
-							Style::default().fg(Color::Magenta),
-						),
+						Span::styled("   └── ", Style::default().fg(Color::DarkGray)),
+						Span::styled(format!("COMPLETE ({steps} steps)"), Style::default().fg(Color::Green)),
 					]));
 
 					lines.push(Line::from(vec![
-						Span::styled("      ", Style::default()),
+						Span::styled("       ", Style::default().fg(Color::DarkGray)),
 						Span::styled(
-							format!("{}", path.iter().map(|p| p.as_ref()).collect::<Vec<_>>().join(" → ")),
+							path.iter().map(|p| p.as_ref()).collect::<Vec<_>>().join(" → "),
 							Style::default().fg(Color::DarkGray),
 						),
 					]));

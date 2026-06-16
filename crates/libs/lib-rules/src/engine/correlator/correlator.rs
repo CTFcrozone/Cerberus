@@ -102,17 +102,21 @@ impl Correlator {
 				matched_rule_id: matched_rule_id.into(),
 			});
 
-			if prog.step_idx == seq.steps.len() {
-				out.push(CorrelationEvent::Completed {
-					root_rule_id: root_rule_id.into(),
-					seq_id,
-					seq_instance_id: instance_id.clone(),
-					path: prog.path.clone(),
-					steps: seq.steps.len(),
-					event_meta: event_meta.clone(),
-				});
-			} else {
-				prog.expiry = now + seq.steps[prog.step_idx].within;
+			match seq.steps.get(prog.step_idx) {
+				Some(next_step) => {
+					prog.expiry = now + next_step.within;
+				}
+
+				None => {
+					out.push(CorrelationEvent::Completed {
+						root_rule_id: root_rule_id.into(),
+						seq_id,
+						seq_instance_id: instance_id.clone(),
+						path: prog.path.clone(),
+						steps: seq.steps.len(),
+						event_meta: event_meta.clone(),
+					});
+				}
 			}
 		}
 
