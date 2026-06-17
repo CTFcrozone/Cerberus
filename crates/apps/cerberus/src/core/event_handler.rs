@@ -13,27 +13,6 @@ use tokio_util::sync::CancellationToken;
 
 const MAX_EVENTS: usize = 250; // Reduced from 1000
 
-// pub async fn handle_app_event(
-// 	app_tx: &AppTx,
-// 	exit_tx: &ExitTx,
-// 	app_event: &AppEvent,
-// 	app_state: &mut AppState,
-// ) -> Result<()> {
-// 	match app_event {
-// 		AppEvent::Term(term_event) => {
-// 			handle_term_event(&term_event, app_tx).await?;
-// 		}
-// 		AppEvent::Cerberus(cerberus_evt) => {
-// 			handle_cerberus_event(cerberus_evt, app_state);
-// 		}
-// 		AppEvent::Engine(evt) => handle_engine_event(evt, app_state),
-
-// 		_ => {}
-// 	};
-
-// 	Ok(())
-// }
-
 fn handle_engine_event(event: &EngineEvent, app_state: &mut AppState) {
 	match event {
 		EngineEvent::Matched(evt) => {
@@ -61,6 +40,10 @@ pub async fn _handle_app_event(
 			handle_cerberus_event(cerberus_evt, app_state);
 		}
 		AppEvent::Engine(evt) => handle_engine_event(evt, app_state),
+
+		AppEvent::RuleReload { rules } => {
+			app_state.loaded_rules = Arc::clone(rules);
+		}
 
 		_ => {}
 	};

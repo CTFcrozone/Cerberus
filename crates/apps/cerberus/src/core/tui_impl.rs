@@ -5,7 +5,6 @@ use crate::{
 	hook_registry::registry::HookRegistry,
 	Result,
 };
-use aya::Ebpf;
 use crossterm::{
 	cursor,
 	event::{DisableMouseCapture, EnableMouseCapture},
@@ -13,7 +12,6 @@ use crossterm::{
 	terminal::{DisableLineWrap, EnterAlternateScreen, LeaveAlternateScreen},
 };
 use lib_event::unbound::{Rx, Tx};
-use lib_rules::RuleEngine;
 use ratatui::DefaultTerminal;
 
 use crate::event::AppEvent;
@@ -21,7 +19,7 @@ use tokio_util::sync::CancellationToken;
 
 pub async fn start_tui(
 	registry: HookRegistry,
-	rule_engine: Arc<RuleEngine>,
+	rules: Arc<[String]>,
 	app_tx: Tx<AppEvent>,
 	app_rx: Rx<AppEvent>,
 	shutdown: CancellationToken,
@@ -36,7 +34,7 @@ pub async fn start_tui(
 		DisableLineWrap
 	)?;
 
-	let result = exec_app(terminal, registry, app_tx, rule_engine, app_rx, shutdown).await;
+	let result = exec_app(terminal, registry, rules, app_tx, app_rx, shutdown).await;
 
 	ratatui::restore();
 	execute!(stdout(), LeaveAlternateScreen, DisableMouseCapture, cursor::Show)?;
@@ -47,15 +45,15 @@ pub async fn start_tui(
 async fn exec_app(
 	mut terminal: DefaultTerminal,
 	registry: HookRegistry,
+	rules: Arc<[String]>,
 	app_tx: Tx<AppEvent>,
-	rule_engine: Arc<RuleEngine>,
 	app_rx: Rx<AppEvent>,
 	shutdown: CancellationToken,
 ) -> Result<()> {
 	terminal.clear()?;
 
 	let term_handle = run_term_read(app_tx)?;
-	let ui = run_ui_loop(terminal, registry, rule_engine, app_rx, shutdown.clone())?;
+	let ui = run_ui_loop(terminal, registry, rules, app_rx, shutdown.clone())?;
 
 	let _ = ui.ui_handle.await;
 

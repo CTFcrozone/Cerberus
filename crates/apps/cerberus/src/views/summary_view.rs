@@ -42,18 +42,16 @@ impl StatefulWidget for SummaryView {
 
 fn render_loaded_hooks(area: Rect, buf: &mut Buffer, state: &mut AppState, block: Block) {
 	let hooks = state.loaded_hooks();
-	let items: Vec<_> = hooks.iter().map(|hook| hook.as_str()).collect();
-
-	let paragraph = Paragraph::new(items.join("\n"))
+	let paragraph = Paragraph::new(hooks.join("\n"))
 		.block(block)
 		.style(Style::default().fg(Color::White));
 	paragraph.render(area, buf);
 }
 
 pub fn render_loaded_rules_count(area: Rect, buf: &mut Buffer, state: &AppState) {
-	let count = state.rule_engine.as_ref().map_or(0, |engine| engine.rule_count());
+	let rules = state.loaded_rules();
 
-	let paragraph = Paragraph::new(format!("Loaded Rules: {count}"))
+	let paragraph = Paragraph::new(rules.join("\n"))
 		.block(Block::bordered().title("Rules"))
 		.style(Style::default().fg(Color::Cyan));
 

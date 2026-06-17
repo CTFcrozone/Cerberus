@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use derive_more::From;
 use lib_common::event::CerberusEvent;
 use lib_rules::EngineEvent;
@@ -14,6 +16,9 @@ pub enum AppEvent {
 	LoadedHooks,
 	#[from]
 	Watcher(RuleWatchEvent),
+	RuleReload {
+		rules: Arc<[String]>,
+	},
 }
 
 #[derive(Debug, Clone)]

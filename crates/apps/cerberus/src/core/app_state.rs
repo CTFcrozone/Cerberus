@@ -1,8 +1,7 @@
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::sync::Arc;
 
-use aya::Ebpf;
-use lib_rules::{CorrelationEvent, EvaluatedEvent, RuleEngine, Severity};
+use lib_rules::{CorrelationEvent, EvaluatedEvent, Severity};
 
 use crate::event::LastAppEvent;
 use crate::Result;
@@ -72,6 +71,7 @@ impl Tab {
 
 pub struct AppState {
 	pub(in crate::core) loaded_hooks: Vec<String>,
+	pub(in crate::core) loaded_rules: Arc<[String]>,
 	pub(in crate::core) last_app_event: LastAppEvent,
 	pub(in crate::core) cerberus_evts_general: VecDeque<CerberusEvent>,
 	pub(in crate::core) cerberus_evts_correlated: VecDeque<CorrelationEvent>,
@@ -83,15 +83,15 @@ pub struct AppState {
 	pub current_view: View,
 	pub tab: Tab,
 	pub event_scroll: u16,
-	pub rule_engine: Option<Arc<RuleEngine>>,
 	pub popup_show: bool,
 	pub selected_rule: usize,
 }
 
 impl AppState {
-	pub fn new(loaded_hooks: Vec<String>, last_app_event: LastAppEvent) -> Result<Self> {
+	pub fn new(loaded_rules: Arc<[String]>, loaded_hooks: Vec<String>, last_app_event: LastAppEvent) -> Result<Self> {
 		Ok(Self {
 			loaded_hooks,
+			loaded_rules,
 			event_scroll: 0,
 			last_app_event,
 			cerberus_evts_correlated: VecDeque::with_capacity(250),
@@ -102,7 +102,6 @@ impl AppState {
 			rule_type_counts: HashMap::new(),
 			severity_counts: HashMap::new(),
 			current_view: View::Main,
-			rule_engine: None,
 			tab: Tab::General,
 			popup_show: false,
 			selected_rule: 0,
@@ -223,6 +222,11 @@ impl AppState {
 	pub fn loaded_hooks(&self) -> &[String] {
 		&self.loaded_hooks
 	}
+
+	pub fn loaded_rules(&self) -> &[String] {
+		&self.loaded_rules
+	}
+
 	pub fn last_app_event(&self) -> &LastAppEvent {
 		&self.last_app_event
 	}

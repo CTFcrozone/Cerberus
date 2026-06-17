@@ -32,7 +32,8 @@ pub enum Error {
 	#[display("No time specified for 'agent' mode")]
 	NoTimeSpecified,
 	InvalidRate,
-
+	#[display("No rules found in '{_0}'")]
+	NoRulesInDir(String),
 	UnknownEventType(u8),
 	MutexPoison,
 	// -- Externals

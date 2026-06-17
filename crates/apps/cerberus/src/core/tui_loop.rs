@@ -9,9 +9,7 @@ use crate::hook_registry::registry::HookRegistry;
 use crate::views::correlated_event_view::render_correlation_popup;
 use crate::views::{render_rule_popup, MainView, SummaryView};
 use crate::Result;
-use aya::Ebpf;
 use lib_event::unbound::Rx;
-use lib_rules::RuleEngine;
 use ratatui::DefaultTerminal;
 use tokio::task::JoinHandle;
 use tokio::time::interval;
@@ -29,12 +27,11 @@ pub struct UiRuntime {
 pub fn run_ui_loop(
 	mut term: DefaultTerminal,
 	registry: HookRegistry,
-	rule_engine: Arc<RuleEngine>,
+	rules: Arc<[String]>,
 	mut app_rx: Rx<AppEvent>,
 	shutdown: CancellationToken,
 ) -> Result<UiRuntime> {
-	let mut appstate = AppState::new(registry.hooks(), LastAppEvent::default())?;
-	appstate.rule_engine = Some(rule_engine.clone());
+	let mut appstate = AppState::new(rules, registry.hooks(), LastAppEvent::default())?;
 
 	let handle = tokio::spawn(async move {
 		let mut tick = interval(FRAME_TIME);
