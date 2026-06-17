@@ -38,18 +38,24 @@ fn render_correlated_events(area: Rect, buf: &mut Buffer, state: &mut AppState, 
 	for (group_idx, group) in groups.iter().enumerate() {
 		let is_selected = group_idx == state.selected_rule();
 
+		let expanded = state.is_correlation_expanded(&group.root_rule_id, &group.seq_id);
+
+		let icon = if expanded { "▼" } else { "▶" };
+
 		let header_style = if is_selected {
 			Style::default().fg(Color::Cyan).bg(Color::DarkGray)
 		} else {
 			Style::default().fg(Color::Gray)
 		};
 
-		let prefix = if is_selected { "▌ " } else { "  " };
-
 		lines.push(Line::styled(
-			format!("{prefix}{} :: {}", group.root_rule_id, group.seq_id),
+			format!("{icon} {} :: {}", group.root_rule_id, group.seq_id),
 			header_style,
 		));
+
+		if !expanded {
+			continue;
+		}
 
 		let mut events = group.events.clone();
 		events.sort_by(|a, b| {
@@ -68,24 +74,25 @@ fn render_correlated_events(area: Rect, buf: &mut Buffer, state: &mut AppState, 
 					matched_rule_id,
 					..
 				} => {
-					let idx_str = format!("[{}] ", step_idx + 1);
-					let rule = matched_rule_id.as_ref().to_string();
+					let idx = format!("[{}]", step_idx + 1);
 
 					lines.push(Line::from(vec![
-						Span::styled("   ├── ", Style::default().fg(Color::DarkGray)),
-						Span::styled(idx_str, Style::default().fg(Color::DarkGray)),
-						Span::styled(rule, Style::default().fg(Color::White)),
+						Span::styled("   │ ", Style::default().fg(Color::DarkGray)),
+						Span::styled(idx, Style::default().fg(Color::Gray)),
+						Span::raw(" "),
+						Span::styled(matched_rule_id.to_string(), Style::default().fg(Color::White)),
+						Span::styled(" ✓", Style::default().fg(Color::DarkGray)),
 					]));
 				}
 
 				CorrelationEvent::Completed { steps, path, .. } => {
 					lines.push(Line::from(vec![
-						Span::styled("   └── ", Style::default().fg(Color::DarkGray)),
-						Span::styled(format!("COMPLETE ({steps} steps)"), Style::default().fg(Color::Green)),
+						Span::styled("   └─ ", Style::default().fg(Color::DarkGray)),
+						Span::styled(format!("completed ({steps} steps)"), Style::default().fg(Color::Cyan)),
 					]));
 
 					lines.push(Line::from(vec![
-						Span::styled("       ", Style::default().fg(Color::DarkGray)),
+						Span::raw("      "),
 						Span::styled(
 							path.iter().map(|p| p.as_ref()).collect::<Vec<_>>().join(" → "),
 							Style::default().fg(Color::DarkGray),

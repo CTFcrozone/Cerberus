@@ -23,6 +23,12 @@ fn handle_main_input(state: &mut AppState) {
 		KeyCode::Char('s') | KeyCode::Char('S') => state.toggle_view(),
 
 		KeyCode::Enter => {
+			if let Some(group) = state.correlated_groups().get(state.selected_rule()) {
+				state.toggle_correlation_group(group.root_rule_id.clone(), group.seq_id.clone());
+			}
+		}
+
+		KeyCode::Char('i') => {
 			if state.active_event_rule_count() > 0 {
 				state.toggle_rule_popup();
 			}

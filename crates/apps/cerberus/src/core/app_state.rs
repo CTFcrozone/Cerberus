@@ -1,4 +1,4 @@
-use std::collections::{HashMap, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::sync::Arc;
 
 use aya::Ebpf;
@@ -80,7 +80,7 @@ pub struct AppState {
 	pub(in crate::core) cerberus_evts_matched: HashMap<EvaluatedKey, EvaluatedEntry>,
 	pub(in crate::core) rule_type_counts: HashMap<Arc<str>, u64>,
 	pub(in crate::core) severity_counts: HashMap<Severity, u64>,
-
+	pub(in crate::core) expanded_correlations: HashSet<(Arc<str>, Arc<str>)>,
 	pub current_view: View,
 	pub tab: Tab,
 	pub event_scroll: u16,
@@ -102,6 +102,7 @@ impl AppState {
 			cerberus_evts_general: VecDeque::with_capacity(250),
 			cerberus_evts_network: VecDeque::with_capacity(250),
 			cerberus_evts_matched: HashMap::new(),
+			expanded_correlations: HashSet::new(),
 			rule_type_counts: HashMap::new(),
 			severity_counts: HashMap::new(),
 			current_view: View::Main,
@@ -166,6 +167,18 @@ impl AppState {
 	//
 	pub fn barchart_rule_type(&self) -> Vec<(&str, u64)> {
 		self.rule_type_counts.iter().map(|(k, v)| (k.as_ref(), *v)).collect()
+	}
+
+	pub fn toggle_correlation_group(&mut self, root_rule_id: Arc<str>, seq_id: Arc<str>) {
+		let key = (root_rule_id, seq_id);
+
+		if !self.expanded_correlations.insert(key.clone()) {
+			self.expanded_correlations.remove(&key);
+		}
+	}
+
+	pub fn is_correlation_expanded(&self, root_rule_id: &Arc<str>, seq_id: &Arc<str>) -> bool {
+		self.expanded_correlations.contains(&(root_rule_id.clone(), seq_id.clone()))
 	}
 
 	pub fn correlated_groups(&self) -> Vec<CorrelationGroup> {
