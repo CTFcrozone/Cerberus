@@ -5,6 +5,7 @@ use crate::core::event_handler::_handle_app_event;
 use crate::core::{Tab, View};
 use crate::event::AppEvent;
 use crate::event::LastAppEvent;
+use crate::hook_registry::registry::HookRegistry;
 use crate::views::correlated_event_view::render_correlation_popup;
 use crate::views::{render_rule_popup, MainView, SummaryView};
 use crate::Result;
@@ -27,12 +28,12 @@ pub struct UiRuntime {
 
 pub fn run_ui_loop(
 	mut term: DefaultTerminal,
-	ebpf: Ebpf,
+	registry: HookRegistry,
 	rule_engine: Arc<RuleEngine>,
 	mut app_rx: Rx<AppEvent>,
 	shutdown: CancellationToken,
 ) -> Result<UiRuntime> {
-	let mut appstate = AppState::new(ebpf, LastAppEvent::default())?;
+	let mut appstate = AppState::new(registry.hooks(), LastAppEvent::default())?;
 	appstate.rule_engine = Some(rule_engine.clone());
 
 	let handle = tokio::spawn(async move {

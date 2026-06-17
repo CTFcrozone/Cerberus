@@ -71,7 +71,6 @@ impl Tab {
 }
 
 pub struct AppState {
-	pub(in crate::core) _ebpf: Ebpf,
 	pub(in crate::core) loaded_hooks: Vec<String>,
 	pub(in crate::core) last_app_event: LastAppEvent,
 	pub(in crate::core) cerberus_evts_general: VecDeque<CerberusEvent>,
@@ -90,11 +89,8 @@ pub struct AppState {
 }
 
 impl AppState {
-	pub fn new(ebpf: Ebpf, last_app_event: LastAppEvent) -> Result<Self> {
-		let loaded_hooks: Vec<String> = ebpf.programs().map(|(name, _)| name.to_string()).collect();
-
+	pub fn new(loaded_hooks: Vec<String>, last_app_event: LastAppEvent) -> Result<Self> {
 		Ok(Self {
-			_ebpf: ebpf,
 			loaded_hooks,
 			event_scroll: 0,
 			last_app_event,

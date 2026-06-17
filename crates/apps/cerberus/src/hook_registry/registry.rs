@@ -39,6 +39,10 @@ impl HookRegistry {
 		Ok(())
 	}
 
+	pub fn hooks(&self) -> Vec<String> {
+		self.hooks.keys().cloned().collect()
+	}
+
 	pub fn add(&mut self, hook: Hook) -> Result<()> {
 		match self.hooks.entry(hook.program_name.clone()) {
 			Entry::Occupied(_) => Err(Error::HookAlreadyExists {

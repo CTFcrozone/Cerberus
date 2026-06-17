@@ -104,7 +104,7 @@ async fn main() -> Result<()> {
 
 	match args.mode {
 		RunMode::Tui => {
-			start_tui(ebpf, rule_engine, app_tx, app_rx, supervisor.token()).await?;
+			start_tui(registry, rule_engine, app_tx, app_rx, supervisor.token()).await?;
 		}
 
 		RunMode::Agent => {
