@@ -26,12 +26,12 @@ pub struct UiRuntime {
 
 pub fn run_ui_loop(
 	mut term: DefaultTerminal,
-	registry: HookRegistry,
+	hooks: Vec<String>,
 	rules: Arc<[String]>,
 	mut app_rx: Rx<AppEvent>,
 	shutdown: CancellationToken,
 ) -> Result<UiRuntime> {
-	let mut appstate = AppState::new(rules, registry.hooks(), LastAppEvent::default())?;
+	let mut appstate = AppState::new(rules, hooks, LastAppEvent::default())?;
 
 	let handle = tokio::spawn(async move {
 		let mut tick = interval(FRAME_TIME);

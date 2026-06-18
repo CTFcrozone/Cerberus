@@ -16,11 +16,12 @@ use crate::{
 	core::start_tui,
 	event::AppEvent,
 	hook_registry::{
+		event::HookRegistryEvent,
 		helper_fns::{register_kprobe, register_lsm, register_tracepoint},
 		registry::HookRegistry,
 	},
 	supervisor::Supervisor,
-	workers::{ContainerResolver, RingBufWorker, RuleEngineWorker, RuleWatchWorker},
+	workers::{ContainerResolver, HookWorker, RingBufWorker, RuleEngineWorker, RuleWatchWorker},
 };
 
 pub use self::error::{Error, Result};
@@ -83,15 +84,19 @@ async fn main() -> Result<()> {
 	let rule_engine = Arc::new(RuleEngine::new_from_ruleset(ruleset)?);
 
 	let mut registry = HookRegistry::default();
+	let hooks = registry.hooks();
 	let ringbuf_fd = load_hooks(&mut ebpf, &mut registry)?;
 
 	let (app_tx, app_rx) = new_channel_unbounded_async::<AppEvent>("app_event");
 
 	let (ringbuf_tx, ringbuf_rx) = new_channel_unbounded_async::<CerberusEvent>("ringbuf");
 
+	// let (hook_tx, hook_rx) = new_channel_unbounded_async::<HookRegistryEvent>("hook");
+
 	let mut supervisor = Supervisor::new();
 
 	let ringbuf_worker = RingBufWorker::start(ringbuf_fd, ringbuf_tx.clone())?;
+	// let hook_worker = HookWorker::start(app_tx.clone(), hook_rx, registry)?;
 
 	let rule_input_rx = if args.container_resolver {
 		let k8s_client = k8s_connect().await?;
@@ -112,7 +117,7 @@ async fn main() -> Result<()> {
 
 	match args.mode {
 		RunMode::Tui => {
-			start_tui(registry, rules, app_tx, app_rx, supervisor.token()).await?;
+			start_tui(hooks, rules, app_tx, app_rx, supervisor.token()).await?;
 		}
 
 		RunMode::Agent => {

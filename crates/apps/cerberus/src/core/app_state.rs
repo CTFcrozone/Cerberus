@@ -7,68 +7,6 @@ use crate::event::LastAppEvent;
 use crate::Result;
 use lib_common::event::CerberusEvent;
 
-#[derive(Clone, Debug)]
-pub struct EvaluatedEntry {
-	pub event: EvaluatedEvent,
-	pub count: u64,
-}
-
-fn event_key(evt: &CorrelationEvent) -> (Arc<str>, Arc<str>) {
-	match evt {
-		CorrelationEvent::Step {
-			root_rule_id, seq_id, ..
-		} => (root_rule_id.clone(), seq_id.clone()),
-		CorrelationEvent::Completed {
-			root_rule_id, seq_id, ..
-		} => (root_rule_id.clone(), seq_id.clone()),
-	}
-}
-
-pub struct CorrelationGroup {
-	pub root_rule_id: Arc<str>,
-	pub seq_id: Arc<str>,
-	pub events: Vec<CorrelationEvent>,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub struct EvaluatedKey {
-	pub rule_id: Arc<str>,
-	pub rule_type: Arc<str>,
-}
-
-pub enum View {
-	Main,
-	Summary,
-}
-
-#[derive(Clone, Copy, Debug)]
-pub enum Tab {
-	Network,
-	General,
-	MatchedRules,
-	CorrelatedRules,
-}
-
-impl Tab {
-	pub fn next(self) -> Self {
-		match self {
-			Tab::General => Tab::Network,
-			Tab::Network => Tab::MatchedRules,
-			Tab::MatchedRules => Tab::CorrelatedRules,
-			Tab::CorrelatedRules => Tab::General,
-		}
-	}
-
-	pub fn as_index(self) -> i32 {
-		match self {
-			Tab::General => 0,
-			Tab::Network => 1,
-			Tab::MatchedRules => 2,
-			Tab::CorrelatedRules => 3,
-		}
-	}
-}
-
 pub struct AppState {
 	pub(in crate::core) loaded_hooks: Vec<String>,
 	pub(in crate::core) loaded_rules: Arc<[String]>,
@@ -269,5 +207,67 @@ impl AppState {
 			View::Main => View::Summary,
 			View::Summary => View::Main,
 		};
+	}
+}
+
+#[derive(Clone, Debug)]
+pub struct EvaluatedEntry {
+	pub event: EvaluatedEvent,
+	pub count: u64,
+}
+
+pub struct CorrelationGroup {
+	pub root_rule_id: Arc<str>,
+	pub seq_id: Arc<str>,
+	pub events: Vec<CorrelationEvent>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct EvaluatedKey {
+	pub rule_id: Arc<str>,
+	pub rule_type: Arc<str>,
+}
+
+pub enum View {
+	Main,
+	Summary,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub enum Tab {
+	Network,
+	General,
+	MatchedRules,
+	CorrelatedRules,
+}
+
+fn event_key(evt: &CorrelationEvent) -> (Arc<str>, Arc<str>) {
+	match evt {
+		CorrelationEvent::Step {
+			root_rule_id, seq_id, ..
+		} => (root_rule_id.clone(), seq_id.clone()),
+		CorrelationEvent::Completed {
+			root_rule_id, seq_id, ..
+		} => (root_rule_id.clone(), seq_id.clone()),
+	}
+}
+
+impl Tab {
+	pub fn next(self) -> Self {
+		match self {
+			Tab::General => Tab::Network,
+			Tab::Network => Tab::MatchedRules,
+			Tab::MatchedRules => Tab::CorrelatedRules,
+			Tab::CorrelatedRules => Tab::General,
+		}
+	}
+
+	pub fn as_index(self) -> i32 {
+		match self {
+			Tab::General => 0,
+			Tab::Network => 1,
+			Tab::MatchedRules => 2,
+			Tab::CorrelatedRules => 3,
+		}
 	}
 }
