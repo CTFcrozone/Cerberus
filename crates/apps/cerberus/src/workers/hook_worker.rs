@@ -5,11 +5,8 @@ use crate::{
 };
 
 use aya::Ebpf;
-use lib_common::event::{CerberusEvent, Event};
-use lib_container::container_manager::ContainerManager;
 
 use lib_event::unbound::{Rx, Tx};
-use tracing::{debug, error};
 
 pub struct HookWorker {
 	pub tx: Tx<AppEvent>,

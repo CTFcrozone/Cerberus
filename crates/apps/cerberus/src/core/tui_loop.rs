@@ -7,7 +7,7 @@ use crate::core::{Tab, View};
 use crate::event::AppEvent;
 use crate::event::LastAppEvent;
 use crate::hook_registry::event::HookCommand;
-use crate::hook_registry::{HookState, HookView};
+use crate::hook_registry::HookView;
 use crate::views::correlated_event_view::render_correlation_popup;
 use crate::views::{render_rule_popup, MainView, SummaryView};
 use crate::Result;

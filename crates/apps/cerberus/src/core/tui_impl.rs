@@ -1,8 +1,8 @@
-use std::{collections::HashMap, io::stdout, sync::Arc};
+use std::{io::stdout, sync::Arc};
 
 use crate::{
 	core::{term_reader::run_term_read, tui_loop::run_ui_loop},
-	hook_registry::{event::HookCommand, registry::HookRegistry, HookState, HookView},
+	hook_registry::{event::HookCommand, HookView},
 	Result,
 };
 use crossterm::{

@@ -4,7 +4,7 @@ use std::sync::Arc;
 use lib_rules::{CorrelationEvent, EvaluatedEvent, Severity};
 
 use crate::event::LastAppEvent;
-use crate::hook_registry::{HookState, HookView};
+use crate::hook_registry::HookView;
 use crate::Result;
 use lib_common::event::CerberusEvent;
 

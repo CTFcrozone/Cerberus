@@ -1,4 +1,3 @@
-use crossterm::style::Attribute::Bold;
 use ratatui::{
 	buffer::Buffer,
 	layout::{Constraint, Direction, Layout, Rect},
