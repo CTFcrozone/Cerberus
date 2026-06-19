@@ -4,11 +4,12 @@ use std::sync::Arc;
 use lib_rules::{CorrelationEvent, EvaluatedEvent, Severity};
 
 use crate::event::LastAppEvent;
+use crate::hook_registry::{HookState, HookView};
 use crate::Result;
 use lib_common::event::CerberusEvent;
 
 pub struct AppState {
-	pub(in crate::core) loaded_hooks: Vec<String>,
+	pub(in crate::core) loaded_hooks: Vec<HookView>,
 	pub(in crate::core) loaded_rules: Arc<[String]>,
 	pub(in crate::core) last_app_event: LastAppEvent,
 	pub(in crate::core) cerberus_evts_general: VecDeque<CerberusEvent>,
@@ -18,6 +19,7 @@ pub struct AppState {
 	pub(in crate::core) rule_type_counts: HashMap<Arc<str>, u64>,
 	pub(in crate::core) severity_counts: HashMap<Severity, u64>,
 	pub(in crate::core) expanded_correlations: HashSet<(Arc<str>, Arc<str>)>,
+	pub selected_hook: usize,
 	pub current_view: View,
 	pub tab: Tab,
 	pub event_scroll: u16,
@@ -26,7 +28,7 @@ pub struct AppState {
 }
 
 impl AppState {
-	pub fn new(loaded_rules: Arc<[String]>, loaded_hooks: Vec<String>, last_app_event: LastAppEvent) -> Result<Self> {
+	pub fn new(loaded_rules: Arc<[String]>, loaded_hooks: Vec<HookView>, last_app_event: LastAppEvent) -> Result<Self> {
 		Ok(Self {
 			loaded_hooks,
 			loaded_rules,
@@ -43,6 +45,7 @@ impl AppState {
 			tab: Tab::General,
 			popup_show: false,
 			selected_rule: 0,
+			selected_hook: 0,
 		})
 	}
 }
@@ -157,10 +160,9 @@ impl AppState {
 }
 
 impl AppState {
-	pub fn loaded_hooks(&self) -> &[String] {
+	pub fn loaded_hooks(&self) -> &[HookView] {
 		&self.loaded_hooks
 	}
-
 	pub fn loaded_rules(&self) -> &[String] {
 		&self.loaded_rules
 	}

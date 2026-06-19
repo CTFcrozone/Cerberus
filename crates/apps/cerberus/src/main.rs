@@ -16,9 +16,10 @@ use crate::{
 	core::start_tui,
 	event::AppEvent,
 	hook_registry::{
-		event::HookRegistryEvent,
+		event::HookCommand,
 		helper_fns::{register_kprobe, register_lsm, register_tracepoint},
 		registry::HookRegistry,
+		HookView,
 	},
 	supervisor::Supervisor,
 	workers::{ContainerResolver, HookWorker, RingBufWorker, RuleEngineWorker, RuleWatchWorker},
@@ -84,19 +85,31 @@ async fn main() -> Result<()> {
 	let rule_engine = Arc::new(RuleEngine::new_from_ruleset(ruleset)?);
 
 	let mut registry = HookRegistry::default();
-	let hooks = registry.hooks();
+
 	let ringbuf_fd = load_hooks(&mut ebpf, &mut registry)?;
+
+	let hooks = registry
+		.hooks()
+		.map(|(name, hook)| HookView {
+			name: (name.clone()),
+			state: if hook.link.is_some() {
+				hook_registry::HookState::Enabled
+			} else {
+				hook_registry::HookState::Disabled
+			},
+		})
+		.collect();
 
 	let (app_tx, app_rx) = new_channel_unbounded_async::<AppEvent>("app_event");
 
 	let (ringbuf_tx, ringbuf_rx) = new_channel_unbounded_async::<CerberusEvent>("ringbuf");
 
-	// let (hook_tx, hook_rx) = new_channel_unbounded_async::<HookRegistryEvent>("hook");
+	let (hook_tx, hook_rx) = new_channel_unbounded_async::<HookCommand>("hook");
 
 	let mut supervisor = Supervisor::new();
 
 	let ringbuf_worker = RingBufWorker::start(ringbuf_fd, ringbuf_tx.clone())?;
-	// let hook_worker = HookWorker::start(app_tx.clone(), hook_rx, registry)?;
+	let hook_worker = HookWorker::start(ebpf, app_tx.clone(), hook_rx, registry)?;
 
 	let rule_input_rx = if args.container_resolver {
 		let k8s_client = k8s_connect().await?;
@@ -112,12 +125,13 @@ async fn main() -> Result<()> {
 	let rule_worker = RuleEngineWorker::start(rule_engine.clone(), app_tx.clone(), rule_input_rx)?;
 	let rule_watch_worker = RuleWatchWorker::start(app_tx.clone(), rule_engine.clone(), rule_dir.clone())?;
 	supervisor.spawn(ringbuf_worker.run());
+	supervisor.spawn(hook_worker.run());
 	supervisor.spawn(rule_worker.run());
 	supervisor.spawn(rule_watch_worker.run());
 
 	match args.mode {
 		RunMode::Tui => {
-			start_tui(hooks, rules, app_tx, app_rx, supervisor.token()).await?;
+			start_tui(hooks, rules, app_tx, app_rx, hook_tx, supervisor.token()).await?;
 		}
 
 		RunMode::Agent => {

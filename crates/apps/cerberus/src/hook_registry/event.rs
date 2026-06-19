@@ -1,10 +1,7 @@
-#[derive(Debug, Clone)]
-pub enum HookRegistryEvent {
-	HookAction { hook: String, action: HookAction },
-}
+use std::sync::Arc;
 
 #[derive(Debug, Clone)]
-pub enum HookAction {
-	Enable,
-	Disable,
+pub enum HookCommand {
+	Enable(Arc<str>),
+	Disable(Arc<str>),
 }

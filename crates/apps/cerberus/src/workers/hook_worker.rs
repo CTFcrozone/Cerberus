@@ -1,10 +1,7 @@
 use crate::{
 	error::Result,
 	event::AppEvent,
-	hook_registry::{
-		event::{HookAction, HookRegistryEvent},
-		registry::HookRegistry,
-	},
+	hook_registry::{event::HookCommand, registry::HookRegistry},
 };
 
 use aya::Ebpf;
@@ -16,35 +13,44 @@ use tracing::{debug, error};
 
 pub struct HookWorker {
 	pub tx: Tx<AppEvent>,
-	pub rx: Rx<HookRegistryEvent>,
+	pub rx: Rx<HookCommand>,
 	registry: HookRegistry,
+	ebpf: Ebpf,
 }
 
 // TODO: make it shutdown aware
 impl HookWorker {
-	pub fn start(tx: Tx<AppEvent>, rx: Rx<HookRegistryEvent>, registry: HookRegistry) -> Result<Self> {
-		Ok(HookWorker { tx, rx, registry })
+	pub fn start(ebpf: Ebpf, tx: Tx<AppEvent>, rx: Rx<HookCommand>, registry: HookRegistry) -> Result<Self> {
+		Ok(HookWorker { ebpf, tx, rx, registry })
 	}
 
-	pub async fn run(mut self, ebpf: &mut Ebpf) -> Result<()> {
+	pub async fn run(mut self) -> Result<()> {
 		while let Ok(evt) = self.rx.recv().await {
-			match &evt {
-				HookRegistryEvent::HookAction { hook, action } => match action {
-					HookAction::Disable => {
-						if let Err(e) = self.registry.disable(hook, ebpf) {
-							error!("HOOK_WORKER --- ERROR: {e}");
-						}
+			match evt {
+				HookCommand::Enable(hook) => match self.registry.enable(&hook, &mut self.ebpf) {
+					Ok(_) => {
+						let _ = self.tx.send(AppEvent::HookEnabled { hook });
 					}
-					HookAction::Enable => {
-						if let Err(e) = self.registry.enable(hook, ebpf) {
-							error!("HOOK_WORKER --- ERROR: {e}");
-						}
+					Err(e) => {
+						let _ = self.tx.send(AppEvent::HookFailed {
+							hook,
+							error: e.to_string(),
+						});
+					}
+				},
+				HookCommand::Disable(hook) => match self.registry.disable(&hook, &mut self.ebpf) {
+					Ok(_) => {
+						let _ = self.tx.send(AppEvent::HookDisabled { hook });
+					}
+					Err(e) => {
+						let _ = self.tx.send(AppEvent::HookFailed {
+							hook,
+							error: e.to_string(),
+						});
 					}
 				},
 			};
-			self.tx.send(evt)?;
 		}
-
 		Ok(())
 	}
 }

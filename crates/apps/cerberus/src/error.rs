@@ -1,4 +1,4 @@
-use std::str::Utf8Error;
+use std::{str::Utf8Error, sync::Arc};
 
 use derive_more::{Display, From};
 use tokio::task::JoinError;
@@ -11,7 +11,7 @@ pub enum Error {
 	#[from(String, &String, &str)]
 	Custom(String),
 	EbpfProgNotFound {
-		program: String,
+		program: Arc<str>,
 	},
 	EbpfMapNotFound {
 		map: String,
@@ -20,10 +20,10 @@ pub enum Error {
 		program: String,
 	},
 	HookNotFound {
-		hook: String,
+		hook: Arc<str>,
 	},
 	HookAlreadyExists {
-		hook: String,
+		hook: Arc<str>,
 	},
 	InvalidEventAlign,
 	InvalidEventSize,

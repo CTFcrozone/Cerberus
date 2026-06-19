@@ -1,13 +1,17 @@
 use std::{collections::VecDeque, sync::Arc};
 
 use super::AppState;
+use crate::core::View;
 use crate::event::AppEvent;
+use crate::hook_registry::event::HookCommand;
+use crate::hook_registry::HookState;
 use crate::{
 	core::app_state::{EvaluatedEntry, EvaluatedKey},
 	Result,
 };
 use crossterm::event::{Event, KeyCode, KeyEventKind, KeyModifiers};
 use lib_common::event::CerberusEvent;
+use lib_event::unbound::Tx;
 use lib_rules::{CorrelationEvent, EngineEvent, EvaluatedEvent};
 use tokio_util::sync::CancellationToken;
 
@@ -30,16 +34,29 @@ pub async fn _handle_app_event(
 	// app_tx: &AppTx,
 	app_event: &AppEvent,
 	app_state: &mut AppState,
+	hook_tx: &Tx<HookCommand>,
 	shutdown: CancellationToken,
 ) -> Result<()> {
 	match app_event {
 		AppEvent::Term(term_event) => {
-			_handle_term_event(&term_event, shutdown).await?;
+			_handle_term_event(app_state, &term_event, hook_tx, shutdown).await?;
 		}
 		AppEvent::Cerberus(cerberus_evt) => {
 			handle_cerberus_event(cerberus_evt, app_state);
 		}
 		AppEvent::Engine(evt) => handle_engine_event(evt, app_state),
+
+		AppEvent::HookEnabled { hook } => {
+			if let Some(h) = app_state.loaded_hooks.iter_mut().find(|h| &h.name == hook) {
+				h.state = HookState::Enabled
+			}
+		}
+
+		AppEvent::HookDisabled { hook } => {
+			if let Some(h) = app_state.loaded_hooks.iter_mut().find(|h| &h.name == hook) {
+				h.state = HookState::Disabled
+			}
+		}
 
 		AppEvent::RuleReload { rules } => {
 			app_state.loaded_rules = Arc::clone(rules);
@@ -112,13 +129,33 @@ fn handle_cerberus_eval_event(event: &EvaluatedEvent, app_state: &mut AppState) 
 // 	Ok(())
 // }
 
-async fn _handle_term_event(term_event: &Event, shutdown: CancellationToken) -> Result<()> {
+async fn _handle_term_event(
+	state: &mut AppState,
+	term_event: &Event,
+	hook_tx: &Tx<HookCommand>,
+	shutdown: CancellationToken,
+) -> Result<()> {
 	if let Event::Key(key) = term_event {
 		if let KeyEventKind::Press = key.kind {
 			let mod_ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
+			let view = state.current_view();
 			match (key.code, mod_ctrl) {
 				(KeyCode::Char('q'), false) => {
 					shutdown.cancel();
+				}
+				(KeyCode::Char('e'), false) => {
+					if matches!(view, View::Summary) {
+						if let Some(hook) = state.loaded_hooks.get(state.selected_hook) {
+							hook_tx.send(HookCommand::Enable(hook.name.clone()))?;
+						}
+					}
+				}
+				(KeyCode::Char('d'), false) => {
+					if matches!(view, View::Summary) {
+						if let Some(hook) = state.loaded_hooks.get(state.selected_hook) {
+							hook_tx.send(HookCommand::Disable(hook.name.clone()))?;
+						}
+					}
 				}
 				_ => (),
 			}

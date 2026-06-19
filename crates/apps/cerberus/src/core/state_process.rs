@@ -6,13 +6,40 @@ const MAX_SCROLL: u16 = 10_000;
 
 pub fn process_app_state(state: &mut AppState) {
 	match state.current_view() {
-		View::Main | View::Summary => handle_main_view(state),
+		View::Main => handle_main_view(state),
+		View::Summary => handle_summary_input(state),
 	}
 }
 
 fn handle_main_view(state: &mut AppState) {
 	handle_main_input(state);
 	handle_scroll(state);
+}
+
+fn handle_summary_input(state: &mut AppState) {
+	let Some(key) = state.last_app_event().as_key_code() else {
+		return;
+	};
+
+	match key {
+		KeyCode::Char('s') | KeyCode::Char('S') => state.toggle_view(),
+
+		KeyCode::Down => {
+			let len = state.loaded_hooks.len();
+			if len > 0 {
+				state.selected_hook = (state.selected_hook + 1) % len;
+			}
+		}
+
+		KeyCode::Up => {
+			let len = state.loaded_hooks.len();
+			if len > 0 {
+				state.selected_hook = (state.selected_hook + len - 1) % len;
+			}
+		}
+
+		_ => {}
+	}
 }
 
 fn handle_main_input(state: &mut AppState) {

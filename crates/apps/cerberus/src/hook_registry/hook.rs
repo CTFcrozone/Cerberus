@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use aya::{
 	programs::{kprobe::KProbeLinkId, lsm::LsmLinkId, trace_point::TracePointLinkId, KProbe, Lsm, TracePoint},
 	Ebpf,
@@ -18,12 +20,22 @@ pub enum HookLink {
 
 pub enum HookKind {
 	Lsm,
-	Tracepoint { category: String, event: String },
-	Kprobe { function: String, offset: u64 },
+	Tracepoint { category: Arc<str>, event: Arc<str> },
+	Kprobe { function: Arc<str>, offset: u64 },
+}
+
+pub enum HookState {
+	Enabled,
+	Disabled,
+}
+
+pub struct HookView {
+	pub name: Arc<str>,
+	pub state: HookState,
 }
 
 pub struct Hook {
-	pub program_name: String,
+	pub program_name: Arc<str>,
 	pub kind: HookKind,
 	pub link: Option<HookLink>,
 }
@@ -112,7 +124,7 @@ impl Hook {
 					})?
 					.try_into()?;
 
-				self.link = Some(prog.attach(function, *offset)?.into());
+				self.link = Some(prog.attach(function.as_ref(), *offset)?.into());
 			}
 		}
 
@@ -121,7 +133,7 @@ impl Hook {
 
 	pub fn disable(&mut self, ebpf: &mut Ebpf) -> Result<()> {
 		let link = self.link.take().ok_or(Error::HookAlreadyDisabled {
-			program: self.program_name.clone(),
+			program: self.program_name.to_string(),
 		})?;
 
 		match link {

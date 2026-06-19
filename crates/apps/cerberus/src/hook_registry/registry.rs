@@ -1,4 +1,7 @@
-use std::collections::{hash_map::Entry, HashMap};
+use std::{
+	collections::{hash_map::Entry, HashMap},
+	sync::Arc,
+};
 
 use aya::Ebpf;
 
@@ -6,7 +9,7 @@ use crate::{hook_registry::hook::Hook, Error, Result};
 
 #[derive(Default)]
 pub struct HookRegistry {
-	hooks: HashMap<String, Hook>,
+	hooks: HashMap<Arc<str>, Hook>,
 }
 
 impl HookRegistry {
@@ -39,8 +42,8 @@ impl HookRegistry {
 		Ok(())
 	}
 
-	pub fn hooks(&self) -> Vec<String> {
-		self.hooks.keys().cloned().collect()
+	pub fn hooks(&self) -> impl Iterator<Item = (&Arc<str>, &Hook)> {
+		self.hooks.iter()
 	}
 
 	pub fn add(&mut self, hook: Hook) -> Result<()> {

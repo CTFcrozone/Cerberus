@@ -1,8 +1,8 @@
-use std::{io::stdout, sync::Arc};
+use std::{collections::HashMap, io::stdout, sync::Arc};
 
 use crate::{
 	core::{term_reader::run_term_read, tui_loop::run_ui_loop},
-	hook_registry::registry::HookRegistry,
+	hook_registry::{event::HookCommand, registry::HookRegistry, HookState, HookView},
 	Result,
 };
 use crossterm::{
@@ -18,10 +18,11 @@ use crate::event::AppEvent;
 use tokio_util::sync::CancellationToken;
 
 pub async fn start_tui(
-	hooks: Vec<String>,
+	hooks: Vec<HookView>,
 	rules: Arc<[String]>,
 	app_tx: Tx<AppEvent>,
 	app_rx: Rx<AppEvent>,
+	hook_tx: Tx<HookCommand>,
 	shutdown: CancellationToken,
 ) -> Result<()> {
 	let terminal = ratatui::init();
@@ -34,7 +35,7 @@ pub async fn start_tui(
 		DisableLineWrap
 	)?;
 
-	let result = exec_app(terminal, hooks, rules, app_tx, app_rx, shutdown).await;
+	let result = exec_app(terminal, hooks, rules, app_tx, app_rx, hook_tx, shutdown).await;
 
 	ratatui::restore();
 	execute!(stdout(), LeaveAlternateScreen, DisableMouseCapture, cursor::Show)?;
@@ -44,16 +45,18 @@ pub async fn start_tui(
 
 async fn exec_app(
 	mut terminal: DefaultTerminal,
-	hooks: Vec<String>,
+	hooks: Vec<HookView>,
 	rules: Arc<[String]>,
 	app_tx: Tx<AppEvent>,
 	app_rx: Rx<AppEvent>,
+	hook_tx: Tx<HookCommand>,
+
 	shutdown: CancellationToken,
 ) -> Result<()> {
 	terminal.clear()?;
 
 	let term_handle = run_term_read(app_tx)?;
-	let ui = run_ui_loop(terminal, hooks, rules, app_rx, shutdown.clone())?;
+	let ui = run_ui_loop(terminal, hooks, rules, app_rx, hook_tx, shutdown.clone())?;
 
 	let _ = ui.ui_handle.await;
 

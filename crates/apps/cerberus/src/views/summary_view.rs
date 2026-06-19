@@ -1,11 +1,13 @@
+use crossterm::style::Attribute::Bold;
 use ratatui::{
 	buffer::Buffer,
 	layout::{Constraint, Direction, Layout, Rect},
-	style::{Color, Style},
+	style::{Color, Modifier, Style},
+	text::{Line, Span},
 	widgets::{BarChart, Block, Paragraph, StatefulWidget, Widget},
 };
 
-use crate::core::AppState;
+use crate::{core::AppState, hook_registry::HookState};
 
 pub struct SummaryView;
 
@@ -41,10 +43,27 @@ impl StatefulWidget for SummaryView {
 }
 
 fn render_loaded_hooks(area: Rect, buf: &mut Buffer, state: &mut AppState, block: Block) {
-	let hooks = state.loaded_hooks();
-	let paragraph = Paragraph::new(hooks.join("\n"))
-		.block(block)
-		.style(Style::default().fg(Color::White));
+	let hooks: Vec<Line> = state
+		.loaded_hooks()
+		.iter()
+		.enumerate()
+		.map(|(i, h)| {
+			let status = match h.state {
+				HookState::Disabled => "disabled",
+				HookState::Enabled => "enabled",
+			};
+			let base_style = if i == state.selected_hook {
+				Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)
+			} else {
+				Style::default().fg(Color::White)
+			};
+			Line::from(vec![
+				Span::styled(format!("{:>2} ", i), base_style),
+				Span::styled(format!("{} [{}]", h.name, status), base_style),
+			])
+		})
+		.collect();
+	let paragraph = Paragraph::new(hooks).block(block).style(Style::default().fg(Color::White));
 	paragraph.render(area, buf);
 }
 
