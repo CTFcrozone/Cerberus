@@ -10,6 +10,7 @@ use lib_common::event::CerberusEvent;
 
 pub struct AppState {
 	pub(in crate::core) loaded_hooks: Vec<HookView>,
+	pub(in crate::core) hook_index: HashMap<Arc<str>, usize>,
 	pub(in crate::core) loaded_rules: Arc<[String]>,
 	pub(in crate::core) last_app_event: LastAppEvent,
 	pub(in crate::core) cerberus_evts_general: VecDeque<CerberusEvent>,
@@ -29,9 +30,16 @@ pub struct AppState {
 
 impl AppState {
 	pub fn new(loaded_rules: Arc<[String]>, loaded_hooks: Vec<HookView>, last_app_event: LastAppEvent) -> Result<Self> {
+		let hook_index = loaded_hooks
+			.iter()
+			.enumerate()
+			.map(|(idx, h)| (h.name.clone(), idx))
+			.collect::<HashMap<_, _>>();
+
 		Ok(Self {
 			loaded_hooks,
 			loaded_rules,
+			hook_index,
 			event_scroll: 0,
 			last_app_event,
 			cerberus_evts_correlated: VecDeque::with_capacity(250),

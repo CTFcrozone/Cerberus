@@ -47,14 +47,18 @@ pub async fn _handle_app_event(
 		AppEvent::Engine(evt) => handle_engine_event(evt, app_state),
 
 		AppEvent::HookEnabled { hook } => {
-			if let Some(h) = app_state.loaded_hooks.iter_mut().find(|h| &h.name == hook) {
-				h.state = HookState::Enabled
+			if let Some(&idx) = app_state.hook_index.get(hook) {
+				if let Some(h) = app_state.loaded_hooks.get_mut(idx) {
+					h.state = HookState::Enabled;
+				}
 			}
 		}
 
 		AppEvent::HookDisabled { hook } => {
-			if let Some(h) = app_state.loaded_hooks.iter_mut().find(|h| &h.name == hook) {
-				h.state = HookState::Disabled
+			if let Some(&idx) = app_state.hook_index.get(hook) {
+				if let Some(h) = app_state.loaded_hooks.get_mut(idx) {
+					h.state = HookState::Disabled;
+				}
 			}
 		}
 
