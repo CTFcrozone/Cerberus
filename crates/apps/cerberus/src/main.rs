@@ -16,10 +16,10 @@ use crate::{
 	core::start_tui,
 	event::AppEvent,
 	hook_registry::{
+		HookView,
 		event::HookCommand,
 		helper_fns::{register_kprobe, register_lsm, register_tracepoint},
 		registry::HookRegistry,
-		HookView,
 	},
 	supervisor::Supervisor,
 	workers::{ContainerResolver, HookWorker, RingBufWorker, RuleEngineWorker, RuleWatchWorker},
@@ -28,8 +28,8 @@ use crate::{
 pub use self::error::{Error, Result};
 use agent::*;
 use aya::{
-	maps::{MapData, RingBuf},
 	Btf, Ebpf,
+	maps::{MapData, RingBuf},
 };
 use clap::Parser;
 
@@ -37,7 +37,7 @@ use lib_common::event::CerberusEvent;
 use lib_container::{container_manager::ContainerManager, runtime::k8s_connect};
 use lib_event::unbound::new_channel_unbounded_async;
 use lib_rules::{RuleEngine, RuleSet};
-use std::sync::Arc;
+use std::{path::Path, sync::Arc};
 use tracing_subscriber::EnvFilter;
 #[rustfmt::skip]
 use tracing::{debug, warn};
@@ -46,11 +46,33 @@ use tokio::io::unix::AsyncFd;
 #[tokio::main]
 async fn main() -> Result<()> {
 	let args = Cli::parse();
-	tracing_subscriber::fmt()
-		.with_target(false)
-		.without_time()
-		.with_env_filter(EnvFilter::from_default_env())
-		.init();
+
+	let _guard = if let Some(path) = &args.log {
+		let dir = path.parent().unwrap_or(Path::new("."));
+		std::fs::create_dir_all(dir)?;
+
+		let file = path.file_name().and_then(|f| f.to_str()).unwrap_or("cerberus.log");
+
+		let appender = tracing_appender::rolling::hourly(dir, file);
+		let (writer, guard) = tracing_appender::non_blocking(appender);
+
+		tracing_subscriber::fmt()
+			.with_target(false)
+			.without_time()
+			.with_env_filter(EnvFilter::from_default_env())
+			.with_writer(writer)
+			.init();
+
+		Some(guard)
+	} else {
+		tracing_subscriber::fmt()
+			.with_target(false)
+			.without_time()
+			.with_env_filter(EnvFilter::from_default_env())
+			.init();
+
+		None
+	};
 
 	if args.time.is_some() && args.mode != RunMode::Agent {
 		return Err(Error::InvalidTimeMode);

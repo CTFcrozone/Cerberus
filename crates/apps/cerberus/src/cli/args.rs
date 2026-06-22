@@ -17,6 +17,12 @@ pub struct Cli {
 
 	#[arg(long, help = "Time duration (e.g., 20s, 5m, 1h). Optional when using --mode agent")]
 	pub time: Option<Duration>,
+
+	#[arg(
+		long,
+		help = "Log directory. Optional (if not specified, file logging will be disabled)"
+	)]
+	pub log: Option<PathBuf>,
 }
 
 #[derive(Copy, Clone, Debug, ValueEnum, PartialEq, Eq)]
