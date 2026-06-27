@@ -1,3 +1,4 @@
+use kvm_bindings::kvm_regs;
 #[cfg(target_arch = "x86_64")]
 use kvm_ioctls::Kvm;
 use kvm_ioctls::{Cap, VcpuFd};
@@ -76,8 +77,8 @@ pub(crate) fn reset_state(vcpu: &mut VcpuFd, mem: &mut GuestMemoryMmap) -> Resul
 	let mut regs = vcpu.get_regs()?;
 	regs.rax = 0;
 	regs.rip = CODE_START;
-	regs.rsp = STACK_START;
-	regs.rflags = 0x2;
+	regs.rsp = STACK_START & !0xF;
+	regs.rflags = 0x202;
 	vcpu.set_regs(&regs)?;
 
 	Ok(())
@@ -85,6 +86,35 @@ pub(crate) fn reset_state(vcpu: &mut VcpuFd, mem: &mut GuestMemoryMmap) -> Resul
 
 pub(crate) fn supports_readonly_mem(kvm: &Kvm) -> bool {
 	kvm.check_extension(Cap::ReadonlyMem)
+}
+
+pub(crate) fn handle_syscall(regs: &mut kvm_regs) -> bool {
+	match regs.rax {
+		1 => {
+			// write(fd, buf, len)
+			let fd = regs.rdi;
+			let _buf = regs.rsi;
+			let len = regs.rdx;
+
+			if fd == 1 {
+				println!("[guest stdout] wrote {} bytes", len);
+			}
+
+			regs.rax = len;
+			true
+		}
+
+		60 => {
+			// exit(code)
+			regs.rax = regs.rdi;
+			false
+		}
+
+		_ => {
+			println!("unknown syscall: {}", regs.rax);
+			false
+		}
+	}
 }
 
 #[cfg(target_arch = "x86_64")]
@@ -140,4 +170,30 @@ pub(crate) fn configure_cpuid(kvm: &Kvm, vcpu: &VcpuFd) -> Result<()> {
 
 	vcpu.set_cpuid2(&cpuid)?;
 	Ok(())
+}
+
+pub fn load_elf(mem: &mut GuestMemoryMmap, binary: &[u8]) -> Result<u64> {
+	let elf = goblin::elf::Elf::parse(binary)?;
+
+	for ph in elf.program_headers.iter() {
+		if ph.p_type != goblin::elf::program_header::PT_LOAD {
+			continue;
+		}
+		let file_range = ph.file_range();
+		let data = &binary[file_range];
+		let addr = GuestAddress(ph.p_vaddr);
+
+		mem.write_slice(data, addr)?;
+		let mem_size = ph.p_memsz as usize;
+		let file_size = ph.p_filesz as usize;
+
+		if mem_size > file_size {
+			let zero_start = addr.unchecked_add(file_size as u64);
+			let zero_len = mem_size - file_size;
+			let zeroes = vec![0u8; zero_len];
+
+			mem.write_slice(&zeroes, zero_start)?;
+		}
+	}
+	Ok(elf.entry)
 }

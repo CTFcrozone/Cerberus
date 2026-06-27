@@ -25,6 +25,8 @@ pub enum Error {
 	// -- Externals
 	#[from]
 	Io(std::io::Error), // as example
+	#[from]
+	Goblin(goblin::error::Error),
 }
 
 impl<T> From<std::sync::PoisonError<T>> for Error {

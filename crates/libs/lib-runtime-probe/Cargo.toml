@@ -19,3 +19,4 @@ derive_more = { version = "2.0.0", features = [
     "deref",
 ] }
 libc.workspace = true
+goblin = "0.10.7"

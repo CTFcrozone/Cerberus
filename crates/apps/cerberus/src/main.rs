@@ -5,6 +5,7 @@ mod core;
 mod error;
 mod event;
 mod hook_registry;
+mod log_line;
 mod styles;
 mod supervisor;
 mod views;

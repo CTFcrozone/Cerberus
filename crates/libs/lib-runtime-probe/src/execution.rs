@@ -1,6 +1,6 @@
 use std::time::{Duration, Instant};
 
-use kvm_bindings::kvm_userspace_memory_region;
+use kvm_bindings::{kvm_regs, kvm_userspace_memory_region};
 use kvm_ioctls::{Kvm, VcpuExit, VcpuFd, VmFd};
 use vm_memory::{Bytes, GuestAddress, GuestMemoryBackend, GuestMemoryMmap};
 
@@ -206,5 +206,16 @@ impl Execution {
 			rip: regs.rip,
 			execution_time: start.elapsed(),
 		})
+	}
+	pub fn get_regs(&self) -> Result<kvm_regs> {
+		Ok(self.vcpu.get_regs()?)
+	}
+
+	pub fn mem_mut(&mut self) -> &mut GuestMemoryMmap {
+		&mut self.mem
+	}
+	pub fn set_regs(&mut self, regs: &kvm_regs) -> Result<()> {
+		self.vcpu.set_regs(regs)?;
+		Ok(())
 	}
 }

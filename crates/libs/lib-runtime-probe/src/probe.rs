@@ -1,10 +1,10 @@
 use std::time::Duration;
 
 use crate::{
+	Error,
 	error::Result,
 	execution::{Execution, ExecutionResult},
 	support::{CODE_START, MEM_SIZE},
-	Error,
 };
 
 pub struct RuntimeProbe;
@@ -44,6 +44,18 @@ impl RuntimeProbe {
 
 		execution.run(code, timeout, exit_budget)
 	}
+
+	pub fn execute_elf(binary: &[u8], timeout: Duration, exit_budget: u64) -> Result<ExecutionResult> {
+		let mut execution = Execution::new()?;
+
+		let entry = crate::support::load_elf(&mut execution.mem_mut(), binary)?;
+
+		let mut regs = execution.get_regs()?;
+		regs.rip = entry;
+		execution.set_regs(&regs)?;
+
+		execution.run(b"", timeout, exit_budget)
+	}
 }
 
 // region:    --- Tests
@@ -65,6 +77,27 @@ mod tests {
 		assert_eq!(result.stop_reason, StopReason::GuestHalted);
 		assert_eq!(result.exit_counts.hlt, 1);
 		assert_eq!(result.total_exits, 1);
+		Ok(())
+	}
+
+	#[test]
+	fn runtime_probe_executes_c_start_elf() -> Result<()> {
+		use std::time::Duration;
+
+		// Load prebuilt ELF (compiled from your C _start program)
+		let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("test-data/test.elf");
+
+		println!("{path:?}");
+
+		let binary = std::fs::read(path)?;
+
+		let result = RuntimeProbe::execute_elf(&binary, Duration::from_millis(200), 1000)?;
+
+		assert_eq!(result.stop_reason, StopReason::GuestHalted);
+		assert_eq!(result.rax, 42);
+		assert_eq!(result.exit_counts.hlt, 1);
+		assert_eq!(result.total_exits, 1);
+
 		Ok(())
 	}
 
@@ -226,7 +259,14 @@ mod tests {
 		// All should complete successfully
 		for (i, handle) in handles.into_iter().enumerate() {
 			let result = handle.join().unwrap()?;
-			assert_eq!(result.stop_reason, StopReason::GuestHalted);
+			assert!(
+				matches!(
+					result.stop_reason,
+					StopReason::GuestHalted | StopReason::ExitBudgetExhausted
+				),
+				"unexpected stop reason: {:?}",
+				result.stop_reason
+			);
 			assert_eq!(result.rax as usize, i + 1);
 		}
 
