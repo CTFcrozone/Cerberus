@@ -58,8 +58,10 @@ async fn main() -> Result<()> {
 		let (writer, guard) = tracing_appender::non_blocking(appender);
 
 		tracing_subscriber::fmt()
+			.json()
+			.with_current_span(false)
+			.with_span_list(false)
 			.with_target(false)
-			.without_time()
 			.with_env_filter(EnvFilter::from_default_env())
 			.with_writer(writer)
 			.init();

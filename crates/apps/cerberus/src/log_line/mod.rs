@@ -15,13 +15,15 @@ pub fn log_cerberus_event(evt: &CerberusEvent) {
 			let h = &e.header;
 
 			info!(
-				event = "generic",
-				uid = h.uid,
-				pid = h.pid,
-				tgid = h.tgid,
-				cmd = %h.comm,
-				name = %e.name,
-				meta = %e.meta,
+				event.kind = "generic",
+
+				process.uid = h.uid,
+				process.pid = h.pid,
+				process.tgid = h.tgid,
+				process.comm = %h.comm,
+
+				generic.name = %e.name,
+				generic.meta = %e.meta,
 			);
 		}
 
@@ -29,15 +31,15 @@ pub fn log_cerberus_event(evt: &CerberusEvent) {
 			let h = &e.header;
 
 			warn!(
-				event = "module",
-				operation = %module_op_to_string(e.op),
+				event.kind = "module",
 
-				uid = h.uid,
-				pid = h.pid,
-				tgid = h.tgid,
-				cmd = %h.comm,
+				process.uid = h.uid,
+				process.pid = h.pid,
+				process.tgid = h.tgid,
+				process.comm = %h.comm,
 
-				module = %e.module_name,
+				module.op = %module_op_to_string(e.op),
+				module.name = %e.module_name,
 			);
 		}
 
@@ -45,14 +47,14 @@ pub fn log_cerberus_event(evt: &CerberusEvent) {
 			let h = &e.header;
 
 			info!(
-				event = "exec",
+				event.kind = "exec",
 
-				uid = h.uid,
-				pid = h.pid,
-				tgid = h.tgid,
-				cmd = %h.comm,
+				process.uid = h.uid,
+				process.pid = h.pid,
+				process.tgid = h.tgid,
+				process.comm = %h.comm,
 
-				file = %e.filepath,
+				process.filepath = %e.filepath,
 			);
 		}
 
@@ -60,20 +62,20 @@ pub fn log_cerberus_event(evt: &CerberusEvent) {
 			let h = &e.header;
 
 			warn!(
-				event = "ptrace",
-				stage = %ptrace_stage_to_string(e.stage),
+				event.kind = "ptrace",
 
-				uid = h.uid,
-				pid = h.pid,
-				tgid = h.tgid,
-				cmd = %h.comm,
+				process.uid = h.uid,
+				process.pid = h.pid,
+				process.tgid = h.tgid,
+				process.comm = %h.comm,
 
-				target_pid = e.target_pid,
-				target_tgid = e.target_tgid,
-				target_uid = e.target_uid,
-				target_comm = %e.target_comm,
+				process.target.pid = e.target_pid,
+				process.target.tgid = e.target_tgid,
+				process.target.uid = e.target_uid,
+				process.target.comm = %e.target_comm,
 
-				mode = format_args!("{:#x}", e.mode),
+				ptrace.mode = format_args!("{:#x}", e.mode),
+				ptrace.stage = %ptrace_stage_to_string(e.stage),
 			);
 		}
 
@@ -81,15 +83,15 @@ pub fn log_cerberus_event(evt: &CerberusEvent) {
 			let h = &e.header;
 
 			info!(
-				event = "inode",
-				operation = %inode_op_to_string(e.op),
+				event.kind = "inode",
 
-				uid = h.uid,
-				pid = h.pid,
-				tgid = h.tgid,
-				cmd = %h.comm,
+				process.uid = h.uid,
+				process.pid = h.pid,
+				process.tgid = h.tgid,
+				process.comm = %h.comm,
 
-				file = %e.filename,
+				inode.filename = %e.filename,
+				inode.op = %inode_op_to_string(e.op),
 			);
 		}
 
@@ -97,43 +99,45 @@ pub fn log_cerberus_event(evt: &CerberusEvent) {
 			let h = &e.header;
 
 			info!(
-				event = "inode_mutation",
-				mutation = %inode_mutation_to_string(e.mutation),
+				event.kind = "inode_mutation",
 
-				uid = h.uid,
-				pid = h.pid,
-				tgid = h.tgid,
-				cmd = %h.comm,
+				process.uid = h.uid,
+				process.pid = h.pid,
+				process.tgid = h.tgid,
+				process.comm = %h.comm,
 
-				old = %e.old_filename,
-				new = %e.new_filename,
+				inode.old_filename = %e.old_filename,
+				inode.new_filename = %e.new_filename,
+				inode.mutation.type = %inode_mutation_to_string(e.mutation),
 			);
 		}
 
 		CerberusEvent::Socket(e) => {
 			info!(
-				event = "socket",
-				operation = %socket_op_to_string(e.op),
+				event.kind = "socket",
 
-				addr = %ip_to_string(e.addr),
-				port = e.port,
+				socket.op = %socket_op_to_string(e.op),
+				socket.port = e.port,
+				socket.family = %family_to_string(e.family),
 
-				family = %family_to_string(e.family),
+				network.address = %ip_to_string(e.addr),
 			);
 		}
 
 		CerberusEvent::InetSock(e) => {
 			info!(
-				event = "inet_sock",
+				event.kind = "inet_sock",
 
-				src = %format!("{}:{}", ip_to_string(e.saddr), e.sport),
+				network.saddr = %ip_to_string(e.saddr),
+				network.daddr = %ip_to_string(e.daddr),
 
-				dst = %format!("{}:{}", ip_to_string(e.daddr), e.dport),
+				network.sport = e.sport,
+				network.dport = e.dport,
 
-				protocol = e.protocol.as_ref(),
+				network.protocol = e.protocol.as_ref(),
 
-				old_state = e.old_state.as_ref(),
-				new_state = e.new_state.as_ref(),
+				socket.old_state = e.old_state.as_ref(),
+				socket.new_state = e.new_state.as_ref(),
 			);
 		}
 
@@ -141,17 +145,17 @@ pub fn log_cerberus_event(evt: &CerberusEvent) {
 			let h = &e.header;
 
 			warn!(
-				event = "bpf_prog_load",
+				event.kind = "bpf_prog_load",
 
-				uid = h.uid,
-				pid = h.pid,
-				cmd = %h.comm,
+				process.uid = h.uid,
+				process.pid = h.pid,
+				process.tgid = h.tgid,
+				process.comm = %h.comm,
 
-				prog_type = %prog_type_to_string(e.prog_type),
-
-				attach_type = %attach_type_to_string(e.attach_type),
-
-				flags = %flags_to_string(e.flags),
+				bpf.prog.type = %prog_type_to_string(e.prog_type),
+				bpf.prog.attach_type = %attach_type_to_string(e.attach_type),
+				bpf.prog.flags = %flags_to_string(e.flags),
+				bpf.prog.tag = %e.tag,
 			);
 		}
 
@@ -159,15 +163,16 @@ pub fn log_cerberus_event(evt: &CerberusEvent) {
 			let h = &e.header;
 
 			warn!(
-				event = "bpf_map",
+				event.kind = "bpf_map",
 
-				uid = h.uid,
-				pid = h.pid,
-				cmd = %h.comm.as_ref(),
+				process.uid = h.uid,
+				process.pid = h.pid,
+				process.tgid = h.tgid,
+				process.comm = %h.comm,
 
-				map_name = %e.map_name.as_ref(),
-				map_type = e.map_type.as_ref(),
-				map_id = e.map_id,
+				bpf.map.name = %e.map_name,
+				bpf.map.type = e.map_type.as_ref(),
+				bpf.map.id = e.map_id,
 			);
 		}
 	}
@@ -175,13 +180,15 @@ pub fn log_cerberus_event(evt: &CerberusEvent) {
 pub fn log_engine_event(evt: &EngineEvent) {
 	match evt {
 		EngineEvent::Matched(e) => {
-			tracing::info!(
-				event = "rule_matched",
-				rule_id = %e.rule_id,
-				severity = %e.severity.as_str(),
-				uid = e.event_meta.uid,
-				pid = e.event_meta.pid,
-				comm = %e.event_meta.comm,
+			info!(
+				event.kind = "rule_match",
+
+				rule.id = %e.rule_id,
+				rule.severity = %e.severity.as_str(),
+
+				process.uid = e.event_meta.uid,
+				process.pid = e.event_meta.pid,
+				process.comm = %e.event_meta.comm,
 			);
 		}
 
@@ -198,27 +205,28 @@ pub fn log_engine_event(evt: &EngineEvent) {
 				steps,
 				event_meta,
 			} => {
-				tracing::warn!(
-					event = "correlation_completed",
-					root_rule_id = %root_rule_id,
-					seq_id = %seq_id,
-					seq_instance_id = %seq_instance_id,
+				warn!(
+					event.kind = "correlation",
 
-					steps = steps,
-					path = %path.join("->"),
+					correlation.root_rule_id = %root_rule_id,
+					correlation.seq_id = %seq_id,
+					correlation.instance_id = %seq_instance_id,
+					correlation.path = %path.join("->"),
+					correlation.steps = steps,
 
-					uid = event_meta.uid,
-					pid = event_meta.pid,
-					comm = %event_meta.comm,
+					process.uid = event_meta.uid,
+					process.pid = event_meta.pid,
+					process.comm = %event_meta.comm,
 				);
 			}
 		},
 
 		EngineEvent::Response(r) => {
-			tracing::warn!(
-				event = "response",
-				rule_id = %r.rule_id,
-				response = %format!("{:?}", r.response),
+			warn!(
+				event.kind = "response",
+
+				rule.id = %r.rule_id,
+				response.action = %format!("{:?}", r.response),
 			);
 		}
 	}
