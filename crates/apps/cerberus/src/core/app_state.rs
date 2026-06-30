@@ -3,9 +3,10 @@ use std::sync::Arc;
 
 use lib_rules::{CorrelationEvent, EvaluatedEvent, Severity};
 
+use crate::Result;
+use crate::core::scroll::{ScrollIden, ScrollZone, ScrollZones};
 use crate::event::LastAppEvent;
 use crate::hook_registry::HookView;
-use crate::Result;
 use lib_common::event::CerberusEvent;
 
 pub struct AppState {
@@ -20,6 +21,8 @@ pub struct AppState {
 	pub(in crate::core) rule_type_counts: HashMap<Arc<str>, u64>,
 	pub(in crate::core) severity_counts: HashMap<Severity, u64>,
 	pub(in crate::core) expanded_correlations: HashSet<(Arc<str>, Arc<str>)>,
+	pub scroll_zones: ScrollZones,
+	pub active_scroll_zone: Option<ScrollZone>,
 	pub selected_hook: usize,
 	pub current_view: View,
 	pub tab: Tab,
@@ -42,6 +45,8 @@ impl AppState {
 			hook_index,
 			event_scroll: 0,
 			last_app_event,
+			scroll_zones: ScrollZones::default(),
+			active_scroll_zone: None,
 			cerberus_evts_correlated: VecDeque::with_capacity(250),
 			cerberus_evts_general: VecDeque::with_capacity(250),
 			cerberus_evts_network: VecDeque::with_capacity(250),
@@ -101,6 +106,31 @@ impl AppState {
 
 	pub fn set_event_scroll(&mut self, scroll: u16) {
 		self.event_scroll = scroll;
+	}
+
+	pub fn get_zone_mut(&mut self, iden: &ScrollIden) -> Option<&mut ScrollZone> {
+		self.scroll_zones.zones.get_mut(iden)
+	}
+	pub fn get_scroll(&self, iden: ScrollIden) -> u16 {
+		self.scroll_zones.zones.get(&iden).and_then(|z| z.pos()).unwrap_or_default()
+	}
+
+	pub fn inc_scroll(&mut self, iden: ScrollIden, scroll: u16) -> u16 {
+		let val = self.get_scroll(iden);
+		let val = val.saturating_add(scroll);
+		if let Some(z) = self.get_zone_mut(&iden) {
+			z.set_pos(val);
+		}
+		val
+	}
+
+	pub fn dec_scroll(&mut self, iden: ScrollIden, scroll: u16) -> u16 {
+		let val = self.get_scroll(iden);
+		let val = val.saturating_sub(scroll);
+		if let Some(z) = self.get_zone_mut(&iden) {
+			z.set_pos(val);
+		}
+		val
 	}
 }
 

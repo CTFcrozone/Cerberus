@@ -1,5 +1,6 @@
 mod app_state;
 mod event_handler;
+mod scroll;
 mod state_process;
 mod term_reader;
 mod tui_impl;

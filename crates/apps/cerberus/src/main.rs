@@ -48,7 +48,7 @@ use tokio::io::unix::AsyncFd;
 async fn main() -> Result<()> {
 	let args = Cli::parse();
 
-	let _guard = if let Some(path) = &args.log {
+	let (_guard, logging_enabled) = if let Some(path) = &args.log {
 		let dir = path.parent().unwrap_or(Path::new("."));
 		std::fs::create_dir_all(dir)?;
 
@@ -66,7 +66,7 @@ async fn main() -> Result<()> {
 			.with_writer(writer)
 			.init();
 
-		Some(guard)
+		(Some(guard), true)
 	} else {
 		tracing_subscriber::fmt()
 			.with_target(false)
@@ -74,7 +74,7 @@ async fn main() -> Result<()> {
 			.with_env_filter(EnvFilter::from_default_env())
 			.init();
 
-		None
+		(None, false)
 	};
 
 	if args.time.is_some() && args.mode != RunMode::Agent {
@@ -151,7 +151,7 @@ async fn main() -> Result<()> {
 	let rule_watch_worker = RuleWatchWorker::start(app_tx.clone(), rule_engine.clone(), rule_dir.clone())?;
 	supervisor.spawn(ringbuf_worker.run());
 	supervisor.spawn(hook_worker.run());
-	supervisor.spawn(rule_worker.run());
+	supervisor.spawn(rule_worker.run(logging_enabled));
 	supervisor.spawn(rule_watch_worker.run());
 
 	match args.mode {
