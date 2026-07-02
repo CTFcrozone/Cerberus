@@ -1,4 +1,4 @@
-use crate::core::AppState;
+use crate::core::{AppState, ScrollIden};
 use lib_rules::CorrelationEvent;
 use ratatui::style::{Color, Style};
 use ratatui::text::Span;
@@ -11,6 +11,10 @@ use ratatui::{
 };
 
 pub struct CorrelatedEventView;
+
+impl CorrelatedEventView {
+	const SCROLL_IDEN: ScrollIden = ScrollIden::CorrelatedEventScroll;
+}
 
 impl StatefulWidget for CorrelatedEventView {
 	type State = AppState;

@@ -2,6 +2,7 @@ use std::collections::{HashMap, HashSet, VecDeque};
 use std::sync::Arc;
 
 use lib_rules::{CorrelationEvent, EvaluatedEvent, Severity};
+use ratatui::layout::Rect;
 
 use crate::Result;
 use crate::core::scroll::{ScrollIden, ScrollZone, ScrollZones};
@@ -108,11 +109,23 @@ impl AppState {
 		self.event_scroll = scroll;
 	}
 
+	pub fn set_scroll_area(&mut self, iden: ScrollIden, area: Rect) {
+		if let Some(zone) = self.get_zone_mut(&iden) {
+			zone.set_area(area);
+		}
+	}
+
 	pub fn get_zone_mut(&mut self, iden: &ScrollIden) -> Option<&mut ScrollZone> {
 		self.scroll_zones.zones.get_mut(iden)
 	}
 	pub fn get_scroll(&self, iden: ScrollIden) -> u16 {
 		self.scroll_zones.zones.get(&iden).and_then(|z| z.pos()).unwrap_or_default()
+	}
+
+	pub fn set_scroll(&mut self, iden: ScrollIden, scroll: u16) {
+		if let Some(zone) = self.get_zone_mut(&iden) {
+			zone.set_pos(scroll);
+		}
 	}
 
 	pub fn inc_scroll(&mut self, iden: ScrollIden, scroll: u16) -> u16 {
@@ -122,6 +135,33 @@ impl AppState {
 			z.set_pos(val);
 		}
 		val
+	}
+
+	pub fn clamp_scroll(&mut self, iden: ScrollIden, line_count: usize) -> u16 {
+		let Some(scroll_zone) = self.get_zone_mut(&iden) else {
+			return 0;
+		};
+		let area_height = scroll_zone.area().map(|a| a.height).unwrap_or_default();
+		let max_scroll = line_count.saturating_sub(area_height as usize) as u16;
+		let scroll = scroll_zone.pos().unwrap_or_default();
+		if scroll > max_scroll {
+			scroll_zone.set_pos(max_scroll);
+			max_scroll
+		} else {
+			scroll
+		}
+	}
+
+	pub fn clear_scroll_zone_area(&mut self, iden: &ScrollIden) {
+		if let Some(zone) = self.get_zone_mut(iden) {
+			zone.clear_area();
+		}
+	}
+
+	pub fn clear_scroll_zone_areas(&mut self, idens: &[&ScrollIden]) {
+		for iden in idens {
+			self.clear_scroll_zone_area(iden);
+		}
 	}
 
 	pub fn dec_scroll(&mut self, iden: ScrollIden, scroll: u16) -> u16 {

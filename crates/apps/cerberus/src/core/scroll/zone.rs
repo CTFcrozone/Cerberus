@@ -4,9 +4,12 @@ use ratatui::layout::Rect;
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub enum ScrollIden {
-	LoadedHooksScroll,
-	LoadedRulesScroll,
-	EventsScroll,
+	LoadedHookScroll,
+	LoadedRuleScroll,
+	GenericEventScroll,
+	NetworkEventScroll,
+	EvaluatedEventScroll,
+	CorrelatedEventScroll,
 }
 #[derive(Default)]
 pub struct ScrollZone {
@@ -53,9 +56,12 @@ pub(in crate::core) struct ScrollZones {
 impl Default for ScrollZones {
 	fn default() -> Self {
 		let mut zones = HashMap::new();
-		zones.insert(ScrollIden::EventsScroll, ScrollZone::default());
-		zones.insert(ScrollIden::LoadedRulesScroll, ScrollZone::default());
-		zones.insert(ScrollIden::LoadedHooksScroll, ScrollZone::default());
+		zones.insert(ScrollIden::GenericEventScroll, ScrollZone::default());
+		zones.insert(ScrollIden::EvaluatedEventScroll, ScrollZone::default());
+		zones.insert(ScrollIden::CorrelatedEventScroll, ScrollZone::default());
+		zones.insert(ScrollIden::NetworkEventScroll, ScrollZone::default());
+		zones.insert(ScrollIden::LoadedRuleScroll, ScrollZone::default());
+		zones.insert(ScrollIden::LoadedHookScroll, ScrollZone::default());
 		Self { zones }
 	}
 }

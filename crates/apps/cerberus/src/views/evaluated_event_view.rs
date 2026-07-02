@@ -1,4 +1,4 @@
-use crate::core::AppState;
+use crate::core::{AppState, ScrollIden};
 use lib_rules::Severity;
 use ratatui::{
 	buffer::Buffer,
@@ -26,6 +26,10 @@ fn severity_style(sev: Severity) -> Style {
 }
 
 pub struct EvaluatedEventView;
+
+impl EvaluatedEventView {
+	const SCROLL_IDEN: ScrollIden = ScrollIden::EvaluatedEventScroll;
+}
 
 impl StatefulWidget for EvaluatedEventView {
 	type State = AppState;

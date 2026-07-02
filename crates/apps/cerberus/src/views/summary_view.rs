@@ -6,9 +6,16 @@ use ratatui::{
 	widgets::{BarChart, Block, Paragraph, StatefulWidget, Widget},
 };
 
-use crate::{core::AppState, hook_registry::HookState};
+use crate::{
+	core::{AppState, ScrollIden},
+	hook_registry::HookState,
+};
 
 pub struct SummaryView;
+
+impl SummaryView {
+	const SCROLL_IDEN: ScrollIden = ScrollIden::LoadedHookScroll;
+}
 
 impl StatefulWidget for SummaryView {
 	type State = AppState;

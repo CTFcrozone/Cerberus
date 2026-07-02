@@ -1,4 +1,7 @@
-use crate::{core::AppState, views::support::render::line_from_event};
+use crate::{
+	core::{AppState, ScrollIden},
+	views::support::render::line_from_event,
+};
 use ratatui::{
 	buffer::Buffer,
 	layout::Rect,
@@ -7,6 +10,10 @@ use ratatui::{
 };
 
 pub struct GeneralEventView;
+
+impl GeneralEventView {
+	const SCROLL_IDEN: ScrollIden = ScrollIden::GenericEventScroll;
+}
 
 impl StatefulWidget for GeneralEventView {
 	type State = AppState;
