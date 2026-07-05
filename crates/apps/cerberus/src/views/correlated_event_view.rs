@@ -1,4 +1,4 @@
-use crate::core::AppState;
+use crate::core::{AppState, ScrollIden};
 use lib_rules::CorrelationEvent;
 use ratatui::style::{Color, Style};
 use ratatui::text::Span;
@@ -12,13 +12,24 @@ use ratatui::{
 
 pub struct CorrelatedEventView;
 
+impl CorrelatedEventView {
+	const SCROLL_IDEN: ScrollIden = ScrollIden::CorrelatedEventScroll;
+	pub fn clear_scroll_idens(state: &mut AppState) {
+		state.clear_scroll_zone_area(&Self::SCROLL_IDEN);
+	}
+}
+
 impl StatefulWidget for CorrelatedEventView {
 	type State = AppState;
 
 	fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+		const SCROLL_IDEN: ScrollIden = CorrelatedEventView::SCROLL_IDEN;
+
 		let has_events = state.cerberus_evts_correlated().next().is_some();
 
 		let block = Block::bordered().padding(Padding::left(1));
+
+		state.set_scroll_area(SCROLL_IDEN, area);
 
 		if !has_events {
 			Paragraph::new("No correlated events yet").block(block).render(area, buf);
@@ -29,6 +40,8 @@ impl StatefulWidget for CorrelatedEventView {
 }
 
 fn render_correlated_events(area: Rect, buf: &mut Buffer, state: &mut AppState, block: Block) {
+	const SCROLL_IDEN: ScrollIden = CorrelatedEventView::SCROLL_IDEN;
+
 	let mut groups = state.correlated_groups();
 
 	groups.sort_by(|a, b| a.root_rule_id.cmp(&b.root_rule_id).then(a.seq_id.cmp(&b.seq_id)));
@@ -105,17 +118,9 @@ fn render_correlated_events(area: Rect, buf: &mut Buffer, state: &mut AppState, 
 		lines.push(Line::from(""));
 	}
 
-	let line_count = lines.len();
-	let max_scroll = line_count.saturating_sub(area.height as usize) as u16;
+	let scroll = state.clamp_scroll(SCROLL_IDEN, lines.len());
 
-	if state.event_scroll() > max_scroll {
-		state.set_event_scroll(max_scroll);
-	}
-
-	Paragraph::new(lines)
-		.block(block)
-		.scroll((state.event_scroll(), 0))
-		.render(area, buf);
+	Paragraph::new(lines).block(block).scroll((scroll, 0)).render(area, buf);
 }
 
 pub fn render_correlation_popup(frame: &mut ratatui::Frame, state: &AppState) {

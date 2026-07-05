@@ -2,10 +2,12 @@ use std::collections::{HashMap, HashSet, VecDeque};
 use std::sync::Arc;
 
 use lib_rules::{CorrelationEvent, EvaluatedEvent, Severity};
+use ratatui::layout::Rect;
 
+use crate::Result;
+use crate::core::scroll::{ScrollIden, ScrollZone, ScrollZones};
 use crate::event::LastAppEvent;
 use crate::hook_registry::HookView;
-use crate::Result;
 use lib_common::event::CerberusEvent;
 
 pub struct AppState {
@@ -20,10 +22,10 @@ pub struct AppState {
 	pub(in crate::core) rule_type_counts: HashMap<Arc<str>, u64>,
 	pub(in crate::core) severity_counts: HashMap<Severity, u64>,
 	pub(in crate::core) expanded_correlations: HashSet<(Arc<str>, Arc<str>)>,
+	pub scroll_zones: ScrollZones,
 	pub selected_hook: usize,
 	pub current_view: View,
 	pub tab: Tab,
-	pub event_scroll: u16,
 	pub popup_show: bool,
 	pub selected_rule: usize,
 }
@@ -40,8 +42,8 @@ impl AppState {
 			loaded_hooks,
 			loaded_rules,
 			hook_index,
-			event_scroll: 0,
 			last_app_event,
+			scroll_zones: ScrollZones::default(),
 			cerberus_evts_correlated: VecDeque::with_capacity(250),
 			cerberus_evts_general: VecDeque::with_capacity(250),
 			cerberus_evts_network: VecDeque::with_capacity(250),
@@ -65,20 +67,11 @@ impl AppState {
 
 	pub fn clear_current_tab(&mut self) {
 		match self.current_tab() {
-			Tab::General => {
-				self.cerberus_evts_general.clear();
-			}
-			Tab::Network => {
-				self.cerberus_evts_network.clear();
-			}
-			Tab::MatchedRules => {
-				self.cerberus_evts_matched.clear();
-			}
-			Tab::CorrelatedRules => {
-				self.cerberus_evts_correlated.clear();
-			}
+			Tab::General => self.cerberus_evts_general.clear(),
+			Tab::Network => self.cerberus_evts_network.clear(),
+			Tab::MatchedRules => self.cerberus_evts_matched.clear(),
+			Tab::CorrelatedRules => self.cerberus_evts_correlated.clear(),
 		}
-		self.event_scroll = 0;
 	}
 
 	pub fn active_event_rule_count(&self) -> usize {
@@ -95,12 +88,68 @@ impl AppState {
 }
 
 impl AppState {
-	pub fn event_scroll(&self) -> u16 {
-		self.event_scroll
+	pub fn set_scroll_area(&mut self, iden: ScrollIden, area: Rect) {
+		if let Some(zone) = self.get_zone_mut(&iden) {
+			zone.set_area(area);
+		}
 	}
 
-	pub fn set_event_scroll(&mut self, scroll: u16) {
-		self.event_scroll = scroll;
+	pub fn get_zone_mut(&mut self, iden: &ScrollIden) -> Option<&mut ScrollZone> {
+		self.scroll_zones.zones.get_mut(iden)
+	}
+	pub fn get_scroll(&self, iden: ScrollIden) -> u16 {
+		self.scroll_zones.zones.get(&iden).and_then(|z| z.pos()).unwrap_or_default()
+	}
+
+	pub fn set_scroll(&mut self, iden: ScrollIden, scroll: u16) {
+		if let Some(zone) = self.get_zone_mut(&iden) {
+			zone.set_pos(scroll);
+		}
+	}
+
+	pub fn inc_scroll(&mut self, iden: ScrollIden, scroll: u16) -> u16 {
+		let val = self.get_scroll(iden);
+		let val = val.saturating_add(scroll);
+		if let Some(z) = self.get_zone_mut(&iden) {
+			z.set_pos(val);
+		}
+		val
+	}
+
+	pub fn clamp_scroll(&mut self, iden: ScrollIden, line_count: usize) -> u16 {
+		let Some(scroll_zone) = self.get_zone_mut(&iden) else {
+			return 0;
+		};
+		let area_height = scroll_zone.area().map(|a| a.height).unwrap_or_default();
+		let max_scroll = line_count.saturating_sub(area_height as usize) as u16;
+		let scroll = scroll_zone.pos().unwrap_or_default();
+		if scroll > max_scroll {
+			scroll_zone.set_pos(max_scroll);
+			max_scroll
+		} else {
+			scroll
+		}
+	}
+
+	pub fn clear_scroll_zone_area(&mut self, iden: &ScrollIden) {
+		if let Some(zone) = self.get_zone_mut(iden) {
+			zone.clear_area();
+		}
+	}
+
+	pub fn clear_scroll_zone_areas(&mut self, idens: &[&ScrollIden]) {
+		for iden in idens {
+			self.clear_scroll_zone_area(iden);
+		}
+	}
+
+	pub fn dec_scroll(&mut self, iden: ScrollIden, scroll: u16) -> u16 {
+		let val = self.get_scroll(iden);
+		let val = val.saturating_sub(scroll);
+		if let Some(z) = self.get_zone_mut(&iden) {
+			z.set_pos(val);
+		}
+		val
 	}
 }
 

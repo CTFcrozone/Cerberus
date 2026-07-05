@@ -6,13 +6,25 @@ use ratatui::{
 	widgets::{BarChart, Block, Paragraph, StatefulWidget, Widget},
 };
 
-use crate::{core::AppState, hook_registry::HookState};
+use crate::{
+	core::{AppState, ScrollIden},
+	hook_registry::HookState,
+};
 
 pub struct SummaryView;
+
+impl SummaryView {
+	const HOOK_SCROLL_IDEN: ScrollIden = ScrollIden::LoadedHookScroll;
+	pub fn clear_scroll_idens(state: &mut AppState) {
+		state.clear_scroll_zone_area(&Self::HOOK_SCROLL_IDEN);
+	}
+}
 
 impl StatefulWidget for SummaryView {
 	type State = AppState;
 	fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+		const SCROLL_IDEN: ScrollIden = SummaryView::HOOK_SCROLL_IDEN;
+
 		let [top_row, bottom_row] = Layout::default()
 			.direction(Direction::Vertical)
 			.constraints([Constraint::Percentage(70), Constraint::Percentage(30)])
@@ -36,14 +48,18 @@ impl StatefulWidget for SummaryView {
 			.constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
 			.areas(bottom_row);
 
+		state.set_scroll_area(SCROLL_IDEN, hooks_area);
+
 		render_last_event_meta(last_event_area, buf, state);
 		render_loaded_hooks(hooks_area, buf, state, Block::bordered().title("Loaded Hooks"));
 	}
 }
 
 fn render_loaded_hooks(area: Rect, buf: &mut Buffer, state: &mut AppState, block: Block) {
-	let hooks: Vec<Line> = state
-		.loaded_hooks()
+	const SCROLL_IDEN: ScrollIden = SummaryView::HOOK_SCROLL_IDEN;
+	let hooks_data = state.loaded_hooks();
+
+	let hooks: Vec<Line> = hooks_data
 		.iter()
 		.enumerate()
 		.map(|(i, h)| {
@@ -64,6 +80,7 @@ fn render_loaded_hooks(area: Rect, buf: &mut Buffer, state: &mut AppState, block
 			])
 		})
 		.collect();
+	// let scroll = state.clamp_scroll(SCROLL_IDEN, hooks.len());
 
 	Paragraph::new(hooks).block(block).render(area, buf);
 }

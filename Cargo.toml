@@ -36,7 +36,7 @@ derive_more = { version = "2", features = ["from", "display"] }
 tokio = { version = "1.40.0", default-features = false }
 which = { version = "6.0.0", default-features = false }
 tracing = { version = "0.1", default-features = false }
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 [profile.release.package.cerberus-ebpf]
 debug = 2
 codegen-units = 1

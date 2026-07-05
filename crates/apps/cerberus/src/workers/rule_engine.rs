@@ -1,14 +1,15 @@
 use std::{
 	num::NonZeroU32,
 	sync::{
-		atomic::{AtomicU64, Ordering},
 		Arc,
+		atomic::{AtomicU64, Ordering},
 	},
 };
 
 use crate::{
 	error::{Error, Result},
 	event::AppEvent,
+	log_line::{log_cerberus_event, log_engine_event},
 };
 
 use governor::{DefaultDirectRateLimiter, Quota};
@@ -42,9 +43,12 @@ impl RuleEngineWorker {
 		})
 	}
 
-	pub async fn run(mut self) -> Result<()> {
+	pub async fn run(mut self, logging: bool) -> Result<()> {
 		while let Ok(evt) = self.ringbuf_rx.recv().await {
 			for alert in self.rule_engine.process_event(&evt) {
+				if logging {
+					log_engine_event(&alert);
+				}
 				self.tx.send(AppEvent::Engine(alert))?;
 			}
 
@@ -52,7 +56,9 @@ impl RuleEngineWorker {
 				self.dropped.fetch_add(1, Ordering::Relaxed);
 				continue;
 			}
-
+			if logging {
+				log_cerberus_event(&evt);
+			}
 			self.tx.send(AppEvent::Cerberus(evt))?;
 		}
 		Ok(())
