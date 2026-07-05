@@ -13,14 +13,19 @@ pub struct NetworkEventView;
 
 impl NetworkEventView {
 	const SCROLL_IDEN: ScrollIden = ScrollIden::NetworkEventScroll;
+	pub fn clear_scroll_idens(state: &mut AppState) {
+		state.clear_scroll_zone_area(&Self::SCROLL_IDEN);
+	}
 }
 
 impl StatefulWidget for NetworkEventView {
 	type State = AppState;
 	fn render(self, area: ratatui::prelude::Rect, buf: &mut ratatui::prelude::Buffer, state: &mut Self::State) {
-		let show_hooks = state.cerberus_evts_network().next().is_some();
+		const SCROLL_IDEN: ScrollIden = NetworkEventView::SCROLL_IDEN;
 
+		let show_hooks = state.cerberus_evts_network().next().is_some();
 		let block = Block::bordered().padding(Padding::left(1));
+		state.set_scroll_area(SCROLL_IDEN, area);
 
 		if !show_hooks {
 			let p = Paragraph::new("No events yet").block(block);
@@ -32,15 +37,12 @@ impl StatefulWidget for NetworkEventView {
 }
 
 fn render_events(area: Rect, buf: &mut Buffer, state: &mut AppState, block: Block) {
+	const SCROLL_IDEN: ScrollIden = NetworkEventView::SCROLL_IDEN;
+
 	let lines: Vec<Line> = state.cerberus_evts_network().map(line_from_event).collect();
+	let scroll = state.clamp_scroll(SCROLL_IDEN, lines.len());
 
-	let line_count = lines.len();
-	let max_scroll = line_count.saturating_sub(area.height as usize) as u16;
+	let paragraph = Paragraph::new(lines).block(block).scroll((scroll, 0));
 
-	if state.event_scroll() > max_scroll {
-		state.set_event_scroll(max_scroll);
-	}
-
-	let paragraph = Paragraph::new(lines).block(block).scroll((state.event_scroll(), 0));
 	paragraph.render(area, buf);
 }

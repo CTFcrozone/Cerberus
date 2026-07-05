@@ -23,11 +23,9 @@ pub struct AppState {
 	pub(in crate::core) severity_counts: HashMap<Severity, u64>,
 	pub(in crate::core) expanded_correlations: HashSet<(Arc<str>, Arc<str>)>,
 	pub scroll_zones: ScrollZones,
-	pub active_scroll_zone: Option<ScrollZone>,
 	pub selected_hook: usize,
 	pub current_view: View,
 	pub tab: Tab,
-	pub event_scroll: u16,
 	pub popup_show: bool,
 	pub selected_rule: usize,
 }
@@ -44,10 +42,8 @@ impl AppState {
 			loaded_hooks,
 			loaded_rules,
 			hook_index,
-			event_scroll: 0,
 			last_app_event,
 			scroll_zones: ScrollZones::default(),
-			active_scroll_zone: None,
 			cerberus_evts_correlated: VecDeque::with_capacity(250),
 			cerberus_evts_general: VecDeque::with_capacity(250),
 			cerberus_evts_network: VecDeque::with_capacity(250),
@@ -71,20 +67,11 @@ impl AppState {
 
 	pub fn clear_current_tab(&mut self) {
 		match self.current_tab() {
-			Tab::General => {
-				self.cerberus_evts_general.clear();
-			}
-			Tab::Network => {
-				self.cerberus_evts_network.clear();
-			}
-			Tab::MatchedRules => {
-				self.cerberus_evts_matched.clear();
-			}
-			Tab::CorrelatedRules => {
-				self.cerberus_evts_correlated.clear();
-			}
+			Tab::General => self.cerberus_evts_general.clear(),
+			Tab::Network => self.cerberus_evts_network.clear(),
+			Tab::MatchedRules => self.cerberus_evts_matched.clear(),
+			Tab::CorrelatedRules => self.cerberus_evts_correlated.clear(),
 		}
-		self.event_scroll = 0;
 	}
 
 	pub fn active_event_rule_count(&self) -> usize {
@@ -101,14 +88,6 @@ impl AppState {
 }
 
 impl AppState {
-	pub fn event_scroll(&self) -> u16 {
-		self.event_scroll
-	}
-
-	pub fn set_event_scroll(&mut self, scroll: u16) {
-		self.event_scroll = scroll;
-	}
-
 	pub fn set_scroll_area(&mut self, iden: ScrollIden, area: Rect) {
 		if let Some(zone) = self.get_zone_mut(&iden) {
 			zone.set_area(area);

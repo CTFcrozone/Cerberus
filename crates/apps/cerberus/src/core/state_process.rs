@@ -1,6 +1,8 @@
 use crossterm::event::{KeyCode, MouseEventKind};
 
-use super::{app_state::View, AppState};
+use crate::core::{ScrollIden, Tab};
+
+use super::{AppState, app_state::View};
 
 const MAX_SCROLL: u16 = 10_000;
 
@@ -78,13 +80,21 @@ fn handle_scroll(state: &mut AppState) {
 	let Some(mouse_evt) = state.last_app_event().as_mouse_event() else {
 		return;
 	};
-	let new_scroll = match mouse_evt.kind {
-		MouseEventKind::ScrollUp => Some(state.event_scroll().saturating_sub(1)),
-		MouseEventKind::ScrollDown => Some(state.event_scroll().saturating_add(1).min(MAX_SCROLL)),
-		_ => None,
+
+	let iden = match state.current_tab() {
+		Tab::General => ScrollIden::GenericEventScroll,
+		Tab::Network => ScrollIden::NetworkEventScroll,
+		Tab::MatchedRules => ScrollIden::EvaluatedEventScroll,
+		Tab::CorrelatedRules => ScrollIden::CorrelatedEventScroll,
 	};
 
-	if let Some(scroll) = new_scroll {
-		state.set_event_scroll(scroll);
+	match mouse_evt.kind {
+		MouseEventKind::ScrollUp => {
+			state.dec_scroll(iden, 1);
+		}
+		MouseEventKind::ScrollDown => {
+			state.inc_scroll(iden, 1);
+		}
+		_ => {}
 	}
 }
