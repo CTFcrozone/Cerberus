@@ -4,13 +4,16 @@ use crate::core::{ScrollIden, Tab};
 
 use super::{AppState, app_state::View};
 
-const MAX_SCROLL: u16 = 10_000;
-
 pub fn process_app_state(state: &mut AppState) {
 	match state.current_view() {
 		View::Main => handle_main_view(state),
-		View::Summary => handle_summary_input(state),
+		View::Summary => handle_summary_view(state),
 	}
+}
+
+fn handle_summary_view(state: &mut AppState) {
+	handle_summary_input(state);
+	handle_scroll(state);
 }
 
 fn handle_main_view(state: &mut AppState) {
@@ -52,7 +55,7 @@ fn handle_main_input(state: &mut AppState) {
 		KeyCode::Char('s') | KeyCode::Char('S') => state.toggle_view(),
 
 		KeyCode::Enter => {
-			if let Some(group) = state.correlated_groups().get(state.selected_rule()) {
+			if let Some(group) = state.correlated_groups().values().nth(state.selected_rule()) {
 				state.toggle_correlation_group(group.root_rule_id.clone(), group.seq_id.clone());
 			}
 		}
@@ -81,11 +84,15 @@ fn handle_scroll(state: &mut AppState) {
 		return;
 	};
 
-	let iden = match state.current_tab() {
-		Tab::General => ScrollIden::GenericEventScroll,
-		Tab::Network => ScrollIden::NetworkEventScroll,
-		Tab::MatchedRules => ScrollIden::EvaluatedEventScroll,
-		Tab::CorrelatedRules => ScrollIden::CorrelatedEventScroll,
+	let iden = match state.current_view() {
+		View::Summary => ScrollIden::LoadedHookScroll,
+
+		View::Main => match state.current_tab() {
+			Tab::General => ScrollIden::GenericEventScroll,
+			Tab::Network => ScrollIden::NetworkEventScroll,
+			Tab::MatchedRules => ScrollIden::EvaluatedEventScroll,
+			Tab::CorrelatedRules => ScrollIden::CorrelatedEventScroll,
+		},
 	};
 
 	match mouse_evt.kind {

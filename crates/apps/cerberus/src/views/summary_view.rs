@@ -57,9 +57,10 @@ impl StatefulWidget for SummaryView {
 
 fn render_loaded_hooks(area: Rect, buf: &mut Buffer, state: &mut AppState, block: Block) {
 	const SCROLL_IDEN: ScrollIden = SummaryView::HOOK_SCROLL_IDEN;
-	let hooks_data = state.loaded_hooks();
+	let scroll = state.clamp_scroll(SCROLL_IDEN, state.loaded_hooks().len());
 
-	let hooks: Vec<Line> = hooks_data
+	let hooks: Vec<Line> = state
+		.loaded_hooks()
 		.iter()
 		.enumerate()
 		.map(|(i, h)| {
@@ -80,9 +81,8 @@ fn render_loaded_hooks(area: Rect, buf: &mut Buffer, state: &mut AppState, block
 			])
 		})
 		.collect();
-	// let scroll = state.clamp_scroll(SCROLL_IDEN, hooks.len());
 
-	Paragraph::new(hooks).block(block).render(area, buf);
+	Paragraph::new(hooks).block(block).scroll((scroll, 0)).render(area, buf);
 }
 
 pub fn render_loaded_rules_count(area: Rect, buf: &mut Buffer, state: &AppState) {

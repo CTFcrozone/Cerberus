@@ -3,11 +3,11 @@ use std::{collections::VecDeque, sync::Arc};
 use super::AppState;
 use crate::core::View;
 use crate::event::AppEvent;
-use crate::hook_registry::event::HookCommand;
 use crate::hook_registry::HookState;
+use crate::hook_registry::event::HookCommand;
 use crate::{
-	core::app_state::{EvaluatedEntry, EvaluatedKey},
 	Result,
+	core::app_state::{EvaluatedEntry, EvaluatedKey},
 };
 use crossterm::event::{Event, KeyCode, KeyEventKind, KeyModifiers};
 use lib_common::event::CerberusEvent;
@@ -90,7 +90,7 @@ fn handle_cerberus_event(event: &CerberusEvent, app_state: &mut AppState) {
 }
 
 fn handle_correlation_event(event: &CorrelationEvent, app_state: &mut AppState) {
-	push_bounded(&mut app_state.cerberus_evts_correlated, event);
+	app_state.push_correlation_event(event.clone());
 }
 
 fn handle_cerberus_eval_event(event: &EvaluatedEvent, app_state: &mut AppState) {

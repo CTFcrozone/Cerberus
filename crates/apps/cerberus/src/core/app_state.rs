@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
 use std::sync::Arc;
 
 use lib_rules::{CorrelationEvent, EvaluatedEvent, Severity};
@@ -22,7 +22,8 @@ pub struct AppState {
 	pub(in crate::core) rule_type_counts: HashMap<Arc<str>, u64>,
 	pub(in crate::core) severity_counts: HashMap<Severity, u64>,
 	pub(in crate::core) expanded_correlations: HashSet<(Arc<str>, Arc<str>)>,
-	pub scroll_zones: ScrollZones,
+	pub correlated_groups: std::collections::BTreeMap<(Arc<str>, Arc<str>), CorrelationGroup>,
+	scroll_zones: ScrollZones,
 	pub selected_hook: usize,
 	pub current_view: View,
 	pub tab: Tab,
@@ -42,6 +43,7 @@ impl AppState {
 			loaded_hooks,
 			loaded_rules,
 			hook_index,
+			correlated_groups: std::collections::BTreeMap::new(),
 			last_app_event,
 			scroll_zones: ScrollZones::default(),
 			cerberus_evts_correlated: VecDeque::with_capacity(250),
@@ -70,14 +72,19 @@ impl AppState {
 			Tab::General => self.cerberus_evts_general.clear(),
 			Tab::Network => self.cerberus_evts_network.clear(),
 			Tab::MatchedRules => self.cerberus_evts_matched.clear(),
-			Tab::CorrelatedRules => self.cerberus_evts_correlated.clear(),
+			Tab::CorrelatedRules => {
+				self.cerberus_evts_correlated.clear();
+				self.expanded_correlations.clear();
+				self.correlated_groups.clear();
+				self.selected_rule = 0;
+			}
 		}
 	}
 
 	pub fn active_event_rule_count(&self) -> usize {
 		match self.tab {
 			Tab::MatchedRules => self.cerberus_evts_matched.len(),
-			Tab::CorrelatedRules => self.cerberus_evts_correlated.len(),
+			Tab::CorrelatedRules => self.correlated_groups.len(),
 			_ => 0,
 		}
 	}
@@ -170,33 +177,35 @@ impl AppState {
 		}
 	}
 
-	pub fn is_correlation_expanded(&self, root_rule_id: &Arc<str>, seq_id: &Arc<str>) -> bool {
-		self.expanded_correlations.contains(&(root_rule_id.clone(), seq_id.clone()))
+	pub fn is_correlation_expanded(&self, root: &Arc<str>, seq: &Arc<str>) -> bool {
+		self.expanded_correlations.contains(&(Arc::clone(root), Arc::clone(seq)))
 	}
 
-	pub fn correlated_groups(&self) -> Vec<CorrelationGroup> {
-		let mut map: HashMap<(Arc<str>, Arc<str>), Vec<CorrelationEvent>> = HashMap::new();
+	pub fn push_correlation_event(&mut self, evt: CorrelationEvent) {
+		let (r, s) = event_key(&evt);
+		let key = (Arc::clone(r), Arc::clone(s));
 
-		for evt in self.cerberus_evts_correlated() {
-			let key = event_key(evt);
-			map.entry(key).or_default().push(evt.clone());
-		}
-
-		map.into_iter()
-			.map(|((root_rule_id, seq_id), events)| CorrelationGroup {
-				root_rule_id,
-				seq_id,
-				events,
+		self.correlated_groups
+			.entry(key)
+			.or_insert_with(|| CorrelationGroup {
+				root_rule_id: Arc::clone(r),
+				seq_id: Arc::clone(s),
+				events: Vec::new(),
 			})
-			.collect()
-	}
+			.events
+			.push(self.cerberus_evts_correlated.len());
 
+		self.cerberus_evts_correlated.push_back(evt);
+	}
+	pub fn correlated_groups(&self) -> &BTreeMap<(Arc<str>, Arc<str>), CorrelationGroup> {
+		&self.correlated_groups
+	}
 	pub fn barchart_severity(&self) -> Vec<(&str, u64)> {
 		self.severity_counts.iter().map(|(k, v)| (k.as_str(), *v)).collect()
 	}
 
-	pub fn cerberus_evts_correlated(&self) -> impl Iterator<Item = &CorrelationEvent> {
-		self.cerberus_evts_correlated.iter()
+	pub fn cerberus_evts_correlated(&self) -> &VecDeque<CorrelationEvent> {
+		&self.cerberus_evts_correlated
 	}
 
 	pub fn cerberus_evts_general(&self) -> impl Iterator<Item = &CerberusEvent> {
@@ -275,10 +284,11 @@ pub struct EvaluatedEntry {
 	pub count: u64,
 }
 
+#[derive(Clone)]
 pub struct CorrelationGroup {
 	pub root_rule_id: Arc<str>,
 	pub seq_id: Arc<str>,
-	pub events: Vec<CorrelationEvent>,
+	pub events: Vec<usize>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -300,14 +310,14 @@ pub enum Tab {
 	CorrelatedRules,
 }
 
-fn event_key(evt: &CorrelationEvent) -> (Arc<str>, Arc<str>) {
+fn event_key(evt: &CorrelationEvent) -> (&Arc<str>, &Arc<str>) {
 	match evt {
 		CorrelationEvent::Step {
 			root_rule_id, seq_id, ..
-		} => (root_rule_id.clone(), seq_id.clone()),
+		} => (root_rule_id, seq_id),
 		CorrelationEvent::Completed {
 			root_rule_id, seq_id, ..
-		} => (root_rule_id.clone(), seq_id.clone()),
+		} => (root_rule_id, seq_id),
 	}
 }
 

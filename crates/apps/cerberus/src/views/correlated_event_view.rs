@@ -25,7 +25,7 @@ impl StatefulWidget for CorrelatedEventView {
 	fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
 		const SCROLL_IDEN: ScrollIden = CorrelatedEventView::SCROLL_IDEN;
 
-		let has_events = state.cerberus_evts_correlated().next().is_some();
+		let has_events = !state.cerberus_evts_correlated().is_empty();
 
 		let block = Block::bordered().padding(Padding::left(1));
 
@@ -42,13 +42,9 @@ impl StatefulWidget for CorrelatedEventView {
 fn render_correlated_events(area: Rect, buf: &mut Buffer, state: &mut AppState, block: Block) {
 	const SCROLL_IDEN: ScrollIden = CorrelatedEventView::SCROLL_IDEN;
 
-	let mut groups = state.correlated_groups();
-
-	groups.sort_by(|a, b| a.root_rule_id.cmp(&b.root_rule_id).then(a.seq_id.cmp(&b.seq_id)));
-
 	let mut lines: Vec<Line> = Vec::new();
 
-	for (group_idx, group) in groups.iter().enumerate() {
+	for (group_idx, group) in state.correlated_groups().values().enumerate() {
 		let is_selected = group_idx == state.selected_rule();
 
 		let expanded = state.is_correlation_expanded(&group.root_rule_id, &group.seq_id);
@@ -70,14 +66,15 @@ fn render_correlated_events(area: Rect, buf: &mut Buffer, state: &mut AppState, 
 			continue;
 		}
 
-		let mut events = group.events.clone();
-		events.sort_by(|a, b| {
-			let rank = |e: &CorrelationEvent| match e {
-				CorrelationEvent::Step { step_idx, .. } => *step_idx as i32,
-				CorrelationEvent::Completed { .. } => i32::MAX,
-			};
+		let mut events: Vec<CorrelationEvent> = group
+			.events
+			.iter()
+			.filter_map(|idx| state.cerberus_evts_correlated().get(*idx).cloned())
+			.collect();
 
-			rank(a).cmp(&rank(b))
+		events.sort_by_key(|e| match e {
+			CorrelationEvent::Step { step_idx, .. } => *step_idx as i32,
+			CorrelationEvent::Completed { .. } => i32::MAX,
 		});
 
 		for evt in events {
@@ -122,7 +119,6 @@ fn render_correlated_events(area: Rect, buf: &mut Buffer, state: &mut AppState, 
 
 	Paragraph::new(lines).block(block).scroll((scroll, 0)).render(area, buf);
 }
-
 pub fn render_correlation_popup(frame: &mut ratatui::Frame, state: &AppState) {
 	if !state.popup_show {
 		return;
@@ -131,7 +127,7 @@ pub fn render_correlation_popup(frame: &mut ratatui::Frame, state: &AppState) {
 	let area = popup_area(frame.area(), 60, 40);
 	frame.render_widget(Clear, area);
 
-	let selected = state.cerberus_evts_correlated().nth(state.selected_rule());
+	let selected = state.cerberus_evts_correlated().iter().nth(state.selected_rule());
 
 	if let Some(event) = selected {
 		let mut text = vec![];
