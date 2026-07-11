@@ -15,7 +15,6 @@ pub enum ScrollIden {
 pub struct ScrollZone {
 	area: Option<Rect>,
 	pos: Option<u16>,
-	is_bottom: bool,
 }
 
 impl ScrollZone {
@@ -24,9 +23,6 @@ impl ScrollZone {
 	}
 	pub fn pos(&self) -> Option<u16> {
 		self.pos
-	}
-	pub fn is_bottom(&self) -> bool {
-		self.is_bottom
 	}
 }
 
@@ -37,13 +33,11 @@ impl ScrollZone {
 	pub fn set_pos(&mut self, pos: u16) {
 		self.pos = Some(pos);
 	}
-	pub fn set_is_bottom(&mut self, is_bottom: bool) {
-		self.is_bottom = is_bottom;
-	}
 
 	pub fn clear_area(&mut self) {
 		self.area = None;
 	}
+	#[allow(unused)]
 	pub fn clear_pos(&mut self) {
 		self.pos = None;
 	}

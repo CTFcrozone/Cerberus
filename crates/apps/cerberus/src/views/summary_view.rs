@@ -15,9 +15,6 @@ pub struct SummaryView;
 
 impl SummaryView {
 	const HOOK_SCROLL_IDEN: ScrollIden = ScrollIden::LoadedHookScroll;
-	pub fn clear_scroll_idens(state: &mut AppState) {
-		state.clear_scroll_zone_area(&Self::HOOK_SCROLL_IDEN);
-	}
 }
 
 impl StatefulWidget for SummaryView {
@@ -57,9 +54,10 @@ impl StatefulWidget for SummaryView {
 
 fn render_loaded_hooks(area: Rect, buf: &mut Buffer, state: &mut AppState, block: Block) {
 	const SCROLL_IDEN: ScrollIden = SummaryView::HOOK_SCROLL_IDEN;
-	let hooks_data = state.loaded_hooks();
+	let scroll = state.clamp_scroll(SCROLL_IDEN, state.loaded_hooks().len());
 
-	let hooks: Vec<Line> = hooks_data
+	let hooks: Vec<Line> = state
+		.loaded_hooks()
 		.iter()
 		.enumerate()
 		.map(|(i, h)| {
@@ -68,7 +66,7 @@ fn render_loaded_hooks(area: Rect, buf: &mut Buffer, state: &mut AppState, block
 				HookState::Enabled => "enabled",
 			};
 
-			let base_style = if i == state.selected_hook {
+			let base_style = if i == state.selected_hook as usize {
 				Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)
 			} else {
 				Style::default().fg(Color::White)
@@ -80,9 +78,8 @@ fn render_loaded_hooks(area: Rect, buf: &mut Buffer, state: &mut AppState, block
 			])
 		})
 		.collect();
-	// let scroll = state.clamp_scroll(SCROLL_IDEN, hooks.len());
 
-	Paragraph::new(hooks).block(block).render(area, buf);
+	Paragraph::new(hooks).block(block).scroll((scroll, 0)).render(area, buf);
 }
 
 pub fn render_loaded_rules_count(area: Rect, buf: &mut Buffer, state: &AppState) {

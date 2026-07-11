@@ -13,9 +13,6 @@ pub struct GeneralEventView;
 
 impl GeneralEventView {
 	const SCROLL_IDEN: ScrollIden = ScrollIden::GenericEventScroll;
-	pub fn clear_scroll_idens(state: &mut AppState) {
-		state.clear_scroll_zone_area(&Self::SCROLL_IDEN);
-	}
 }
 
 impl StatefulWidget for GeneralEventView {

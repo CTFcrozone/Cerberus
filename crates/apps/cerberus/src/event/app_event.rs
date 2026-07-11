@@ -17,7 +17,7 @@ pub enum AppEvent {
 	#[from]
 	Watcher(RuleWatchEvent),
 	RuleReload {
-		rules: Arc<[String]>,
+		rules: Arc<[Arc<str>]>,
 	},
 	HookEnabled {
 		hook: Arc<str>,

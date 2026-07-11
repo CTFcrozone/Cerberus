@@ -5,10 +5,10 @@ use crate::{
 	event::{AppEvent, RuleWatchEvent},
 };
 
-use lib_event::unbound::{new_channel_unbounded_async, Rx, Tx};
+use lib_event::unbound::{Rx, Tx, new_channel_unbounded_async};
 use lib_rules::RuleEngine;
 use notify::{INotifyWatcher, RecursiveMode};
-use notify_debouncer_full::{new_debouncer, DebounceEventResult, Debouncer, NoCache};
+use notify_debouncer_full::{DebounceEventResult, Debouncer, NoCache, new_debouncer};
 
 pub struct RuleWatchWorker {
 	tx: Tx<AppEvent>,
@@ -42,13 +42,13 @@ impl RuleWatchWorker {
 	pub async fn run(mut self) -> Result<()> {
 		while let Ok(_) = self.rx.recv().await {
 			self.rule_engine.reload_ruleset(&self.rule_dir)?;
-			let rules: Arc<[String]> = self
+			let rules: Arc<[Arc<str>]> = self
 				.rule_engine
 				.ruleset
 				.load()
 				.rules()
 				.iter()
-				.map(|r| r.inner.id.clone())
+				.map(|r| Arc::<str>::from(r.inner.id.as_str()))
 				.collect::<Vec<_>>()
 				.into();
 			if let Err(e) = self.tx.send(AppEvent::RuleReload { rules }) {

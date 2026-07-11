@@ -6,7 +6,7 @@ use crate::error::Result;
 use hyper_util::rt::TokioIo;
 use runtime::runtime_service_client::RuntimeServiceClient;
 pub use runtime::*;
-use tonic::transport::{Endpoint, Uri};
+use tonic::transport::Uri;
 use tower::service_fn;
 
 pub type K8sRtServiceClient = RuntimeServiceClient<tonic::transport::Channel>;

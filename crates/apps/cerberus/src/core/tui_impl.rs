@@ -1,9 +1,9 @@
 use std::{io::stdout, sync::Arc};
 
 use crate::{
-	core::{term_reader::run_term_read, tui_loop::run_ui_loop},
-	hook_registry::{event::HookCommand, HookView},
 	Result,
+	core::{term_reader::run_term_read, tui_loop::run_ui_loop},
+	hook_registry::{HookView, event::HookCommand},
 };
 use crossterm::{
 	cursor,
@@ -19,7 +19,7 @@ use tokio_util::sync::CancellationToken;
 
 pub async fn start_tui(
 	hooks: Vec<HookView>,
-	rules: Arc<[String]>,
+	rules: Arc<[Arc<str>]>,
 	app_tx: Tx<AppEvent>,
 	app_rx: Rx<AppEvent>,
 	hook_tx: Tx<HookCommand>,
@@ -46,7 +46,7 @@ pub async fn start_tui(
 async fn exec_app(
 	mut terminal: DefaultTerminal,
 	hooks: Vec<HookView>,
-	rules: Arc<[String]>,
+	rules: Arc<[Arc<str>]>,
 	app_tx: Tx<AppEvent>,
 	app_rx: Rx<AppEvent>,
 	hook_tx: Tx<HookCommand>,

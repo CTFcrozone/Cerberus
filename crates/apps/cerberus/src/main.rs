@@ -101,7 +101,12 @@ async fn main() -> Result<()> {
 	let rule_dir = args.rules;
 
 	let ruleset = RuleSet::load_from_dir(&rule_dir)?;
-	let rules: Arc<[String]> = ruleset.rules().iter().map(|r| r.inner.id.clone()).collect();
+	let rules: Arc<[Arc<str>]> = ruleset
+		.rules()
+		.iter()
+		.map(|r| Arc::<str>::from(r.inner.id.as_str()))
+		.collect::<Vec<_>>()
+		.into();
 
 	if ruleset.rule_count() == 0 {
 		return Err(Error::NoRulesInDir(rule_dir.display().to_string()));

@@ -3,12 +3,9 @@ use std::{collections::VecDeque, sync::Arc};
 use super::AppState;
 use crate::core::View;
 use crate::event::AppEvent;
-use crate::hook_registry::event::HookCommand;
 use crate::hook_registry::HookState;
-use crate::{
-	core::app_state::{EvaluatedEntry, EvaluatedKey},
-	Result,
-};
+use crate::hook_registry::event::HookCommand;
+use crate::{Result, core::app_state::EvaluatedEntry};
 use crossterm::event::{Event, KeyCode, KeyEventKind, KeyModifiers};
 use lib_common::event::CerberusEvent;
 use lib_event::unbound::Tx;
@@ -48,7 +45,7 @@ pub async fn _handle_app_event(
 
 		AppEvent::HookEnabled { hook } => {
 			if let Some(&idx) = app_state.hook_index.get(hook) {
-				if let Some(h) = app_state.loaded_hooks.get_mut(idx) {
+				if let Some(h) = app_state.loaded_hooks.get_mut(idx as usize) {
 					h.state = HookState::Enabled;
 				}
 			}
@@ -56,14 +53,14 @@ pub async fn _handle_app_event(
 
 		AppEvent::HookDisabled { hook } => {
 			if let Some(&idx) = app_state.hook_index.get(hook) {
-				if let Some(h) = app_state.loaded_hooks.get_mut(idx) {
+				if let Some(h) = app_state.loaded_hooks.get_mut(idx as usize) {
 					h.state = HookState::Disabled;
 				}
 			}
 		}
 
 		AppEvent::RuleReload { rules } => {
-			app_state.loaded_rules = Arc::clone(rules);
+			app_state.loaded_rules = rules.clone();
 		}
 
 		_ => {}
@@ -90,34 +87,31 @@ fn handle_cerberus_event(event: &CerberusEvent, app_state: &mut AppState) {
 }
 
 fn handle_correlation_event(event: &CorrelationEvent, app_state: &mut AppState) {
-	push_bounded(&mut app_state.cerberus_evts_correlated, event);
+	app_state.push_correlation_event(event.clone());
 }
 
 fn handle_cerberus_eval_event(event: &EvaluatedEvent, app_state: &mut AppState) {
-	let key = EvaluatedKey {
-		rule_id: Arc::clone(&event.rule_id),
-		rule_type: Arc::clone(&event.rule_type),
-	};
-
 	*app_state.rule_type_counts.entry(Arc::clone(&event.rule_type)).or_insert(0) += 1;
 
-	*app_state.severity_counts.entry(event.severity).or_insert(0) += 1;
+	app_state.severity_counts[event.severity.index()] += 1;
 
-	match app_state.cerberus_evts_matched.get_mut(&key) {
-		Some(entry) => {
-			entry.count += 1;
-			entry.event.event_meta = event.event_meta.clone();
-		}
-		None => {
-			app_state.cerberus_evts_matched.insert(
-				key,
-				EvaluatedEntry {
-					event: event.clone(),
-					count: 1,
-				},
-			);
-		}
+	if let Some(entry) = app_state.cerberus_evts_matched.get_mut(&event.rule_id) {
+		entry.count += 1;
+		entry.event.event_meta = event.event_meta.clone();
+		return;
 	}
+
+	if app_state.cerberus_evts_matched.len() >= MAX_EVENTS {
+		if let Some((_, _)) = app_state.cerberus_evts_matched.shift_remove_index(0) {}
+	}
+
+	app_state.cerberus_evts_matched.insert(
+		Arc::clone(&event.rule_id),
+		EvaluatedEntry {
+			event: event.clone(),
+			count: 1,
+		},
+	);
 }
 
 // async fn handle_term_event(term_event: &Event, app_tx: &AppTx) -> Result<()> {
@@ -149,14 +143,14 @@ async fn _handle_term_event(
 				}
 				(KeyCode::Char('e'), false) => {
 					if matches!(view, View::Summary) {
-						if let Some(hook) = state.loaded_hooks.get(state.selected_hook) {
+						if let Some(hook) = state.loaded_hooks.get(state.selected_hook as usize) {
 							hook_tx.send(HookCommand::Enable(hook.name.clone()))?;
 						}
 					}
 				}
 				(KeyCode::Char('d'), false) => {
 					if matches!(view, View::Summary) {
-						if let Some(hook) = state.loaded_hooks.get(state.selected_hook) {
+						if let Some(hook) = state.loaded_hooks.get(state.selected_hook as usize) {
 							hook_tx.send(HookCommand::Disable(hook.name.clone()))?;
 						}
 					}
