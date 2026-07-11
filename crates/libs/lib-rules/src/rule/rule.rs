@@ -47,6 +47,38 @@ pub enum Severity {
 	Critical,
 }
 
+impl Severity {
+	pub const COUNT: usize = 6;
+	pub const ALL: [Severity; Severity::COUNT] = [
+		Severity::Info,
+		Severity::VeryLow,
+		Severity::Low,
+		Severity::Medium,
+		Severity::High,
+		Severity::Critical,
+	];
+	pub const fn index(self) -> usize {
+		match self {
+			Severity::Info => 0,
+			Severity::VeryLow => 1,
+			Severity::Low => 2,
+			Severity::Medium => 3,
+			Severity::High => 4,
+			Severity::Critical => 5,
+		}
+	}
+	pub const fn to_str(self) -> &'static str {
+		match self {
+			Severity::Info => "info",
+			Severity::VeryLow => "very-low",
+			Severity::Low => "low",
+			Severity::Medium => "medium",
+			Severity::High => "high",
+			Severity::Critical => "critical",
+		}
+	}
+}
+
 #[cfg_attr(test, derive(PartialEq))]
 #[derive(Debug, Deserialize, Clone)]
 pub struct Condition {

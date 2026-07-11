@@ -1,6 +1,7 @@
-use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
+use std::collections::{HashMap, VecDeque};
 use std::sync::Arc;
 
+use indexmap::IndexMap;
 use lib_rules::{CorrelationEvent, EvaluatedEvent, Severity};
 use ratatui::layout::Rect;
 
@@ -10,49 +11,53 @@ use crate::event::LastAppEvent;
 use crate::hook_registry::HookView;
 use lib_common::event::CerberusEvent;
 
+const MAX_CORRELATIONS: usize = 250;
+
 pub struct AppState {
 	pub(in crate::core) loaded_hooks: Vec<HookView>,
-	pub(in crate::core) hook_index: HashMap<Arc<str>, usize>,
-	pub(in crate::core) loaded_rules: Arc<[String]>,
+	pub(in crate::core) hook_index: HashMap<Arc<str>, u32>,
+	pub(in crate::core) loaded_rules: Arc<[Arc<str>]>,
 	pub(in crate::core) last_app_event: LastAppEvent,
 	pub(in crate::core) cerberus_evts_general: VecDeque<CerberusEvent>,
 	pub(in crate::core) cerberus_evts_correlated: VecDeque<CorrelationEvent>,
 	pub(in crate::core) cerberus_evts_network: VecDeque<CerberusEvent>,
-	pub(in crate::core) cerberus_evts_matched: HashMap<EvaluatedKey, EvaluatedEntry>,
+	pub(in crate::core) cerberus_evts_matched: IndexMap<Arc<str>, EvaluatedEntry>,
 	pub(in crate::core) rule_type_counts: HashMap<Arc<str>, u64>,
-	pub(in crate::core) severity_counts: HashMap<Severity, u64>,
-	pub(in crate::core) expanded_correlations: HashSet<(Arc<str>, Arc<str>)>,
-	pub correlated_groups: std::collections::BTreeMap<(Arc<str>, Arc<str>), CorrelationGroup>,
+	pub(in crate::core) severity_counts: [u64; Severity::COUNT],
+	pub correlated_groups: HashMap<(Arc<str>, Arc<str>), CorrelationGroup>,
 	scroll_zones: ScrollZones,
-	pub selected_hook: usize,
+	pub selected_hook: u32,
 	pub current_view: View,
 	pub tab: Tab,
 	pub popup_show: bool,
-	pub selected_rule: usize,
+	pub selected_rule: u32,
 }
 
 impl AppState {
-	pub fn new(loaded_rules: Arc<[String]>, loaded_hooks: Vec<HookView>, last_app_event: LastAppEvent) -> Result<Self> {
+	pub fn new(
+		loaded_rules: Arc<[Arc<str>]>,
+		loaded_hooks: Vec<HookView>,
+		last_app_event: LastAppEvent,
+	) -> Result<Self> {
 		let hook_index = loaded_hooks
 			.iter()
 			.enumerate()
-			.map(|(idx, h)| (h.name.clone(), idx))
+			.map(|(idx, h)| (h.name.clone(), idx as u32))
 			.collect::<HashMap<_, _>>();
 
 		Ok(Self {
 			loaded_hooks,
 			loaded_rules,
 			hook_index,
-			correlated_groups: std::collections::BTreeMap::new(),
+			correlated_groups: HashMap::new(),
 			last_app_event,
 			scroll_zones: ScrollZones::default(),
 			cerberus_evts_correlated: VecDeque::with_capacity(250),
 			cerberus_evts_general: VecDeque::with_capacity(250),
 			cerberus_evts_network: VecDeque::with_capacity(250),
-			cerberus_evts_matched: HashMap::new(),
-			expanded_correlations: HashSet::new(),
+			cerberus_evts_matched: IndexMap::new(),
 			rule_type_counts: HashMap::new(),
-			severity_counts: HashMap::new(),
+			severity_counts: [0; Severity::COUNT],
 			current_view: View::Main,
 			tab: Tab::General,
 			popup_show: false,
@@ -74,7 +79,6 @@ impl AppState {
 			Tab::MatchedRules => self.cerberus_evts_matched.clear(),
 			Tab::CorrelatedRules => {
 				self.cerberus_evts_correlated.clear();
-				self.expanded_correlations.clear();
 				self.correlated_groups.clear();
 				self.selected_rule = 0;
 			}
@@ -108,6 +112,7 @@ impl AppState {
 		self.scroll_zones.zones.get(&iden).and_then(|z| z.pos()).unwrap_or_default()
 	}
 
+	#[allow(unused)]
 	pub fn set_scroll(&mut self, iden: ScrollIden, scroll: u16) {
 		if let Some(zone) = self.get_zone_mut(&iden) {
 			zone.set_pos(scroll);
@@ -137,13 +142,13 @@ impl AppState {
 			scroll
 		}
 	}
-
+	#[allow(unused)]
 	pub fn clear_scroll_zone_area(&mut self, iden: &ScrollIden) {
 		if let Some(zone) = self.get_zone_mut(iden) {
 			zone.clear_area();
 		}
 	}
-
+	#[allow(unused)]
 	pub fn clear_scroll_zone_areas(&mut self, idens: &[&ScrollIden]) {
 		for iden in idens {
 			self.clear_scroll_zone_area(iden);
@@ -170,26 +175,30 @@ impl AppState {
 	}
 
 	pub fn toggle_correlation_group(&mut self, root_rule_id: Arc<str>, seq_id: Arc<str>) {
-		let key = (root_rule_id, seq_id);
-
-		if !self.expanded_correlations.insert(key.clone()) {
-			self.expanded_correlations.remove(&key);
+		if let Some(group) = self.correlated_groups.get_mut(&(root_rule_id, seq_id)) {
+			group.expanded = !group.expanded;
 		}
-	}
-
-	pub fn is_correlation_expanded(&self, root: &Arc<str>, seq: &Arc<str>) -> bool {
-		self.expanded_correlations.contains(&(Arc::clone(root), Arc::clone(seq)))
 	}
 
 	pub fn push_correlation_event(&mut self, evt: CorrelationEvent) {
 		let (r, s) = event_key(&evt);
 		let key = (Arc::clone(r), Arc::clone(s));
 
+		if self.cerberus_evts_correlated.len() >= MAX_CORRELATIONS {
+			self.cerberus_evts_correlated.pop_front();
+
+			for group in self.correlated_groups.values_mut() {
+				group.events.retain(|&idx| idx != 0);
+				for idx in &mut group.events {
+					*idx -= 1;
+				}
+			}
+		}
+
 		self.correlated_groups
 			.entry(key)
 			.or_insert_with(|| CorrelationGroup {
-				root_rule_id: Arc::clone(r),
-				seq_id: Arc::clone(s),
+				expanded: false,
 				events: Vec::new(),
 			})
 			.events
@@ -197,11 +206,14 @@ impl AppState {
 
 		self.cerberus_evts_correlated.push_back(evt);
 	}
-	pub fn correlated_groups(&self) -> &BTreeMap<(Arc<str>, Arc<str>), CorrelationGroup> {
+	pub fn correlated_groups(&self) -> &HashMap<(Arc<str>, Arc<str>), CorrelationGroup> {
 		&self.correlated_groups
 	}
 	pub fn barchart_severity(&self) -> Vec<(&str, u64)> {
-		self.severity_counts.iter().map(|(k, v)| (k.as_str(), *v)).collect()
+		Severity::ALL
+			.iter()
+			.map(|s| (s.as_str(), self.severity_counts[s.index()]))
+			.collect()
 	}
 
 	pub fn cerberus_evts_correlated(&self) -> &VecDeque<CorrelationEvent> {
@@ -229,7 +241,7 @@ impl AppState {
 	pub fn loaded_hooks(&self) -> &[HookView] {
 		&self.loaded_hooks
 	}
-	pub fn loaded_rules(&self) -> &[String] {
+	pub fn loaded_rules(&self) -> &[Arc<str>] {
 		&self.loaded_rules
 	}
 
@@ -240,7 +252,7 @@ impl AppState {
 
 impl AppState {
 	pub fn selected_rule(&self) -> usize {
-		self.selected_rule
+		self.selected_rule as usize
 	}
 
 	pub fn next_rule(&mut self) {
@@ -249,7 +261,7 @@ impl AppState {
 			return;
 		}
 
-		self.selected_rule = (self.selected_rule + 1) % max;
+		self.selected_rule = ((self.selected_rule as usize + 1) % max) as u32;
 	}
 
 	pub fn prev_rule(&mut self) {
@@ -257,7 +269,7 @@ impl AppState {
 		if max == 0 {
 			return;
 		}
-		self.selected_rule = self.selected_rule.checked_sub(1).unwrap_or(max - 1);
+		self.selected_rule = self.selected_rule.checked_sub(1).unwrap_or((max - 1) as u32);
 	}
 
 	pub fn toggle_rule_popup(&mut self) {
@@ -284,17 +296,9 @@ pub struct EvaluatedEntry {
 	pub count: u64,
 }
 
-#[derive(Clone)]
 pub struct CorrelationGroup {
-	pub root_rule_id: Arc<str>,
-	pub seq_id: Arc<str>,
+	pub expanded: bool,
 	pub events: Vec<usize>,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub struct EvaluatedKey {
-	pub rule_id: Arc<str>,
-	pub rule_type: Arc<str>,
 }
 
 pub enum View {

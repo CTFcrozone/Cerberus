@@ -15,9 +15,6 @@ pub struct SummaryView;
 
 impl SummaryView {
 	const HOOK_SCROLL_IDEN: ScrollIden = ScrollIden::LoadedHookScroll;
-	pub fn clear_scroll_idens(state: &mut AppState) {
-		state.clear_scroll_zone_area(&Self::HOOK_SCROLL_IDEN);
-	}
 }
 
 impl StatefulWidget for SummaryView {
@@ -69,7 +66,7 @@ fn render_loaded_hooks(area: Rect, buf: &mut Buffer, state: &mut AppState, block
 				HookState::Enabled => "enabled",
 			};
 
-			let base_style = if i == state.selected_hook {
+			let base_style = if i == state.selected_hook as usize {
 				Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)
 			} else {
 				Style::default().fg(Color::White)

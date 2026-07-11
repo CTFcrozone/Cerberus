@@ -14,9 +14,6 @@ pub struct CorrelatedEventView;
 
 impl CorrelatedEventView {
 	const SCROLL_IDEN: ScrollIden = ScrollIden::CorrelatedEventScroll;
-	pub fn clear_scroll_idens(state: &mut AppState) {
-		state.clear_scroll_zone_area(&Self::SCROLL_IDEN);
-	}
 }
 
 impl StatefulWidget for CorrelatedEventView {
@@ -44,10 +41,10 @@ fn render_correlated_events(area: Rect, buf: &mut Buffer, state: &mut AppState, 
 
 	let mut lines: Vec<Line> = Vec::new();
 
-	for (group_idx, group) in state.correlated_groups().values().enumerate() {
+	for (group_idx, ((root_rule_id, seq_id), group)) in state.correlated_groups().iter().enumerate() {
 		let is_selected = group_idx == state.selected_rule();
 
-		let expanded = state.is_correlation_expanded(&group.root_rule_id, &group.seq_id);
+		let expanded = group.expanded;
 
 		let icon = if expanded { "▼" } else { "▶" };
 
@@ -58,7 +55,7 @@ fn render_correlated_events(area: Rect, buf: &mut Buffer, state: &mut AppState, 
 		};
 
 		lines.push(Line::styled(
-			format!("{icon} {} :: {}", group.root_rule_id, group.seq_id),
+			format!("{icon} {} :: {}", root_rule_id, seq_id),
 			header_style,
 		));
 

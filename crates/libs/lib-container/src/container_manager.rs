@@ -1,12 +1,12 @@
 use crate::{
 	error::{Error, Result},
 	runtime::{
-		k8s_connect, Container, ContainerFilter, K8sRtServiceClient, ListContainersRequest, ListPodSandboxRequest,
-		PodSandbox, PodSandboxFilter,
+		Container, ContainerFilter, K8sRtServiceClient, ListContainersRequest, ListPodSandboxRequest, PodSandbox,
+		PodSandboxFilter,
 	},
 };
 use std::{
-	collections::{hash_map::Entry, HashMap},
+	collections::{HashMap, hash_map::Entry},
 	os::unix::fs::MetadataExt,
 	path::{Path, PathBuf},
 	sync::Arc,

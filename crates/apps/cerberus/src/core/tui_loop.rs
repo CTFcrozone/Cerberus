@@ -1,25 +1,22 @@
 use std::sync::Arc;
 use std::time::Duration;
 
+use crate::Result;
 use crate::core::event_handler::_handle_app_event;
 use crate::core::{Tab, View};
 use crate::event::AppEvent;
 use crate::event::LastAppEvent;
-use crate::hook_registry::event::HookCommand;
 use crate::hook_registry::HookView;
+use crate::hook_registry::event::HookCommand;
 use crate::views::correlated_event_view::render_correlation_popup;
-use crate::views::{render_rule_popup, MainView, SummaryView};
-use crate::Result;
+use crate::views::{MainView, SummaryView, render_rule_popup};
 use lib_event::unbound::{Rx, Tx};
 use ratatui::DefaultTerminal;
 use tokio::task::JoinHandle;
-use tokio::time::interval;
 use tokio_util::sync::CancellationToken;
 
 // use super::event_handler::handle_app_event;
-use super::{process_app_state, AppState};
-
-const FRAME_TIME: Duration = Duration::from_millis(16);
+use super::{AppState, process_app_state};
 
 pub struct UiRuntime {
 	pub ui_handle: JoinHandle<()>,
@@ -28,7 +25,7 @@ pub struct UiRuntime {
 pub fn run_ui_loop(
 	mut term: DefaultTerminal,
 	hooks: Vec<HookView>,
-	rules: Arc<[String]>,
+	rules: Arc<[Arc<str>]>,
 	mut app_rx: Rx<AppEvent>,
 	hook_tx: Tx<HookCommand>,
 	shutdown: CancellationToken,
@@ -36,9 +33,6 @@ pub fn run_ui_loop(
 	let mut appstate = AppState::new(rules, hooks, LastAppEvent::default())?;
 
 	let handle = tokio::spawn(async move {
-		let mut tick = interval(FRAME_TIME);
-		let mut dirty = true;
-
 		loop {
 			tokio::select! {
 				_ = shutdown.cancelled() => break,
@@ -47,17 +41,18 @@ pub fn run_ui_loop(
 					let Ok(event) = maybe_event else {
 						break;
 					};
-					let _ = _handle_app_event(&event, &mut appstate, &hook_tx, shutdown.clone()).await;
-					appstate.last_app_event = event.into();
-					dirty = true;
-				}
 
-				_ = tick.tick() => {
-					if dirty {
-						process_app_state(&mut appstate);
-						let _ = terminal_draw(&mut term, &mut appstate);
-						dirty = false;
-					}
+					let _ = _handle_app_event(
+						&event,
+						&mut appstate,
+						&hook_tx,
+						shutdown.clone()
+					).await;
+
+					appstate.last_app_event = event.into();
+
+					process_app_state(&mut appstate);
+					let _ = terminal_draw(&mut term, &mut appstate);
 				}
 			}
 		}

@@ -409,6 +409,7 @@ dependencies = [
  "governor",
  "hex",
  "humantime",
+ "indexmap",
  "lib-common",
  "lib-container",
  "lib-ebpf",
