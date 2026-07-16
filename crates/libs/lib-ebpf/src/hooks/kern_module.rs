@@ -1,7 +1,7 @@
 use aya_ebpf::{
 	helpers::{
 		bpf_get_current_comm, bpf_get_current_pid_tgid, bpf_get_current_uid_gid, bpf_probe_read_kernel,
-		r#gen::{bpf_get_current_cgroup_id, bpf_ktime_get_ns},
+		generated::{bpf_get_current_cgroup_id, bpf_ktime_get_ns},
 	},
 	programs::ProbeContext,
 };
@@ -51,7 +51,7 @@ pub fn try_do_init_module(ctx: ProbeContext) -> Result<u32, i64> {
 		_pad0: [0u8; 7],
 	};
 
-	EVT_MAP.output(&event, 0)?;
+	EVT_MAP.output::<ModuleEvent>(&event, 0)?;
 
 	Ok(0)
 }

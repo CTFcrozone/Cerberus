@@ -20,13 +20,13 @@ static EVT_MAP: RingBuf = RingBuf::with_byte_size(32 * 1024, 0);
 #[map]
 static BLOCKLIST: HashMap<u32, u32> = HashMap::with_max_entries(1024, 0);
 
-#[xdp]
-pub fn xdp(ctx: XdpContext) -> u32 {
-	match hooks::try_xdp(ctx) {
-		Ok(ret) => ret,
-		Err(_) => xdp_action::XDP_ABORTED,
-	}
-}
+// #[xdp]
+// pub fn xdp(ctx: XdpContext) -> u32 {
+// 	match hooks::try_xdp(ctx) {
+// 		Ok(ret) => ret,
+// 		Err(_) => xdp_action::XDP_ABORTED,
+// 	}
+// }
 
 #[lsm(hook = "bpf_prog_load")]
 pub fn bpf_prog_load(ctx: LsmContext) -> i32 {
@@ -162,6 +162,6 @@ fn panic(_info: &core::panic::PanicInfo) -> ! {
 	loop {}
 }
 
-#[link_section = "license"]
-#[no_mangle]
+#[unsafe(link_section = "license")]
+#[unsafe(no_mangle)]
 static LICENSE: [u8; 13] = *b"Dual MIT/GPL\0";

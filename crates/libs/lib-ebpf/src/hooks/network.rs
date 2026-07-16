@@ -2,14 +2,13 @@ use aya_ebpf::{
 	bindings::xdp_action,
 	helpers::{
 		bpf_get_current_comm, bpf_get_current_pid_tgid, bpf_get_current_uid_gid,
-		r#gen::{bpf_get_current_cgroup_id, bpf_ktime_get_ns},
+		generated::{bpf_get_current_cgroup_id, bpf_ktime_get_ns},
 	},
 	programs::{LsmContext, TracePointContext, XdpContext},
 };
-use aya_log_ebpf::error;
 use lib_ebpf_common::{
-	EventHeader, InetSockSetStateEvent, SocketEvent, EVT_INET_SOCK_SET_STATE, EVT_SOCKET, SOCKET_OP_BIND,
-	SOCKET_OP_CONNECT,
+	EVT_INET_SOCK_SET_STATE, EVT_SOCKET, EventHeader, InetSockSetStateEvent, SOCKET_OP_BIND, SOCKET_OP_CONNECT,
+	SocketEvent,
 };
 use network_types::{
 	eth::{EthHdr, EtherType},
@@ -17,9 +16,9 @@ use network_types::{
 };
 
 use crate::{
-	utils::{self, get_mnt_ns, get_ppid, ptr_at},
-	vmlinux::{sockaddr, sockaddr_in},
 	BLOCKLIST, EVT_MAP,
+	utils::{get_mnt_ns, get_ppid, ptr_at},
+	vmlinux::{sockaddr, sockaddr_in},
 };
 
 const AF_INET: u16 = 2;
@@ -29,8 +28,8 @@ fn block_ip(addr: u32) -> bool {
 }
 
 pub fn try_socket_connect(ctx: LsmContext) -> Result<i32, i32> {
-	let addr: *const sockaddr = unsafe { ctx.arg(1) };
-	let ret: i32 = unsafe { ctx.arg(3) };
+	let addr: *const sockaddr = ctx.arg(1);
+	let ret: i32 = ctx.arg(3);
 
 	if addr.is_null() {
 		return Ok(0);
@@ -84,16 +83,16 @@ pub fn try_socket_connect(ctx: LsmContext) -> Result<i32, i32> {
 		_pad0: [0u8; 7],
 	};
 
-	if let Err(e) = EVT_MAP.output(&event, 0) {
-		error!(&ctx, "ringbuf write failed: {}", e);
-	}
-
+	// if let Err(e) = EVT_MAP.output::<SocketEvent>(&event, 0) {
+	// 	error!(&ctx, "ringbuf write failed: {}", e);
+	// }
+	let _ = EVT_MAP.output::<SocketEvent>(&event, 0);
 	Ok(0)
 }
 
 pub fn try_socket_bind(ctx: LsmContext) -> Result<i32, i32> {
-	let addr: *const sockaddr = unsafe { ctx.arg(1) };
-	let ret: i32 = unsafe { ctx.arg(3) };
+	let addr: *const sockaddr = ctx.arg(1);
+	let ret: i32 = ctx.arg(3);
 
 	if addr.is_null() {
 		return Ok(0);
@@ -146,9 +145,7 @@ pub fn try_socket_bind(ctx: LsmContext) -> Result<i32, i32> {
 		_pad0: [0u8; 7],
 	};
 
-	if let Err(e) = EVT_MAP.output(&event, 0) {
-		error!(&ctx, "ringbuf write failed: {}", e);
-	}
+	let _ = EVT_MAP.output::<SocketEvent>(&event, 0);
 
 	Ok(0)
 }
@@ -197,9 +194,7 @@ pub fn try_inet_sock_set_state(ctx: TracePointContext) -> Result<u32, u32> {
 		daddr,
 	};
 
-	if let Err(e) = EVT_MAP.output(&event, 0) {
-		error!(&ctx, "ringbuf write failed: {}", e);
-	}
+	let _ = EVT_MAP.output::<InetSockSetStateEvent>(&event, 0);
 
 	Ok(0)
 }

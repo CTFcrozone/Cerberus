@@ -1,20 +1,20 @@
 use aya_ebpf::{
 	helpers::{
 		bpf_get_current_comm, bpf_get_current_pid_tgid, bpf_get_current_uid_gid, bpf_probe_read_kernel,
-		r#gen::{bpf_get_current_cgroup_id, bpf_ktime_get_ns},
+		generated::{bpf_get_current_cgroup_id, bpf_ktime_get_ns},
 	},
 	programs::LsmContext,
 };
-use aya_log_ebpf::error;
+// use aya_log_ebpf::error;
 use lib_ebpf_common::{
-	BpfMapEvent, BpfProgLoadEvent, EventHeader, EVT_BPF_MAP, EVT_BPF_PROG_LOAD, FLAG_GPL, FLAG_JITED, FLAG_KPROBE_OVR,
+	BpfMapEvent, BpfProgLoadEvent, EVT_BPF_MAP, EVT_BPF_PROG_LOAD, EventHeader, FLAG_GPL, FLAG_JITED, FLAG_KPROBE_OVR,
 	FLAG_SLEEPABLE,
 };
 
 use crate::{
+	EVT_MAP,
 	utils::{get_mnt_ns, get_ppid},
 	vmlinux::{bpf_map, bpf_prog},
-	EVT_MAP,
 };
 
 // LSM_HOOK(int, 0, bpf_prog_load, struct bpf_prog *prog, union bpf_attr *attr, struct bpf_token *token, bool kernel)
@@ -31,7 +31,7 @@ pub fn try_bpf_prog_load(ctx: LsmContext) -> Result<i32, i32> {
 	let cgroup_id = unsafe { bpf_get_current_cgroup_id() };
 	let mnt_ns = unsafe { get_mnt_ns() };
 	let ppid = unsafe { get_ppid() };
-	let prog: *const bpf_prog = unsafe { ctx.arg(0) };
+	let prog: *const bpf_prog = ctx.arg(0);
 
 	if prog.is_null() {
 		return Ok(0);
@@ -78,10 +78,10 @@ pub fn try_bpf_prog_load(ctx: LsmContext) -> Result<i32, i32> {
 		_pad0: [0u8; 4],
 	};
 
-	if let Err(e) = EVT_MAP.output(&event, 0) {
-		error!(&ctx, "ringbuf write failed: {}", e);
-	}
-
+	// if let Err(e) = EVT_MAP.output::<BpfProgLoadEvent>(&event, 0) {
+	// 	error!(&ctx, "ringbuf write failed: {}", e);
+	// }
+	let _ = EVT_MAP.output::<BpfProgLoadEvent>(&event, 0);
 	Ok(0)
 }
 
@@ -98,7 +98,7 @@ pub fn try_bpf_map(ctx: LsmContext) -> Result<i32, i32> {
 	let cgroup_id = unsafe { bpf_get_current_cgroup_id() };
 	let mnt_ns = unsafe { get_mnt_ns() };
 	let ppid = unsafe { get_ppid() };
-	let map: *const bpf_map = unsafe { ctx.arg(0) };
+	let map: *const bpf_map = ctx.arg(0);
 
 	if map.is_null() {
 		return Ok(0);
@@ -137,9 +137,7 @@ pub fn try_bpf_map(ctx: LsmContext) -> Result<i32, i32> {
 		map_name,
 	};
 
-	if let Err(e) = EVT_MAP.output(&event, 0) {
-		error!(&ctx, "ringbuf write failed: {}", e);
-	}
+	let _ = EVT_MAP.output::<BpfMapEvent>(&event, 0);
 
 	Ok(0)
 }

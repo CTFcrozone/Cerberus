@@ -1,20 +1,20 @@
 use aya_ebpf::{
 	helpers::{
 		bpf_get_current_comm, bpf_get_current_pid_tgid, bpf_get_current_uid_gid, bpf_probe_read_kernel,
-		r#gen::{bpf_get_current_cgroup_id, bpf_ktime_get_ns},
+		generated::{bpf_get_current_cgroup_id, bpf_ktime_get_ns},
 	},
 	programs::{LsmContext, TracePointContext},
 };
-use aya_log_ebpf::error;
+// use aya_log_ebpf::error;
 use lib_ebpf_common::{
-	EventHeader, GenericEvent, PtraceAccessCheckEvent, EVT_ENTER_PTRACE, EVT_KILL, EVT_PTRACE_ACCESS_CHECK,
-	META_KILL_SIG, META_PTRACE_SUCCESS, PTRACE_STAGE_REQUEST,
+	EVT_ENTER_PTRACE, EVT_KILL, EVT_PTRACE_ACCESS_CHECK, EventHeader, GenericEvent, META_KILL_SIG, META_PTRACE_SUCCESS,
+	PTRACE_STAGE_REQUEST, PtraceAccessCheckEvent,
 };
 
 use crate::{
+	EVT_MAP,
 	utils::{get_mnt_ns, get_ppid},
 	vmlinux::task_struct,
-	EVT_MAP,
 };
 
 pub fn try_sys_enter_ptrace(ctx: TracePointContext) -> Result<u32, u32> {
@@ -45,21 +45,22 @@ pub fn try_sys_enter_ptrace(ctx: TracePointContext) -> Result<u32, u32> {
 		_pad0: [0u8; 2],
 	};
 
-	if let Err(e) = EVT_MAP.output(&event, 0) {
-		error!(&ctx, "ringbuf write failed: {}", e);
-	}
+	// if let Err(e) = EVT_MAP.output::<GenericEvent>(&event, 0) {
+	// 	error!(&ctx, "ringbuf write failed: {}", e);
+	// }
+	let _ = EVT_MAP.output::<GenericEvent>(&event, 0);
 
 	Ok(0)
 }
 
 pub fn try_sys_enter_kill(ctx: LsmContext) -> Result<i32, i32> {
-	let task: *const task_struct = unsafe { ctx.arg(0) };
+	let task: *const task_struct = { ctx.arg(0) };
 
 	if task.is_null() {
 		return Ok(0);
 	}
 
-	let sig: u32 = unsafe { ctx.arg(2) };
+	let sig: u32 = ctx.arg(2);
 	let pid = unsafe { (*task).pid as u32 };
 	let ts = unsafe { bpf_ktime_get_ns() };
 	let ppid = unsafe { get_ppid() };
@@ -88,9 +89,7 @@ pub fn try_sys_enter_kill(ctx: LsmContext) -> Result<i32, i32> {
 		_pad0: [0u8; 2],
 	};
 
-	if let Err(e) = EVT_MAP.output(&event, 0) {
-		error!(&ctx, "ringbuf write failed: {}", e);
-	}
+	let _ = EVT_MAP.output::<GenericEvent>(&event, 0);
 
 	Ok(0)
 }
@@ -105,13 +104,13 @@ pub fn try_ptrace_access_check(ctx: LsmContext) -> Result<i32, i32> {
 	let ts = unsafe { bpf_ktime_get_ns() };
 	let ppid = unsafe { get_ppid() };
 
-	let child: *const task_struct = unsafe { ctx.arg(0) };
+	let child: *const task_struct = ctx.arg(0);
 
 	if child.is_null() {
 		return Ok(0);
 	}
 
-	let mode: u32 = unsafe { ctx.arg(1) };
+	let mode: u32 = ctx.arg(1);
 
 	let target_pid = unsafe {
 		match bpf_probe_read_kernel(&(*child).pid) {
@@ -167,9 +166,6 @@ pub fn try_ptrace_access_check(ctx: LsmContext) -> Result<i32, i32> {
 		_pad0: [0; 7],
 	};
 
-	if let Err(e) = EVT_MAP.output(&event, 0) {
-		error!(&ctx, "ringbuf write failed: {}", e);
-	}
-
+	let _ = EVT_MAP.output::<PtraceAccessCheckEvent>(&event, 0);
 	Ok(0)
 }

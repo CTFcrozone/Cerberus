@@ -1,7 +1,8 @@
 [package]
 name = "lib-runtime-probe"
 version = "0.1.0"
-edition = "2024"
+edition.workspace = true
+
 
 [lib]
 doctest = false

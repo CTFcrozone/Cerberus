@@ -1,14 +1,13 @@
 [package]
 name = "lib-ebpf"
 version = "0.1.0"
-edition = "2021"
+edition.workspace = true
+
 
 [dependencies]
 lib-ebpf-common = { path = "../lib-ebpf-common"  }
 aya-ebpf = { workspace = true }
-aya-log-ebpf = { workspace = true }
-zerocopy = { workspace = true }
-zerocopy-derive = { workspace = true }
+
 network-types = "0.2.0"
 [build-dependencies]
 which = { workspace = true }

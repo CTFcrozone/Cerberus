@@ -1,23 +1,23 @@
 use aya_ebpf::{
 	helpers::{
 		bpf_get_current_comm, bpf_get_current_pid_tgid, bpf_get_current_uid_gid,
-		r#gen::{bpf_get_current_cgroup_id, bpf_ktime_get_ns},
+		generated::{bpf_get_current_cgroup_id, bpf_ktime_get_ns},
 	},
 	macros::map,
 	maps::PerCpuArray,
 	programs::LsmContext,
 };
-use aya_log_ebpf::error;
-use lib_ebpf_common::{BprmSecurityCheckEvent, EventHeader, EVT_BPRM_CHECK_SEC, FILE_PATH_LEN};
+// use aya_log_ebpf::error;
+use lib_ebpf_common::{BprmSecurityCheckEvent, EVT_BPRM_CHECK_SEC, EventHeader, FILE_PATH_LEN};
 
 use crate::{
+	EVT_MAP,
 	utils::{get_mnt_ns, get_ppid, resolve_file_path},
 	vmlinux::linux_binprm,
-	EVT_MAP,
 };
 
 #[map(name = "FPATH")]
-static mut FPATH: PerCpuArray<[u8; FILE_PATH_LEN]> = PerCpuArray::with_max_entries(1, 0);
+static FPATH: PerCpuArray<[u8; FILE_PATH_LEN]> = PerCpuArray::with_max_entries(1, 0);
 
 pub fn try_bprm_check_security(ctx: LsmContext) -> Result<i32, i32> {
 	let uid = bpf_get_current_uid_gid() as u32;
@@ -28,13 +28,13 @@ pub fn try_bprm_check_security(ctx: LsmContext) -> Result<i32, i32> {
 	let ppid = unsafe { get_ppid() };
 	let cgroup_id = unsafe { bpf_get_current_cgroup_id() };
 	let mnt_ns = unsafe { get_mnt_ns() };
-	let bprm: *const linux_binprm = unsafe { ctx.arg(0) };
+	let bprm: *const linux_binprm = ctx.arg(0);
 
 	if bprm.is_null() {
 		return Ok(0);
 	}
 
-	let buf = unsafe { FPATH.get_ptr_mut(0).ok_or(0)? };
+	let buf = FPATH.get_ptr_mut(0).ok_or(0)?;
 
 	let ret = unsafe { resolve_file_path((*bprm).file, buf) };
 	if ret == 0 {
@@ -59,8 +59,9 @@ pub fn try_bprm_check_security(ctx: LsmContext) -> Result<i32, i32> {
 		_pad0: [0u8; 4],
 	};
 
-	if let Err(e) = EVT_MAP.output(&event, 0) {
-		error!(&ctx, "ringbuf write failed: {}", e);
-	}
+	// if let Err(e) = EVT_MAP.output::<BprmSecurityCheckEvent>(&event, 0) {
+	// 	error!(&ctx, "ringbuf write failed: {}", e);
+	// }
+	let _ = EVT_MAP.output::<BprmSecurityCheckEvent>(&event, 0);
 	Ok(0)
 }

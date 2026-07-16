@@ -1,7 +1,8 @@
 [package]
 name = "cerberus"
 version = "0.1.0"
-edition = "2024"
+edition.workspace = true
+
 
 license.workspace = true
 
@@ -12,7 +13,6 @@ lib-event = { path="../../libs/lib-event" }
 lib-ebpf-common = { path="../../libs/lib-ebpf-common" }
 
 lib-container = { path="../../libs/lib-container" }
-
 
 derive_more = { version = "2.0.0", features = [
     "from",
@@ -64,6 +64,7 @@ derive_more = { version = "2.0.0", features = [
     "into",
     "deref",
 ] }
+cargo_metadata={workspace=true}
 
 aya-build = { workspace = true }
 # TODO(https://github.com/rust-lang/cargo/issues/12375): this should be an artifact dependency, but
