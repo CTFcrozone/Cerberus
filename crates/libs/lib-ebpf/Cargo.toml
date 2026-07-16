@@ -9,7 +9,7 @@ aya-ebpf = { workspace = true }
 aya-log-ebpf = { workspace = true }
 zerocopy = { workspace = true }
 zerocopy-derive = { workspace = true }
-
+network-types = "0.2.0"
 [build-dependencies]
 which = { workspace = true }
 

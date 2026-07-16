@@ -2,9 +2,10 @@
 #![no_main]
 
 use aya_ebpf::{
-	macros::{kprobe, lsm, map, tracepoint},
-	maps::RingBuf,
-	programs::{LsmContext, ProbeContext, TracePointContext},
+	bindings::xdp_action,
+	macros::{kprobe, lsm, map, tracepoint, xdp},
+	maps::{HashMap, RingBuf},
+	programs::{LsmContext, ProbeContext, TracePointContext, XdpContext},
 };
 
 #[macro_use]
@@ -15,6 +16,17 @@ mod vmlinux;
 
 #[map]
 static EVT_MAP: RingBuf = RingBuf::with_byte_size(32 * 1024, 0);
+
+#[map]
+static BLOCKLIST: HashMap<u32, u32> = HashMap::with_max_entries(1024, 0);
+
+#[xdp]
+pub fn xdp(ctx: XdpContext) -> u32 {
+	match hooks::try_xdp(ctx) {
+		Ok(ret) => ret,
+		Err(_) => xdp_action::XDP_ABORTED,
+	}
+}
 
 #[lsm(hook = "bpf_prog_load")]
 pub fn bpf_prog_load(ctx: LsmContext) -> i32 {
@@ -135,14 +147,6 @@ pub fn ptrace_access_check(ctx: LsmContext) -> i32 {
 		Err(ret) => ret,
 	}
 }
-
-// #[kprobe]
-// pub fn do_delete_module(ctx: ProbeContext) -> u32 {
-// 	match hooks::try_do_delete_module(ctx) {
-// 		Ok(ret) => ret,
-// 		Err(ret) => ret.try_into().unwrap_or(1),
-// 	}
-// }
 
 #[kprobe]
 pub fn do_init_module(ctx: ProbeContext) -> u32 {

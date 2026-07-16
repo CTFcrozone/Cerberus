@@ -1,3 +1,5 @@
+use core::mem;
+
 use aya_ebpf::{
 	bindings::path,
 	cty::c_char,
@@ -5,6 +7,7 @@ use aya_ebpf::{
 		bpf_probe_read_kernel,
 		r#gen::{bpf_d_path, bpf_get_current_task},
 	},
+	programs::XdpContext,
 };
 use lib_ebpf_common::{FILE_NAME_LEN, FILE_PATH_LEN};
 
@@ -34,6 +37,20 @@ macro_rules! tp_try_read {
 			Err(_) => return Err(1),
 		}
 	};
+}
+
+#[inline(always)]
+pub unsafe fn ptr_at<T>(ctx: &XdpContext, offset: usize) -> Result<*const T, ()> {
+	let start = ctx.data();
+	let end = ctx.data_end();
+	let len = mem::size_of::<T>();
+
+	if start + offset + len > end {
+		return Err(());
+	}
+
+	let ptr = (start + offset) as *const T;
+	Ok(&*ptr)
 }
 
 pub unsafe fn get_mnt_ns() -> u32 {

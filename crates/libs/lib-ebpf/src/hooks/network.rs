@@ -1,22 +1,32 @@
 use aya_ebpf::{
+	bindings::xdp_action,
 	helpers::{
 		bpf_get_current_comm, bpf_get_current_pid_tgid, bpf_get_current_uid_gid,
 		r#gen::{bpf_get_current_cgroup_id, bpf_ktime_get_ns},
 	},
-	programs::{LsmContext, TracePointContext},
+	programs::{LsmContext, TracePointContext, XdpContext},
 };
 use aya_log_ebpf::error;
 use lib_ebpf_common::{
-	EVT_INET_SOCK_SET_STATE, EVT_SOCKET, EventHeader, InetSockSetStateEvent, SOCKET_OP_BIND, SOCKET_OP_CONNECT, SocketEvent
+	EventHeader, InetSockSetStateEvent, SocketEvent, EVT_INET_SOCK_SET_STATE, EVT_SOCKET, SOCKET_OP_BIND,
+	SOCKET_OP_CONNECT,
+};
+use network_types::{
+	eth::{EthHdr, EtherType},
+	ip::Ipv4Hdr,
 };
 
 use crate::{
-	utils::{get_mnt_ns, get_ppid},
+	utils::{self, get_mnt_ns, get_ppid, ptr_at},
 	vmlinux::{sockaddr, sockaddr_in},
-	EVT_MAP,
+	BLOCKLIST, EVT_MAP,
 };
 
 const AF_INET: u16 = 2;
+
+fn block_ip(addr: u32) -> bool {
+	unsafe { BLOCKLIST.get(&addr).is_some() }
+}
 
 pub fn try_socket_connect(ctx: LsmContext) -> Result<i32, i32> {
 	let addr: *const sockaddr = unsafe { ctx.arg(1) };
@@ -192,4 +202,20 @@ pub fn try_inet_sock_set_state(ctx: TracePointContext) -> Result<u32, u32> {
 	}
 
 	Ok(0)
+}
+
+pub fn try_xdp(ctx: XdpContext) -> Result<u32, ()> {
+	let ethhdr: *const EthHdr = unsafe { ptr_at(&ctx, 0)? };
+	match unsafe { (*ethhdr).ether_type() } {
+		Ok(EtherType::Ipv4) => {}
+		_ => return Ok(xdp_action::XDP_DROP),
+	}
+	let ipv4hdr: *const Ipv4Hdr = unsafe { ptr_at(&ctx, EthHdr::LEN)? };
+	let src = u32::from_be_bytes(unsafe { (*ipv4hdr).src_addr });
+	let action = if block_ip(src) {
+		xdp_action::XDP_DROP
+	} else {
+		xdp_action::XDP_PASS
+	};
+	Ok(action)
 }

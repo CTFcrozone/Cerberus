@@ -38,7 +38,7 @@ use lib_common::event::CerberusEvent;
 use lib_container::{container_manager::ContainerManager, runtime::k8s_connect};
 use lib_event::unbound::new_channel_unbounded_async;
 use lib_rules::{RuleEngine, RuleSet};
-use std::{path::Path, sync::Arc};
+use std::{collections::HashMap, path::Path, sync::Arc};
 use tracing_subscriber::EnvFilter;
 #[rustfmt::skip]
 use tracing::{debug, warn};
@@ -99,7 +99,6 @@ async fn main() -> Result<()> {
 	}
 
 	let rule_dir = args.rules;
-
 	let ruleset = RuleSet::load_from_dir(&rule_dir)?;
 	let rules: Arc<[Arc<str>]> = ruleset
 		.rules()

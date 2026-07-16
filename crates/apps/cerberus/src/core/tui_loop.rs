@@ -1,5 +1,4 @@
 use std::sync::Arc;
-use std::time::Duration;
 
 use crate::Result;
 use crate::core::event_handler::_handle_app_event;
