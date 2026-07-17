@@ -22,7 +22,7 @@ impl StatefulWidget for CorrelatedEventView {
 	fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
 		const SCROLL_IDEN: ScrollIden = CorrelatedEventView::SCROLL_IDEN;
 
-		let has_events = !state.cerberus_evts_correlated().is_empty();
+		let has_events = !state.correlated_groups().is_empty();
 
 		let block = Block::bordered().padding(Padding::left(1));
 
@@ -42,7 +42,7 @@ fn render_correlated_events(area: Rect, buf: &mut Buffer, state: &mut AppState, 
 	let mut lines: Vec<Line> = Vec::new();
 
 	for (group_idx, ((root_rule_id, seq_id), group)) in state.correlated_groups().iter().enumerate() {
-		let is_selected = group_idx == state.selected_rule();
+		let is_selected = group_idx == state.selected_correlation_group();
 
 		let expanded = group.expanded;
 
@@ -63,11 +63,7 @@ fn render_correlated_events(area: Rect, buf: &mut Buffer, state: &mut AppState, 
 			continue;
 		}
 
-		let mut events: Vec<CorrelationEvent> = group
-			.events
-			.iter()
-			.filter_map(|idx| state.cerberus_evts_correlated().get(*idx).cloned())
-			.collect();
+		let mut events: Vec<&CorrelationEvent> = group.events.iter().collect();
 
 		events.sort_by_key(|e| match e {
 			CorrelationEvent::Step { step_idx, .. } => *step_idx as i32,
@@ -124,50 +120,50 @@ pub fn render_correlation_popup(frame: &mut ratatui::Frame, state: &AppState) {
 	let area = popup_area(frame.area(), 60, 40);
 	frame.render_widget(Clear, area);
 
-	let selected = state.cerberus_evts_correlated().iter().nth(state.selected_rule());
+	let Some(event) = state.selected_event() else {
+		return;
+	};
 
-	if let Some(event) = selected {
-		let mut text = vec![];
+	let mut text = vec![];
 
-		match event {
-			CorrelationEvent::Step {
-				root_rule_id,
-				seq_id,
-				step_idx,
-				matched_rule_id,
-				..
-			} => {
-				text.push(Line::from(format!("Root: {}", root_rule_id)));
-				text.push(Line::from(format!("Sequence: {}", seq_id)));
-				text.push(Line::from(""));
-				text.push(Line::from(format!("Step: {}", step_idx + 1)));
-				text.push(Line::from(format!("Rule: {}", matched_rule_id)));
-			}
-
-			CorrelationEvent::Completed {
-				root_rule_id,
-				seq_id,
-				steps,
-				path,
-				..
-			} => {
-				text.push(Line::from(format!("Root: {}", root_rule_id)));
-				text.push(Line::from(format!("Sequence: {}", seq_id)));
-				text.push(Line::from(""));
-				text.push(Line::from(format!("Steps: {}", steps)));
-				text.push(Line::from("Path:"));
-				text.push(Line::from(
-					path.iter().map(|p| p.as_ref()).collect::<Vec<_>>().join(" → "),
-				));
-			}
+	match event {
+		CorrelationEvent::Step {
+			root_rule_id,
+			seq_id,
+			step_idx,
+			matched_rule_id,
+			..
+		} => {
+			text.push(Line::from(format!("Root: {}", root_rule_id)));
+			text.push(Line::from(format!("Sequence: {}", seq_id)));
+			text.push(Line::from(""));
+			text.push(Line::from(format!("Step: {}", step_idx + 1)));
+			text.push(Line::from(format!("Rule: {}", matched_rule_id)));
 		}
 
-		let popup = Paragraph::new(text)
-			.block(Block::bordered().title("Correlation Details"))
-			.wrap(Wrap { trim: true });
-
-		frame.render_widget(popup, area);
+		CorrelationEvent::Completed {
+			root_rule_id,
+			seq_id,
+			steps,
+			path,
+			..
+		} => {
+			text.push(Line::from(format!("Root: {}", root_rule_id)));
+			text.push(Line::from(format!("Sequence: {}", seq_id)));
+			text.push(Line::from(""));
+			text.push(Line::from(format!("Steps: {}", steps)));
+			text.push(Line::from("Path:"));
+			text.push(Line::from(
+				path.iter().map(|p| p.as_ref()).collect::<Vec<_>>().join(" → "),
+			));
+		}
 	}
+
+	let popup = Paragraph::new(text)
+		.block(Block::bordered().title("Correlation Details"))
+		.wrap(Wrap { trim: true });
+
+	frame.render_widget(popup, area);
 }
 
 fn popup_area(area: Rect, percent_x: u16, percent_y: u16) -> Rect {

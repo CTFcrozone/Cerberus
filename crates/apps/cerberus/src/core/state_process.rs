@@ -34,14 +34,14 @@ fn handle_summary_input(state: &mut AppState) {
 		KeyCode::Down => {
 			let len = state.loaded_hooks.len();
 			if len > 0 {
-				state.selected_hook = ((state.selected_hook as usize + 1) % len) as u32;
+				state.selected_hook = (state.selected_hook as usize + 1) % len;
 			}
 		}
 
 		KeyCode::Up => {
 			let len = state.loaded_hooks.len();
 			if len > 0 {
-				state.selected_hook = ((state.selected_hook as usize + len - 1) % len) as u32;
+				state.selected_hook = (state.selected_hook + len - 1) % len;
 			}
 		}
 
@@ -57,8 +57,11 @@ fn handle_main_input(state: &mut AppState) {
 		KeyCode::Char('s') | KeyCode::Char('S') => state.toggle_view(),
 
 		KeyCode::Enter => {
-			if let Some(((root_rule_id, seq_id), _)) = state.correlated_groups().iter().nth(state.selected_rule()) {
-				state.toggle_correlation_group(Arc::clone(root_rule_id), Arc::clone(seq_id));
+			if matches!(state.current_tab(), Tab::CorrelatedRules) {
+				if let Some(((root, seq), _)) = state.correlated_groups().iter().nth(state.selected_correlation_group())
+				{
+					state.toggle_correlation_group(Arc::clone(root), Arc::clone(seq));
+				}
 			}
 		}
 
@@ -68,9 +71,13 @@ fn handle_main_input(state: &mut AppState) {
 			}
 		}
 
-		KeyCode::Up => state.prev_rule(),
+		KeyCode::Up => {
+			state.prev_selected();
+		}
 
-		KeyCode::Down => state.next_rule(),
+		KeyCode::Down => {
+			state.next_selected();
+		}
 
 		KeyCode::Char('x') => state.clear_current_tab(),
 		KeyCode::Tab => {

@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use std::time::Duration;
 
 use crate::Result;
 use crate::core::event_handler::_handle_app_event;
@@ -30,7 +31,8 @@ pub fn run_ui_loop(
 	shutdown: CancellationToken,
 ) -> Result<UiRuntime> {
 	let mut appstate = AppState::new(rules, hooks, LastAppEvent::default())?;
-
+	// let mut ticker = tokio::time::interval(Duration::from_millis(100));
+	// ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
 	let handle = tokio::spawn(async move {
 		loop {
 			tokio::select! {
@@ -53,6 +55,9 @@ pub fn run_ui_loop(
 					process_app_state(&mut appstate);
 					let _ = terminal_draw(&mut term, &mut appstate);
 				}
+				// _ = ticker.tick() => {
+				// 	let _ = terminal_draw(&mut term, &mut appstate);
+				// }
 			}
 		}
 

@@ -61,7 +61,7 @@ fn render_evaluated_events(area: Rect, buf: &mut Buffer, state: &mut AppState, b
 		.map(|(idx, entry)| {
 			let mut style = severity_style(entry.event.severity);
 
-			if idx == state.selected_rule() {
+			if idx == state.selected_matched_rule() {
 				style = style.bg(Color::DarkGray);
 			}
 
@@ -81,7 +81,7 @@ pub fn render_rule_popup(frame: &mut ratatui::Frame, state: &AppState) {
 	let area = popup_area(frame.area(), 60, 40);
 	frame.render_widget(Clear, area);
 
-	let selected = state.cerberus_evts_matched().nth(state.selected_rule());
+	let selected = state.cerberus_evts_matched().nth(state.selected_matched_rule());
 
 	if let Some(entry) = selected {
 		let text = vec![

@@ -19,18 +19,20 @@ pub struct AppState {
 	pub(in crate::core) loaded_rules: Arc<[Arc<str>]>,
 	pub(in crate::core) last_app_event: LastAppEvent,
 	pub(in crate::core) cerberus_evts_general: VecDeque<CerberusEvent>,
-	pub(in crate::core) cerberus_evts_correlated: VecDeque<CorrelationEvent>,
+	// pub(in crate::core) cerberus_evts_correlated: VecDeque<CorrelationEvent>,
 	pub(in crate::core) cerberus_evts_network: VecDeque<CerberusEvent>,
 	pub(in crate::core) cerberus_evts_matched: IndexMap<Arc<str>, EvaluatedEntry>,
 	pub(in crate::core) rule_type_counts: HashMap<Arc<str>, u64>,
 	pub(in crate::core) severity_counts: [u64; Severity::COUNT],
 	pub correlated_groups: HashMap<(Arc<str>, Arc<str>), CorrelationGroup>,
 	scroll_zones: ScrollZones,
-	pub selected_hook: u32,
+	pub selected_matched_rule: usize,
+	pub selected_correlation_group: usize,
+	pub selected_correlation_event: usize,
+	pub selected_hook: usize,
 	pub current_view: View,
 	pub tab: Tab,
 	pub popup_show: bool,
-	pub selected_rule: u32,
 }
 
 impl AppState {
@@ -52,7 +54,7 @@ impl AppState {
 			correlated_groups: HashMap::new(),
 			last_app_event,
 			scroll_zones: ScrollZones::default(),
-			cerberus_evts_correlated: VecDeque::with_capacity(250),
+			// cerberus_evts_correlated: VecDeque::with_capacity(250),
 			cerberus_evts_general: VecDeque::with_capacity(250),
 			cerberus_evts_network: VecDeque::with_capacity(250),
 			cerberus_evts_matched: IndexMap::new(),
@@ -60,9 +62,11 @@ impl AppState {
 			severity_counts: [0; Severity::COUNT],
 			current_view: View::Main,
 			tab: Tab::General,
-			popup_show: false,
-			selected_rule: 0,
+			selected_correlation_event: 0,
+			selected_correlation_group: 0,
+			selected_matched_rule: 0,
 			selected_hook: 0,
+			popup_show: false,
 		})
 	}
 }
@@ -76,11 +80,15 @@ impl AppState {
 		match self.current_tab() {
 			Tab::General => self.cerberus_evts_general.clear(),
 			Tab::Network => self.cerberus_evts_network.clear(),
-			Tab::MatchedRules => self.cerberus_evts_matched.clear(),
+			Tab::MatchedRules => {
+				self.cerberus_evts_matched.clear();
+				self.selected_matched_rule = 0;
+			}
+
 			Tab::CorrelatedRules => {
-				self.cerberus_evts_correlated.clear();
 				self.correlated_groups.clear();
-				self.selected_rule = 0;
+				self.selected_correlation_group = 0;
+				self.selected_correlation_event = 0;
 			}
 		}
 	}
@@ -184,27 +192,16 @@ impl AppState {
 		let (r, s) = event_key(&evt);
 		let key = (Arc::clone(r), Arc::clone(s));
 
-		if self.cerberus_evts_correlated.len() >= MAX_CORRELATIONS {
-			self.cerberus_evts_correlated.pop_front();
+		let group = self.correlated_groups.entry(key).or_insert_with(|| CorrelationGroup {
+			expanded: false,
+			events: VecDeque::new(),
+		});
 
-			for group in self.correlated_groups.values_mut() {
-				group.events.retain(|&idx| idx != 0);
-				for idx in &mut group.events {
-					*idx -= 1;
-				}
-			}
+		if group.events.len() >= MAX_CORRELATIONS {
+			group.events.pop_front();
 		}
 
-		self.correlated_groups
-			.entry(key)
-			.or_insert_with(|| CorrelationGroup {
-				expanded: false,
-				events: Vec::new(),
-			})
-			.events
-			.push(self.cerberus_evts_correlated.len());
-
-		self.cerberus_evts_correlated.push_back(evt);
+		group.events.push_back(evt);
 	}
 	pub fn correlated_groups(&self) -> &HashMap<(Arc<str>, Arc<str>), CorrelationGroup> {
 		&self.correlated_groups
@@ -214,10 +211,6 @@ impl AppState {
 			.iter()
 			.map(|s| (s.as_str(), self.severity_counts[s.index()]))
 			.collect()
-	}
-
-	pub fn cerberus_evts_correlated(&self) -> &VecDeque<CorrelationEvent> {
-		&self.cerberus_evts_correlated
 	}
 
 	pub fn cerberus_evts_general(&self) -> impl Iterator<Item = &CerberusEvent> {
@@ -251,27 +244,71 @@ impl AppState {
 }
 
 impl AppState {
-	pub fn selected_rule(&self) -> usize {
-		self.selected_rule as usize
+	pub fn selected_matched_rule(&self) -> usize {
+		self.selected_matched_rule
 	}
 
-	pub fn next_rule(&mut self) {
-		let max = self.active_event_rule_count();
-		if max == 0 {
-			return;
+	pub fn selected_correlation_group(&self) -> usize {
+		self.selected_correlation_group
+	}
+
+	// pub fn selected_correlation_event(&self) -> usize {
+	// 	self.selected_correlation_event
+	// }
+
+	pub fn selected_event(&self) -> Option<&CorrelationEvent> {
+		let group = self.correlated_groups.values().nth(self.selected_correlation_group)?;
+
+		group.events.get(self.selected_correlation_event)
+	}
+
+	pub fn next_selected(&mut self) {
+		match self.tab {
+			Tab::MatchedRules => {
+				let max = self.cerberus_evts_matched.len();
+
+				if max > 0 {
+					self.selected_matched_rule = (self.selected_matched_rule + 1) % max;
+				}
+			}
+
+			Tab::CorrelatedRules => {
+				let max = self.correlated_groups.len();
+
+				if max > 0 {
+					self.selected_correlation_group = (self.selected_correlation_group + 1) % max;
+
+					self.selected_correlation_event = 0;
+				}
+			}
+
+			_ => {}
 		}
-
-		self.selected_rule = ((self.selected_rule as usize + 1) % max) as u32;
 	}
 
-	pub fn prev_rule(&mut self) {
-		let max = self.active_event_rule_count();
-		if max == 0 {
-			return;
+	pub fn prev_selected(&mut self) {
+		match self.tab {
+			Tab::MatchedRules => {
+				let max = self.cerberus_evts_matched.len();
+
+				if max > 0 {
+					self.selected_matched_rule = self.selected_matched_rule.checked_sub(1).unwrap_or(max - 1);
+				}
+			}
+
+			Tab::CorrelatedRules => {
+				let max = self.correlated_groups.len();
+
+				if max > 0 {
+					self.selected_correlation_group = self.selected_correlation_group.checked_sub(1).unwrap_or(max - 1);
+
+					self.selected_correlation_event = 0;
+				}
+			}
+
+			_ => {}
 		}
-		self.selected_rule = self.selected_rule.checked_sub(1).unwrap_or((max - 1) as u32);
 	}
-
 	pub fn toggle_rule_popup(&mut self) {
 		self.popup_show = !self.popup_show;
 	}
@@ -298,7 +335,7 @@ pub struct EvaluatedEntry {
 
 pub struct CorrelationGroup {
 	pub expanded: bool,
-	pub events: Vec<usize>,
+	pub events: VecDeque<CorrelationEvent>,
 }
 
 pub enum View {
@@ -326,7 +363,7 @@ fn event_key(evt: &CorrelationEvent) -> (&Arc<str>, &Arc<str>) {
 }
 
 impl Tab {
-	pub fn next(self) -> Self {
+	pub const fn next(self) -> Self {
 		match self {
 			Tab::General => Tab::Network,
 			Tab::Network => Tab::MatchedRules,
@@ -335,7 +372,7 @@ impl Tab {
 		}
 	}
 
-	pub fn as_index(self) -> i32 {
+	pub const fn as_index(self) -> usize {
 		match self {
 			Tab::General => 0,
 			Tab::Network => 1,
