@@ -94,7 +94,8 @@ pub enum Response {
 	KillProcess,
 	DenyExec,
 	IsolateContainer,
-	ThrottleNetwork,
+	BlockIp { ip: u32, _duration_secs: u64 },
+
 	EmitSignal { signal: i32 },
 	Notify { message: String },
 	KvmAction { timeout_ms: u64, exit_budget: u64 },
