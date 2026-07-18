@@ -101,8 +101,13 @@ impl AppState {
 		}
 	}
 
-	pub fn set_tab(&mut self, tab: Tab) {
+	pub fn set_tab(&mut self, tab: Tab) -> bool {
+		if self.tab == tab {
+			return false;
+		}
+
 		self.tab = tab;
+		true
 	}
 }
 
@@ -337,13 +342,13 @@ pub struct CorrelationGroup {
 	pub expanded: bool,
 	pub events: VecDeque<CorrelationEvent>,
 }
-
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum View {
 	Main,
 	Summary,
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Tab {
 	Network,
 	General,

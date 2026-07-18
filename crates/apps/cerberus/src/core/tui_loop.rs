@@ -34,6 +34,10 @@ pub fn run_ui_loop(
 	// let mut ticker = tokio::time::interval(Duration::from_millis(100));
 	// ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
 	let handle = tokio::spawn(async move {
+		let mut ticker = tokio::time::interval(Duration::from_millis(33));
+		ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+
+		let mut dirty = true;
 		loop {
 			tokio::select! {
 				_ = shutdown.cancelled() => break,
@@ -53,11 +57,15 @@ pub fn run_ui_loop(
 					appstate.last_app_event = event.into();
 
 					process_app_state(&mut appstate);
-					let _ = terminal_draw(&mut term, &mut appstate);
+					// let _ = terminal_draw(&mut term, &mut appstate);
+					dirty = true;
 				}
-				// _ = ticker.tick() => {
-				// 	let _ = terminal_draw(&mut term, &mut appstate);
-				// }
+				_ = ticker.tick() => {
+					if dirty {
+						let _ = terminal_draw(&mut term, &mut appstate);
+						dirty = false;
+					}
+				}
 			}
 		}
 

@@ -1,8 +1,11 @@
 use std::sync::Arc;
 
 use aya::{
-	programs::{kprobe::KProbeLinkId, lsm::LsmLinkId, trace_point::TracePointLinkId, KProbe, Lsm, TracePoint},
 	Ebpf,
+	programs::{
+		KProbe, Lsm, TracePoint, Xdp, XdpMode, kprobe::KProbeLinkId, lsm::LsmLinkId, trace_point::TracePointLinkId,
+		xdp::XdpLinkId,
+	},
 };
 use derive_more::From;
 
@@ -16,10 +19,13 @@ pub enum HookLink {
 	Tracepoint(TracePointLinkId),
 	#[from]
 	Kprobe(KProbeLinkId),
+	#[from]
+	Xdp(XdpLinkId),
 }
 
 pub enum HookKind {
 	Lsm,
+	Xdp { iface: Arc<str> },
 	Tracepoint { category: Arc<str>, event: Arc<str> },
 	Kprobe { function: Arc<str>, offset: u64 },
 }
@@ -83,6 +89,17 @@ impl Hook {
 
 				prog.unload()?;
 			}
+
+			HookKind::Xdp { .. } => {
+				let prog: &mut Xdp = ebpf
+					.program_mut(&self.program_name)
+					.ok_or(Error::EbpfProgNotFound {
+						program: self.program_name.clone(),
+					})?
+					.try_into()?;
+
+				prog.unload()?;
+			}
 		}
 		self.link = None;
 
@@ -114,6 +131,17 @@ impl Hook {
 					.try_into()?;
 
 				self.link = Some(prog.attach(category, event)?.into());
+			}
+
+			HookKind::Xdp { iface } => {
+				let prog: &mut Xdp = ebpf
+					.program_mut(&self.program_name)
+					.ok_or(Error::EbpfProgNotFound {
+						program: self.program_name.clone(),
+					})?
+					.try_into()?;
+
+				self.link = Some(prog.attach(iface, XdpMode::default())?.into());
 			}
 
 			HookKind::Kprobe { function, offset } => {
@@ -161,6 +189,17 @@ impl Hook {
 
 			HookLink::Kprobe(id) => {
 				let prog: &mut KProbe = ebpf
+					.program_mut(&self.program_name)
+					.ok_or(Error::EbpfProgNotFound {
+						program: self.program_name.clone(),
+					})?
+					.try_into()?;
+
+				prog.detach(id)?;
+			}
+
+			HookLink::Xdp(id) => {
+				let prog: &mut Xdp = ebpf
 					.program_mut(&self.program_name)
 					.ok_or(Error::EbpfProgNotFound {
 						program: self.program_name.clone(),
