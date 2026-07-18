@@ -1,14 +1,14 @@
 use aya::{
-	programs::{KProbe, Lsm, TracePoint},
 	Btf, Ebpf,
+	programs::{KProbe, Lsm, TracePoint, Xdp, XdpMode},
 };
 
 use crate::{
+	Error, Result,
 	hook_registry::{
 		hook::{Hook, HookKind},
 		registry::HookRegistry,
 	},
-	Error, Result,
 };
 
 pub fn register_lsm(
@@ -88,6 +88,27 @@ pub fn register_kprobe(
 			function: function.into(),
 			offset,
 		},
+		link.into(),
+	))?;
+
+	Ok(())
+}
+
+pub fn register_xdp(ebpf: &mut Ebpf, registry: &mut HookRegistry, program_name: &str, iface: &str) -> Result<()> {
+	let prog: &mut Xdp = ebpf
+		.program_mut(program_name)
+		.ok_or(Error::EbpfProgNotFound {
+			program: program_name.into(),
+		})?
+		.try_into()?;
+
+	prog.load()?;
+
+	let link = prog.attach(iface, XdpMode::default())?;
+
+	registry.add(Hook::new(
+		program_name,
+		HookKind::Xdp { iface: iface.into() },
 		link.into(),
 	))?;
 
