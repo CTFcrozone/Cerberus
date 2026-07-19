@@ -32,6 +32,7 @@ pub enum CompiledConditionValue {
 }
 
 pub fn compile_condition(raw: Condition) -> Result<CompiledCondition> {
+	let field = compile_field(&raw.field)?;
 	let op = compile_op(&raw.op)?;
 
 	let value = match op {
@@ -44,11 +45,7 @@ pub fn compile_condition(raw: Condition) -> Result<CompiledCondition> {
 		_ => compile_value(raw.value)?,
 	};
 
-	Ok(CompiledCondition {
-		field: compile_field(&raw.field)?,
-		op,
-		value,
-	})
+	Ok(CompiledCondition { field, op, value })
 }
 
 fn compile_value(value: toml::Value) -> Result<CompiledConditionValue> {

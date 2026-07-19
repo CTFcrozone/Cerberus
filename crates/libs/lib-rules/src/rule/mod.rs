@@ -1,5 +1,5 @@
 mod common;
-mod compiled;
+pub mod compiled;
 mod rule;
 mod ruleset;
 mod sequence;

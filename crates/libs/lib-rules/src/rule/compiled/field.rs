@@ -38,11 +38,57 @@ pub enum Field {
 	BpfProgType,
 	BpfProgAttachType,
 	BpfProgFlags,
-	BpfProgTag,
 
 	BpfMapName,
 	BpfMapType,
 	BpfMapId,
+}
+
+impl Field {
+	pub const fn as_str(&self) -> &'static str {
+		match self {
+			Field::ProcessPid => "process.pid",
+			Field::ProcessUid => "process.uid",
+			Field::ProcessTgid => "process.tgid",
+			Field::ProcessComm => "process.comm",
+			Field::ProcessFilepath => "process.filepath",
+
+			Field::ProcessTargetPid => "process.target.pid",
+			Field::ProcessTargetTgid => "process.target.tgid",
+			Field::ProcessTargetUid => "process.target.uid",
+			Field::ProcessTargetComm => "process.target.comm",
+
+			Field::SocketOldState => "socket.old_state",
+			Field::SocketNewState => "socket.new_state",
+			Field::SocketPort => "socket.port",
+			Field::SocketFamily => "socket.family",
+			Field::SocketOp => "socket.op",
+
+			Field::NetworkSport => "network.sport",
+			Field::NetworkDport => "network.dport",
+			Field::NetworkProtocol => "network.protocol",
+
+			Field::ModuleName => "module.name",
+			Field::ModuleOp => "module.op",
+
+			Field::InodeFilename => "inode.filename",
+			Field::InodeOldFilename => "inode.old_filename",
+			Field::InodeNewFilename => "inode.new_filename",
+			Field::InodeOp => "inode.op",
+			Field::InodeMutationType => "inode.mutation.type",
+
+			Field::PtraceMode => "ptrace.mode",
+			Field::PtraceStage => "ptrace.stage",
+
+			Field::BpfProgType => "bpf.prog.type",
+			Field::BpfProgAttachType => "bpf.prog.attach_type",
+			Field::BpfProgFlags => "bpf.prog.flags",
+
+			Field::BpfMapName => "bpf.map.name",
+			Field::BpfMapType => "bpf.map.type",
+			Field::BpfMapId => "bpf.map.id",
+		}
+	}
 }
 
 pub fn compile_field(s: &str) -> Result<Field> {
@@ -76,7 +122,6 @@ pub fn compile_field(s: &str) -> Result<Field> {
 		"bpf.prog.type" => Field::BpfProgType,
 		"bpf.prog.attach_type" => Field::BpfProgAttachType,
 		"bpf.prog.flags" => Field::BpfProgFlags,
-		"bpf.prog.tag" => Field::BpfProgTag,
 		"bpf.map.name" => Field::BpfMapName,
 		"bpf.map.type" => Field::BpfMapType,
 		"bpf.map.id" => Field::BpfMapId,

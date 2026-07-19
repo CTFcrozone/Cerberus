@@ -48,7 +48,7 @@ impl RuleWatchWorker {
 				.load()
 				.rules()
 				.iter()
-				.map(|r| Arc::<str>::from(r.inner.id.as_str()))
+				.map(|r| Arc::clone(&r.inner.id))
 				.collect::<Vec<_>>()
 				.into();
 			if let Err(e) = self.tx.send(AppEvent::RuleReload { rules }) {

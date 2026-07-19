@@ -5,7 +5,7 @@ use lib_common::event::EventMeta;
 
 use crate::{
 	engine::{CorrelationEvent, correlator::Correlator, identity::ShardKey},
-	rule::Sequence,
+	rule::{Sequence, compiled::sequence::CompiledSequence},
 };
 
 pub struct ShardedCorrelator {
@@ -30,7 +30,7 @@ impl ShardedCorrelator {
 		}
 	}
 
-	pub fn on_root_match(&self, shard_key: &ShardKey, root_rule_id: &str, seq: &Sequence, now: Instant) {
+	pub fn on_root_match(&self, shard_key: &ShardKey, root_rule_id: &str, seq: &CompiledSequence, now: Instant) {
 		let mut correlator = self.get_or_create(shard_key);
 		correlator.on_root_match(root_rule_id, seq, now);
 	}
@@ -39,7 +39,7 @@ impl ShardedCorrelator {
 		&self,
 		shard_key: &ShardKey,
 		matched_rule_id: &str,
-		seq: &Sequence,
+		seq: &CompiledSequence,
 		root_rule_id: &str,
 		now: Instant,
 		event_meta: &EventMeta,

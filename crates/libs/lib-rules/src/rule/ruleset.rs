@@ -4,6 +4,8 @@ use std::sync::Arc;
 
 use crate::Rule;
 use crate::error::Result;
+use crate::rule::compiled::rule::compile_rule;
+use crate::rule::compiled::ruleset::CompiledRuleSet;
 use glob::glob;
 use serde::Deserialize;
 use tracing::warn;
@@ -104,6 +106,10 @@ impl RuleSet {
 
 	pub fn rules(&self) -> &[Rule] {
 		&self.rules
+	}
+
+	pub fn into_rules(self) -> Vec<Rule> {
+		self.rules
 	}
 
 	pub fn rule_count(&self) -> usize {

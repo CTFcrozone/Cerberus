@@ -216,7 +216,6 @@ impl Event for SocketEvent {
 		f.insert("socket.port".into(), toml::Value::Integer(self.port as i64));
 		f.insert("socket.family".into(), toml::Value::Integer(self.family as i64));
 		f.insert("socket.op".into(), toml::Value::Integer(self.op as i64));
-		f.insert("socket.addr".into(), toml::Value::Integer(self.addr as i64));
 		f
 	}
 }

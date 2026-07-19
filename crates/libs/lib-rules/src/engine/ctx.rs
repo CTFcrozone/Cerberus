@@ -2,6 +2,8 @@ use lib_common::event::Event;
 use std::collections::HashMap;
 use toml::Value as TomlValue;
 
+use crate::rule::compiled::field::Field;
+
 #[derive(Debug)]
 pub struct EvalCtx {
 	fields: HashMap<String, TomlValue>,
@@ -13,6 +15,9 @@ impl EvalCtx {
 	}
 	pub fn get(&self, key: &str) -> Option<&TomlValue> {
 		self.fields.get(key)
+	}
+	pub fn get_field(&self, field: &Field) -> Option<&TomlValue> {
+		self.fields.get(field.as_str())
 	}
 
 	#[allow(dead_code)]

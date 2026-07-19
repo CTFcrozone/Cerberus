@@ -6,7 +6,14 @@ use toml::Value;
 
 use crate::{
 	engine::EvalCtx,
-	rule::{Condition, RuleInner},
+	rule::{
+		Condition, RuleInner,
+		compiled::{
+			condition::{CompiledCondition, CompiledConditionValue},
+			op::Op,
+			rule::CompiledRuleInner,
+		},
+	},
 };
 
 // till compiled rules are fully implemented
@@ -24,6 +31,98 @@ impl Evaluator {
 			(Value::String(as_), Value::String(bs_)) => as_ == bs_,
 			(Value::Boolean(ab), Value::Boolean(bb)) => ab == bb,
 			_ => a == b,
+		}
+	}
+
+	pub fn eval_condition_compiled(left: Option<&Value>, cond: &CompiledCondition) -> bool {
+		match cond.op {
+			Op::Eq => left.map_or(false, |l| Self::equals_compiled(l, &cond.value)),
+			Op::NotEq => left.map_or(false, |l| !Self::equals_compiled(l, &cond.value)),
+			Op::StartsWith => match (left, &cond.value) {
+				(Some(Value::String(a)), CompiledConditionValue::String(b)) => a.starts_with(b.as_ref()),
+
+				_ => false,
+			},
+			Op::Contains => match (left, &cond.value) {
+				(Some(Value::String(a)), CompiledConditionValue::String(b)) => a.contains(b.as_ref()),
+				_ => false,
+			},
+			Op::Regex => match (left, &cond.value) {
+				(Some(Value::String(text)), CompiledConditionValue::Regex(regex)) => regex.is_match(text),
+
+				_ => false,
+			},
+			Op::BitAnd => match (left, &cond.value) {
+				(Some(Value::Integer(a)), CompiledConditionValue::Int(b)) => (*a & *b) != 0,
+				_ => false,
+			},
+			Op::In => match (left, &cond.value) {
+				(Some(Value::Integer(v)), CompiledConditionValue::IntSet(set)) => set.contains(v),
+				(Some(Value::String(v)), CompiledConditionValue::StringSet(set)) => set.iter().any(|x| x.as_ref() == v),
+				_ => false,
+			},
+			Op::NotIn => !Self::eval_in(left, &cond.value),
+			Op::Exists => left.is_some(),
+			Op::Gt => Self::numeric_cmp_compiled(left, &cond.value, |a, b| a > b),
+			Op::Gte => Self::numeric_cmp_compiled(left, &cond.value, |a, b| a >= b),
+			Op::Lt => Self::numeric_cmp_compiled(left, &cond.value, |a, b| a < b),
+			Op::Lte => Self::numeric_cmp_compiled(left, &cond.value, |a, b| a <= b),
+		}
+	}
+
+	fn eval_in(left: Option<&Value>, right: &CompiledConditionValue) -> bool {
+		let Some(left) = left else {
+			return false;
+		};
+
+		match right {
+			CompiledConditionValue::IntSet(set) => left.as_integer().map(|v| set.contains(&v)).unwrap_or(false),
+
+			CompiledConditionValue::StringSet(set) => {
+				left.as_str().map(|v| set.iter().any(|x| x.as_ref() == v)).unwrap_or(false)
+			}
+
+			CompiledConditionValue::IpSet(set) => left
+				.as_str()
+				.and_then(|s| s.parse::<std::net::IpAddr>().ok())
+				.map(|ip| set.contains(&ip))
+				.unwrap_or(false),
+
+			_ => false,
+		}
+	}
+
+	fn numeric_cmp_compiled<F>(left: Option<&Value>, right: &CompiledConditionValue, cmp: F) -> bool
+	where
+		F: Fn(f64, f64) -> bool,
+	{
+		let Some(left) = left else {
+			return false;
+		};
+
+		let Some(a) = left.as_integer().map(|x| x as f64).or_else(|| left.as_float()) else {
+			return false;
+		};
+
+		let Some(b) = (match right {
+			CompiledConditionValue::Int(x) => Some(*x as f64),
+			_ => None,
+		}) else {
+			return false;
+		};
+
+		cmp(a, b)
+	}
+
+	fn equals_compiled(left: &Value, right: &CompiledConditionValue) -> bool {
+		match (left, right) {
+			(Value::Integer(a), CompiledConditionValue::Int(b)) => a == b,
+
+			(Value::String(a), CompiledConditionValue::String(b)) => a == b.as_ref(),
+
+			(Value::Boolean(a), CompiledConditionValue::Bool(b)) => a == b,
+
+			_ => false,
 		}
 	}
 
@@ -95,6 +194,13 @@ impl Evaluator {
 
 			_ => false,
 		}
+	}
+
+	pub fn rule_matches_compiled(rule: &CompiledRuleInner, ctx: &EvalCtx) -> bool {
+		rule.conditions.iter().all(|cond| {
+			let left = ctx.get_field(&cond.field);
+			Self::eval_condition_compiled(left, cond)
+		})
 	}
 
 	pub fn rule_matches(rule: &RuleInner, ctx: &EvalCtx) -> bool {
