@@ -1,8 +1,6 @@
 [rule]
 id = "pid-exists"
 description = "Triggers on any event"
-type = "exec"
-category = "test"
 severity = "low"
 
 [[rule.conditions]]

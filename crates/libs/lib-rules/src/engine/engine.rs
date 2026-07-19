@@ -146,7 +146,6 @@ impl RuleEngine {
 			rule_id: Arc::from(rule.inner.id.as_str()),
 			rule_hash: rule.hash_hex.clone(),
 			severity: rule.inner.severity,
-			rule_type: rule.inner.r#type.as_str().into(),
 			event_meta,
 		}
 	}
@@ -201,7 +200,6 @@ mod tests {
 		let header = event.header(); // via Event trait
 		assert_eq!(matched.rule_id, "pid-exists".into());
 		assert_eq!(matched.severity, Severity::Low);
-		assert_eq!(matched.rule_type, "exec".into());
 		assert_eq!(matched.event_meta.pid, header.pid);
 
 		Ok(())
@@ -213,9 +211,7 @@ mod tests {
 			inner: crate::rule::RuleInner {
 				id: "pid-zero-only".to_string(),
 				description: "Matches only pid=0".to_string(),
-				r#type: "exec".to_string(),
 				severity: Severity::High,
-				category: None,
 				conditions: vec![crate::rule::Condition {
 					field: "process.pid".to_string(),
 					op: "equals".to_string(),
@@ -263,9 +259,7 @@ mod tests {
 			inner: crate::rule::RuleInner {
 				id: "tcp-state-change".to_string(),
 				description: "Detect TCP state transitions".to_string(),
-				r#type: "network".to_string(),
 				severity: Severity::Medium,
-				category: None,
 				conditions: vec![
 					crate::rule::Condition {
 						field: "network.protocol".to_string(),
@@ -317,7 +311,6 @@ mod tests {
 		assert_eq!(res.len(), 1);
 		let matched = expect_matched(&res[0]);
 		assert_eq!(matched.rule_id, "tcp-state-change".into());
-		assert_eq!(matched.rule_type, "network".into());
 
 		Ok(())
 	}
@@ -358,7 +351,6 @@ mod tests {
 		let matched = Evaluator::rule_matches(&matched_rule.inner, &ctx);
 		assert!(matched);
 		assert_eq!(matched_rule.inner.severity, Severity::VeryLow);
-		assert_eq!(matched_rule.inner.category.as_deref(), Some("test"));
 
 		Ok(())
 	}

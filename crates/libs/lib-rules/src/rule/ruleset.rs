@@ -2,8 +2,8 @@ use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
 
-use crate::error::Result;
 use crate::Rule;
+use crate::error::Result;
 use glob::glob;
 use serde::Deserialize;
 use tracing::warn;

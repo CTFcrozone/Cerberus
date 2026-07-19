@@ -87,7 +87,6 @@ pub fn render_rule_popup(frame: &mut ratatui::Frame, state: &AppState) {
 		let text = vec![
 			Line::from(format!("Rule ID: {}", entry.event.rule_id)),
 			Line::from(format!("Severity: {}", entry.event.severity.as_str())),
-			Line::from(format!("Type: {}", entry.event.rule_type)),
 			Line::from(format!("Matches: {}", entry.count)),
 			Line::from(""),
 			Line::from(format!("Hash: {}", entry.event.rule_hash)),

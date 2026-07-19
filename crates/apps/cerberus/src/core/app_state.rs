@@ -179,14 +179,6 @@ impl AppState {
 }
 
 impl AppState {
-	// pub fn cerberus_evts_general(&self) -> &[CerberusEvent] {
-	// 	&self.cerberus_evts_general
-	// }
-	//
-	pub fn barchart_rule_type(&self) -> Vec<(&str, u64)> {
-		self.rule_type_counts.iter().map(|(k, v)| (k.as_ref(), *v)).collect()
-	}
-
 	pub fn toggle_correlation_group(&mut self, root_rule_id: Arc<str>, seq_id: Arc<str>) {
 		if let Some(group) = self.correlated_groups.get_mut(&(root_rule_id, seq_id)) {
 			group.expanded = !group.expanded;

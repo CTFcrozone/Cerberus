@@ -91,8 +91,6 @@ fn handle_correlation_event(event: &CorrelationEvent, app_state: &mut AppState) 
 }
 
 fn handle_cerberus_eval_event(event: &EvaluatedEvent, app_state: &mut AppState) {
-	*app_state.rule_type_counts.entry(Arc::clone(&event.rule_type)).or_insert(0) += 1;
-
 	app_state.severity_counts[event.severity.index()] += 1;
 
 	if let Some(entry) = app_state.cerberus_evts_matched.get_mut(&event.rule_id) {

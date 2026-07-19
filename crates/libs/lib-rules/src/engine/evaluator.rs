@@ -224,9 +224,7 @@ mod tests {
 		let rule_ok = RuleInner {
 			id: "ok".into(),
 			description: "ok".into(),
-			r#type: "generic_event".into(),
 			severity: crate::rule::Severity::Info,
-			category: None,
 			conditions: vec![
 				cond("pid", "equals", Value::Integer(123)),
 				cond("comm", "==", Value::String("bash".into())),
@@ -240,9 +238,7 @@ mod tests {
 		let rule_fail = RuleInner {
 			id: "fail".into(),
 			description: "fail".into(),
-			r#type: "generic_event".into(),
 			severity: crate::rule::Severity::Info,
-			category: None,
 			conditions: vec![
 				cond("pid", "equals", Value::Integer(123)),
 				cond("uid", "equals", Value::Integer(0)),
