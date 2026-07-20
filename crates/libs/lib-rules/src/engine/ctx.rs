@@ -1,5 +1,5 @@
 use lib_common::event::Event;
-use std::collections::HashMap;
+use std::{collections::HashMap, net::IpAddr};
 use toml::Value as TomlValue;
 
 use crate::rule::compiled::field::Field;
@@ -8,11 +8,19 @@ use crate::rule::compiled::field::Field;
 pub struct EvalCtx {
 	fields: HashMap<String, TomlValue>,
 }
+#[allow(unused)]
+pub enum FieldValue<'a> {
+	Bool(bool),
+	Int(i64),
+	Str(&'a str),
+	Ip(IpAddr),
+}
 
 impl EvalCtx {
 	pub fn new(fields: HashMap<String, TomlValue>) -> Self {
 		Self { fields }
 	}
+	#[allow(unused)]
 	pub fn get(&self, key: &str) -> Option<&TomlValue> {
 		self.fields.get(key)
 	}

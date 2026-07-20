@@ -4,8 +4,6 @@ use std::sync::Arc;
 
 use crate::Rule;
 use crate::error::Result;
-use crate::rule::compiled::rule::compile_rule;
-use crate::rule::compiled::ruleset::CompiledRuleSet;
 use glob::glob;
 use serde::Deserialize;
 use tracing::warn;
@@ -14,7 +12,6 @@ use tracing::warn;
 #[derive(Debug, Deserialize, Clone)]
 pub struct RuleSet {
 	rules: Vec<Rule>,
-
 	#[serde(skip)]
 	by_id: HashMap<Arc<str>, usize>,
 	#[serde(skip)]

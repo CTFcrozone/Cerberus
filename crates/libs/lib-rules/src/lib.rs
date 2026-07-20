@@ -2,7 +2,6 @@
 // mod compiled;
 mod engine;
 mod error;
-mod executor;
 mod hash_utils;
 mod rule;
 

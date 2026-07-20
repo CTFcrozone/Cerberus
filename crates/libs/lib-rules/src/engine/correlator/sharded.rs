@@ -5,7 +5,7 @@ use lib_common::event::EventMeta;
 
 use crate::{
 	engine::{CorrelationEvent, correlator::Correlator, identity::ShardKey},
-	rule::{Sequence, compiled::sequence::CompiledSequence},
+	rule::compiled::sequence::CompiledSequence,
 };
 
 pub struct ShardedCorrelator {

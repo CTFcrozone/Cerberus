@@ -7,7 +7,6 @@ use crate::engine::correlator::ShardedCorrelator;
 use crate::engine::identity::ShardKey;
 use crate::engine::{EngineEvent, EvalCtx, EvaluatedEvent, Evaluator, EventKind, RuleIndex};
 use crate::error::Result;
-use crate::rule::Rule;
 use crate::rule::compiled::rule::CompiledRule;
 use crate::rule::compiled::ruleset::CompiledRuleSet;
 use crate::{Error, RuleSet};

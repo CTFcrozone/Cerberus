@@ -1,6 +1,4 @@
-use std::{net::IpAddr, sync::Arc, time::Duration};
-
-use regex::Regex;
+use std::sync::Arc;
 
 use crate::{
 	Rule, Severity,

@@ -1,8 +1,4 @@
-use std::{
-	net::{IpAddr, Ipv4Addr},
-	sync::Arc,
-	time::Duration,
-};
+use std::{net::Ipv4Addr, sync::Arc, time::Duration};
 
 use crate::{Response, error::Result};
 

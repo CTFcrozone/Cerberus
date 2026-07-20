@@ -3,10 +3,7 @@ use std::{collections::HashMap, sync::Arc, time::Instant, usize};
 use lib_common::event::EventMeta;
 use uuid::Uuid;
 
-use crate::{
-	engine::CorrelationEvent,
-	rule::{Sequence, compiled::sequence::CompiledSequence},
-};
+use crate::{engine::CorrelationEvent, rule::compiled::sequence::CompiledSequence};
 
 //todo: 	// for pid scoping
 // active: HashMap<Arc<str>, HashMap<Option<u32>, HashMap<Arc<str>, Vec<SequenceProgress>>>>,
@@ -141,7 +138,7 @@ mod tests {
 
 	use std::{panic, time::Duration};
 
-	use crate::rule::{SequenceKind, Step, compiled::sequence::CompiledStep};
+	use crate::rule::{SequenceKind, compiled::sequence::CompiledStep};
 
 	use super::*;
 

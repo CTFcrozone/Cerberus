@@ -4,10 +4,7 @@ use lib_common::event::CerberusEvent;
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 
-use crate::{
-	RuleSet,
-	rule::compiled::{field::Field, ruleset::CompiledRuleSet},
-};
+use crate::rule::compiled::{field::Field, ruleset::CompiledRuleSet};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, EnumIter)]
 pub enum EventKind {

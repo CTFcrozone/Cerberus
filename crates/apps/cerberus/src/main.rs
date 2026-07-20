@@ -38,10 +38,10 @@ use lib_common::event::CerberusEvent;
 use lib_container::{container_manager::ContainerManager, runtime::k8s_connect};
 use lib_event::unbound::new_channel_unbounded_async;
 use lib_rules::{RuleEngine, RuleSet};
-use std::{collections::HashMap, path::Path, sync::Arc};
+use std::{path::Path, sync::Arc};
 use tracing_subscriber::EnvFilter;
 #[rustfmt::skip]
-use tracing::{debug, warn};
+use tracing::{debug};
 use tokio::io::unix::AsyncFd;
 
 #[tokio::main]
