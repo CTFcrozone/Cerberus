@@ -1,3 +1,5 @@
+use std::net::IpAddr;
+
 use toml::Value;
 
 use crate::{
@@ -34,11 +36,7 @@ impl Evaluator {
 				(Some(Value::Integer(a)), CompiledConditionValue::Int(b)) => (*a & *b) != 0,
 				_ => false,
 			},
-			Op::In => match (left, &cond.value) {
-				(Some(Value::Integer(v)), CompiledConditionValue::IntSet(set)) => set.contains(v),
-				(Some(Value::String(v)), CompiledConditionValue::StringSet(set)) => set.iter().any(|x| x.as_ref() == v),
-				_ => false,
-			},
+			Op::In => Self::eval_in(left, &cond.value),
 			Op::NotIn => !Self::eval_in(left, &cond.value),
 			Op::Exists => left.is_some(),
 			Op::Gt => Self::numeric_cmp_compiled(left, &cond.value, |a, b| a > b),
@@ -53,19 +51,17 @@ impl Evaluator {
 			return false;
 		};
 
-		match right {
-			CompiledConditionValue::IntSet(set) => left.as_integer().map(|v| set.contains(&v)).unwrap_or(false),
-
-			CompiledConditionValue::StringSet(set) => {
-				left.as_str().map(|v| set.iter().any(|x| x.as_ref() == v)).unwrap_or(false)
+		match (left, right) {
+			(Value::Integer(v), CompiledConditionValue::IntSet(set)) => set.contains(v),
+			(Value::String(v), CompiledConditionValue::StringSet(set)) => set.iter().any(|x| x.as_ref() == v),
+			(Value::String(v), CompiledConditionValue::IpSet(set)) => {
+				if let Ok(ip) = v.parse::<std::net::Ipv4Addr>() {
+					let ip_u32 = u32::from_be_bytes(ip.octets());
+					set.contains(&ip_u32)
+				} else {
+					false
+				}
 			}
-
-			CompiledConditionValue::IpSet(set) => left
-				.as_str()
-				.and_then(|s| s.parse::<std::net::IpAddr>().ok())
-				.map(|ip| set.contains(&ip))
-				.unwrap_or(false),
-
 			_ => false,
 		}
 	}
@@ -99,7 +95,13 @@ impl Evaluator {
 			(Value::String(a), CompiledConditionValue::String(b)) => a == b.as_ref(),
 
 			(Value::Boolean(a), CompiledConditionValue::Bool(b)) => a == b,
-
+			(Value::String(a), CompiledConditionValue::Ip(ip_u32)) => {
+				if let Ok(ip) = a.parse::<std::net::Ipv4Addr>() {
+					u32::from_be_bytes(ip.octets()) == *ip_u32
+				} else {
+					false
+				}
+			}
 			_ => false,
 		}
 	}

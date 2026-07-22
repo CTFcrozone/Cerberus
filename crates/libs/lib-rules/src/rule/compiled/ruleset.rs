@@ -10,7 +10,7 @@ use crate::{
 pub struct CompiledRuleSet {
 	rules: Vec<CompiledRule>,
 	by_id: HashMap<Arc<str>, usize>,
-	seq_by_id: HashMap<Arc<str>, Arc<str>>,
+	seq_by_id: HashMap<Arc<str>, usize>,
 }
 
 impl CompiledRuleSet {
@@ -26,7 +26,7 @@ impl CompiledRuleSet {
 			}
 
 			if let Some(seq) = &rule.inner.sequence {
-				if seq_by_id.insert(seq.id.clone(), id.clone()).is_some() {
+				if seq_by_id.insert(seq.id.clone(), idx).is_some() {
 					return Err(Error::DuplicateSequenceId { id: seq.id.to_string() });
 				}
 			}

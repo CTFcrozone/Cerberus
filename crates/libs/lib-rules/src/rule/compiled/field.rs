@@ -21,6 +21,8 @@ pub enum Field {
 
 	NetworkSport,
 	NetworkDport,
+	NetworkSaddr,
+	NetworkDaddr,
 	NetworkProtocol,
 
 	ModuleName,
@@ -72,6 +74,8 @@ impl Field {
 			Field::SocketFamily => "socket.family",
 			Field::SocketOp => "socket.op",
 
+			Field::NetworkDaddr => "network.daddr",
+			Field::NetworkSaddr => "network.saddr",
 			Field::NetworkSport => "network.sport",
 			Field::NetworkDport => "network.dport",
 			Field::NetworkProtocol => "network.protocol",
@@ -116,6 +120,8 @@ impl Field {
 
 			// Network
 			Field::NetworkSport | Field::NetworkDport => FieldType::Int,
+
+			Field::NetworkDaddr | Field::NetworkSaddr => FieldType::Ip,
 
 			Field::NetworkProtocol => FieldType::String,
 
@@ -162,6 +168,8 @@ pub fn compile_field(s: &str) -> Result<Field> {
 		"network.sport" => Field::NetworkSport,
 		"network.dport" => Field::NetworkDport,
 		"network.protocol" => Field::NetworkProtocol,
+		"network.daddr" => Field::NetworkDaddr,
+		"network.saddr" => Field::NetworkSaddr,
 		"module.name" => Field::ModuleName,
 		"module.op" => Field::ModuleOp,
 		"inode.filename" => Field::InodeFilename,

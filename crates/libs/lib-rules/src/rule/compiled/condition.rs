@@ -14,6 +14,7 @@ use crate::{
 	},
 };
 
+pub type IpRepr = u32;
 pub struct CompiledCondition {
 	pub field: Field,
 	pub op: Op,
@@ -27,8 +28,8 @@ pub enum CompiledConditionValue {
 	Regex(Arc<Regex>),
 	IntSet(Vec<i64>),
 	StringSet(Vec<Arc<str>>),
-	Ip(IpAddr),
-	IpSet(Vec<IpAddr>),
+	Ip(IpRepr),
+	IpSet(Vec<IpRepr>),
 }
 
 impl CompiledConditionValue {
@@ -66,7 +67,13 @@ fn compile_value(value: toml::Value) -> Result<CompiledConditionValue> {
 	match value {
 		toml::Value::Boolean(v) => Ok(CompiledConditionValue::Bool(v)),
 		toml::Value::Integer(v) => Ok(CompiledConditionValue::Int(v)),
-		toml::Value::String(v) => Ok(CompiledConditionValue::String(v.into())),
+		toml::Value::String(v) => {
+			if let Ok(ip) = v.parse::<std::net::Ipv4Addr>() {
+				Ok(CompiledConditionValue::Ip(u32::from_be_bytes(ip.octets())))
+			} else {
+				Ok(CompiledConditionValue::String(v.into()))
+			}
+		}
 		toml::Value::Array(values) => {
 			let Some(first) = values.first() else {
 				return Err(Error::InvalidConditionValue);
@@ -82,11 +89,24 @@ fn compile_value(value: toml::Value) -> Result<CompiledConditionValue> {
 				}
 
 				toml::Value::String(_) => {
-					let mut out = Vec::with_capacity(values.len());
+					let mut ip_values = Vec::with_capacity(values.len());
+					let mut string_values = Vec::with_capacity(values.len());
+					let mut all_ips = true;
+
 					for v in values {
-						out.push(Arc::<str>::from(v.as_str().ok_or(Error::InvalidConditionValue)?));
+						let s = v.as_str().ok_or(Error::InvalidConditionValue)?;
+						if let Ok(ip) = s.parse::<std::net::Ipv4Addr>() {
+							ip_values.push(u32::from_be_bytes(ip.octets()));
+						} else {
+							all_ips = false;
+							string_values.push(Arc::<str>::from(s));
+						}
 					}
-					Ok(CompiledConditionValue::StringSet(out))
+					if all_ips && !ip_values.is_empty() {
+						Ok(CompiledConditionValue::IpSet(ip_values))
+					} else {
+						Ok(CompiledConditionValue::StringSet(string_values))
+					}
 				}
 				_ => Err(Error::InvalidConditionValue),
 			}
@@ -301,6 +321,104 @@ mod tests {
 
 		// -- Check
 		assert!(compiled.is_err());
+	}
+
+	#[test]
+	fn compile_ip_equality_condition() -> Result<()> {
+		// -- Setup & Fixtures
+		let condition = cond("network.daddr", "==", Value::String("192.168.1.100".into()));
+
+		// -- Exec
+		let compiled = compile_condition(condition)?;
+
+		// -- Check
+		assert!(matches!(compiled.value, CompiledConditionValue::Ip(_)));
+		if let CompiledConditionValue::Ip(ip) = compiled.value {
+			assert_eq!(ip, u32::from_be_bytes([192, 168, 1, 100]));
+		}
+
+		Ok(())
+	}
+	#[test]
+	fn compile_ip_in_condition() -> Result<()> {
+		// -- Setup & Fixtures
+		let condition = cond(
+			"network.daddr",
+			"in",
+			Value::Array(vec![
+				Value::String("192.168.1.100".into()),
+				Value::String("10.0.0.1".into()),
+				Value::String("172.16.0.1".into()),
+			]),
+		);
+
+		// -- Exec
+		let compiled = compile_condition(condition)?;
+
+		// -- Check
+		assert!(matches!(compiled.value, CompiledConditionValue::IpSet(_)));
+		if let CompiledConditionValue::IpSet(ips) = compiled.value {
+			assert_eq!(ips.len(), 3);
+			assert!(ips.contains(&u32::from_be_bytes([192, 168, 1, 100])));
+			assert!(ips.contains(&u32::from_be_bytes([10, 0, 0, 1])));
+			assert!(ips.contains(&u32::from_be_bytes([172, 16, 0, 1])));
+		}
+
+		Ok(())
+	}
+	#[test]
+	fn compile_invalid_ip_fails_to_compile() -> Result<()> {
+		// -- Setup & Fixtures
+		let condition = cond("network.daddr", "==", Value::String("999.999.999.999".into()));
+
+		// -- Exec
+		let compiled = compile_condition(condition);
+
+		// -- Check
+		assert!(compiled.is_err());
+
+		Ok(())
+	}
+	#[test]
+	fn reject_ip_field_with_string_set_validation() -> Result<()> {
+		// -- Setup & Fixtures
+		let condition = cond(
+			"network.daddr",
+			"in",
+			Value::Array(vec![
+				Value::String("192.168.1.100".into()),
+				Value::String("not-an-ip".into()),
+			]),
+		);
+
+		// -- Exec
+		let compiled = compile_condition(condition);
+
+		// -- Check
+		assert!(compiled.is_err());
+
+		Ok(())
+	}
+
+	#[test]
+	fn compile_ip_not_in_condition() -> Result<()> {
+		// -- Setup & Fixtures
+		let condition = cond(
+			"network.daddr",
+			"not_in",
+			Value::Array(vec![
+				Value::String("192.168.1.100".into()),
+				Value::String("10.0.0.1".into()),
+			]),
+		);
+
+		// -- Exec
+		let compiled = compile_condition(condition)?;
+
+		// -- Check
+		assert!(matches!(compiled.value, CompiledConditionValue::IpSet(_)));
+
+		Ok(())
 	}
 }
 
