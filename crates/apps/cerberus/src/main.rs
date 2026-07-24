@@ -19,7 +19,7 @@ use crate::{
 	hook_registry::{
 		HookView,
 		event::HookCommand,
-		helper_fns::{register_kprobe, register_lsm, register_tracepoint},
+		helper_fns::{register_kprobe, register_lsm, register_tracepoint, register_xdp},
 		registry::HookRegistry,
 	},
 	supervisor::Supervisor,
@@ -127,7 +127,7 @@ async fn main() -> Result<()> {
 
 	let mut registry = HookRegistry::default();
 
-	let ringbuf_fd = load_hooks(&mut ebpf, &mut registry)?;
+	let ringbuf_fd = load_hooks(&mut ebpf, &mut registry, &args.iface)?;
 
 	let hooks = registry
 		.hooks()
@@ -186,7 +186,7 @@ async fn main() -> Result<()> {
 	Ok(())
 }
 
-pub fn load_hooks(ebpf: &mut Ebpf, registry: &mut HookRegistry) -> Result<AsyncFd<RingBuf<MapData>>> {
+pub fn load_hooks(ebpf: &mut Ebpf, registry: &mut HookRegistry, iface: &str) -> Result<AsyncFd<RingBuf<MapData>>> {
 	let btf = Btf::from_sys_fs()?;
 	register_lsm(ebpf, registry, "sys_enter_kill", "task_kill", &btf)?;
 	register_lsm(ebpf, registry, "socket_connect", "socket_connect", &btf)?;
@@ -204,6 +204,7 @@ pub fn load_hooks(ebpf: &mut Ebpf, registry: &mut HookRegistry) -> Result<AsyncF
 	register_tracepoint(ebpf, registry, "inet_sock_set_state", "sock", "inet_sock_set_state")?;
 	register_tracepoint(ebpf, registry, "sys_enter_ptrace", "syscalls", "sys_enter_ptrace")?;
 	register_kprobe(ebpf, registry, "do_init_module", "do_init_module", 0)?;
+	register_xdp(ebpf, registry, "xdp_hook", iface)?;
 
 	let ring_buf = RingBuf::try_from(
 		ebpf.take_map("EVT_MAP")
