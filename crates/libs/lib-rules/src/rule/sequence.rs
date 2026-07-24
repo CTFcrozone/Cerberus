@@ -1,19 +1,6 @@
 use serde::Deserialize;
 
-#[cfg_attr(test, derive(PartialEq))]
-#[derive(Debug, Deserialize, Clone)]
-#[serde(rename_all = "lowercase")]
-pub enum SequenceKind {
-	Rule,
-	Event,
-}
-
-#[cfg_attr(test, derive(PartialEq))]
-#[derive(Debug, Deserialize, Clone)]
-#[serde(rename_all = "lowercase")]
-pub enum Scope {
-	Pid,
-}
+use crate::rule::common::{Scope, SequenceKind};
 
 #[cfg_attr(test, derive(PartialEq))]
 #[derive(Debug, Deserialize, Clone)]

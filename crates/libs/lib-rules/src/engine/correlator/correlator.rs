@@ -3,7 +3,7 @@ use std::{collections::HashMap, sync::Arc, time::Instant, usize};
 use lib_common::event::EventMeta;
 use uuid::Uuid;
 
-use crate::{engine::CorrelationEvent, rule::Sequence};
+use crate::{engine::CorrelationEvent, rule::compiled::sequence::CompiledSequence};
 
 //todo: 	// for pid scoping
 // active: HashMap<Arc<str>, HashMap<Option<u32>, HashMap<Arc<str>, Vec<SequenceProgress>>>>,
@@ -37,7 +37,7 @@ impl Correlator {
 		Self { active: HashMap::new() }
 	}
 
-	pub fn on_root_match(&mut self, root_rule_id: &str, seq: &Sequence, now: Instant) {
+	pub fn on_root_match(&mut self, root_rule_id: &str, seq: &CompiledSequence, now: Instant) {
 		if seq.steps.is_empty() {
 			return;
 		}
@@ -48,7 +48,7 @@ impl Correlator {
 		root.insert(
 			instance_id.clone(),
 			SequenceProgress {
-				seq_id: seq.id.clone().into(),
+				seq_id: seq.id.clone(),
 				path: Vec::new(),
 				step_idx: 0,
 				last_match: now,
@@ -60,7 +60,7 @@ impl Correlator {
 	pub fn on_rule_match(
 		&mut self,
 		matched_rule_id: &str,
-		seq: &Sequence,
+		seq: &CompiledSequence,
 		root_rule_id: &str,
 		now: Instant,
 		event_meta: &EventMeta,
@@ -72,7 +72,7 @@ impl Correlator {
 		let mut out = Vec::new();
 
 		for (instance_id, prog) in root.iter_mut() {
-			if prog.seq_id.as_ref() != seq.id {
+			if prog.seq_id.as_ref() != seq.id.as_ref() {
 				continue;
 			}
 
@@ -84,7 +84,7 @@ impl Correlator {
 				None => continue,
 			};
 
-			if expected.rule_id != matched_rule_id {
+			if expected.rule_id.as_ref() != matched_rule_id {
 				continue;
 			}
 
@@ -138,20 +138,20 @@ mod tests {
 
 	use std::{panic, time::Duration};
 
-	use crate::rule::{SequenceKind, Step};
+	use crate::rule::{SequenceKind, compiled::sequence::CompiledStep};
 
 	use super::*;
 
-	fn mk_seq() -> Sequence {
-		Sequence {
+	fn mk_seq() -> CompiledSequence {
+		CompiledSequence {
 			id: "test".into(),
 			kind: SequenceKind::Rule,
 			steps: vec![
-				Step {
+				CompiledStep {
 					rule_id: "port-scan".into(),
 					within: Duration::from_secs(10),
 				},
-				Step {
+				CompiledStep {
 					rule_id: "service-probe".into(),
 					within: Duration::from_secs(15),
 				},
@@ -324,7 +324,7 @@ mod tests {
 		// -- Setup & Fixtures
 		let mut corr = Correlator::new();
 		let t0 = Instant::now();
-		let seq = Sequence {
+		let seq = CompiledSequence {
 			id: "test".into(),
 			kind: SequenceKind::Rule,
 			steps: vec![],

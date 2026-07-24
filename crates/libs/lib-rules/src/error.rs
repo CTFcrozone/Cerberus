@@ -32,6 +32,14 @@ pub enum Error {
 	DuplicateSequenceId {
 		id: String,
 	},
+	UnknownField {
+		field: String,
+	},
+	UnknownOp {
+		op: String,
+	},
+	InvalidConditionValue,
+	InvalidRegex,
 	// -- Externals
 	#[from]
 	#[display("{_0}")]

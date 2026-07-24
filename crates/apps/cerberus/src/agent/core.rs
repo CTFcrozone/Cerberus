@@ -64,8 +64,8 @@ fn print_alert(e: &EngineEvent) {
 	match e {
 		EngineEvent::Matched(ev) => {
 			warn!(
-				"[{}] {} (PID: {}, UID: {})",
-				ev.rule_type, ev.rule_id, ev.event_meta.pid, ev.event_meta.uid
+				"[{}] (PID: {}, UID: {})",
+				ev.rule_id, ev.event_meta.pid, ev.event_meta.uid
 			);
 		}
 		EngineEvent::Correlation(_ev) => {

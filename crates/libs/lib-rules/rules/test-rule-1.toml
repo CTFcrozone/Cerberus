@@ -1,8 +1,6 @@
     [rule]
     id = "test-rule"
     description = "Suspicious action in /tmp"
-    type = "file_event"
-    category = "test"
     severity = "very-low"
 
     [[rule.conditions]]

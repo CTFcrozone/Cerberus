@@ -1,7 +1,6 @@
 [rule]
 id = "any-bprm"
 description = "Matches any execve"
-type = "bprm"
 severity = "low"
 category = "test"
 

@@ -4,7 +4,7 @@ use lib_common::event::CerberusEvent;
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 
-use crate::RuleSet;
+use crate::rule::compiled::{field::Field, ruleset::CompiledRuleSet};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, EnumIter)]
 pub enum EventKind {
@@ -37,69 +37,88 @@ impl From<&CerberusEvent> for EventKind {
 	}
 }
 
-fn field_in(kind: EventKind, field: &str) -> bool {
+fn field_in(kind: EventKind, field: Field) -> bool {
 	match kind {
-		EventKind::Generic => matches!(field, |"process.uid"| "process.pid" | "process.tgid" | "process.comm"),
+		EventKind::Generic => matches!(
+			field,
+			Field::ProcessUid | Field::ProcessPid | Field::ProcessTgid | Field::ProcessComm
+		),
+
 		EventKind::InetSock => matches!(
 			field,
-			"socket.old_state" | "socket.new_state" | "network.sport" | "network.dport" | "network.protocol"
+			Field::SocketOldState
+				| Field::SocketNewState
+				| Field::NetworkSport
+				| Field::NetworkDport
+				| Field::NetworkProtocol
 		),
 		EventKind::Bprm => matches!(
 			field,
-			"process.uid" | "process.pid" | "process.tgid" | "process.comm" | "process.filepath"
+			Field::ProcessUid | Field::ProcessPid | Field::ProcessTgid | Field::ProcessComm | Field::ProcessFilepath
 		),
+
 		EventKind::Module => matches!(
 			field,
-			"process.uid" | "process.pid" | "process.tgid" | "process.comm" | "module.name" | "module.op"
+			Field::ProcessUid
+				| Field::ProcessPid
+				| Field::ProcessTgid
+				| Field::ProcessComm
+				| Field::ModuleName
+				| Field::ModuleOp
 		),
 		EventKind::Inode => matches!(
 			field,
-			"process.uid" | "process.pid" | "process.tgid" | "process.comm" | "inode.filename" | "inode.op"
+			Field::ProcessUid
+				| Field::ProcessPid
+				| Field::ProcessTgid
+				| Field::ProcessComm
+				| Field::InodeFilename
+				| Field::InodeOp
 		),
-		EventKind::PtraceAccessCheck => {
-			matches!(
-				field,
-				"process.uid"
-					| "process.pid" | "process.tgid"
-					| "process.comm"
-					| "process.target.pid"
-					| "process.target.tgid"
-					| "process.target.uid"
-					| "process.target.comm"
-					| "ptrace.mode" | "ptrace.stage"
-			)
-		}
+		EventKind::PtraceAccessCheck => matches!(
+			field,
+			Field::ProcessUid
+				| Field::ProcessPid
+				| Field::ProcessTgid
+				| Field::ProcessComm
+				| Field::ProcessTargetPid
+				| Field::ProcessTargetTgid
+				| Field::ProcessTargetUid
+				| Field::ProcessTargetComm
+				| Field::PtraceMode
+				| Field::PtraceStage
+		),
+
 		EventKind::InodeMutate => matches!(
 			field,
-			"process.uid"
-				| "process.pid"
-				| "process.tgid"
-				| "process.comm"
-				| "inode.new_filename"
-				| "inode.old_filename"
-				| "inode.mutation.type"
+			Field::ProcessUid
+				| Field::ProcessPid
+				| Field::ProcessTgid
+				| Field::ProcessComm
+				| Field::InodeNewFilename
+				| Field::InodeOldFilename
+				| Field::InodeMutationType
 		),
-		EventKind::Socket => matches!(field, "socket.port" | "socket.family" | "socket.op"),
+		EventKind::Socket => matches!(field, Field::SocketPort | Field::SocketFamily | Field::SocketOp),
 		EventKind::BpfProgLoad => matches!(
 			field,
-			"process.uid"
-				| "process.pid"
-				| "process.tgid"
-				| "process.comm"
-				| "bpf.prog.type"
-				| "bpf.prog.attach_type"
-				| "bpf.prog.flags"
-				| "bpf.prog.tag"
+			Field::ProcessUid
+				| Field::ProcessPid
+				| Field::ProcessTgid
+				| Field::ProcessComm
+				| Field::BpfProgType
+				| Field::BpfProgAttachType
+				| Field::BpfProgFlags
 		),
 		EventKind::BpfMap => matches!(
 			field,
-			"process.uid"
-				| "process.pid"
-				| "process.tgid"
-				| "process.comm"
-				| "bpf.map.name"
-				| "bpf.map.type"
-				| "bpf.map.id"
+			Field::ProcessUid
+				| Field::ProcessPid
+				| Field::ProcessTgid
+				| Field::ProcessComm
+				| Field::BpfMapName
+				| Field::BpfMapType
+				| Field::BpfMapId
 		),
 	}
 }
@@ -112,24 +131,26 @@ pub struct RuleIndex {
 }
 
 impl RuleIndex {
-	pub fn build(ruleset: &RuleSet) -> Self {
+	pub fn build(ruleset: &CompiledRuleSet) -> Self {
 		let mut by_evt_kind: HashMap<EventKind, Vec<Arc<str>>> = HashMap::new();
 		let mut seq_listeners: HashMap<Arc<str>, Vec<Arc<str>>> = HashMap::new();
 
 		for rule in ruleset.rules() {
-			let rule_id: Arc<str> = Arc::from(rule.inner.id.as_str());
+			let rule_id = rule.inner.id.clone();
 
 			for kind in EventKind::iter() {
-				if rule.inner.conditions.iter().all(|c| field_in(kind, &c.field)) {
-					by_evt_kind.entry(kind).or_default().push(rule_id.clone());
+				let matches = rule.inner.conditions.iter().all(|c| field_in(kind, c.field));
+
+				if matches {
+					by_evt_kind.entry(kind).or_insert_with(Vec::new).push(rule_id.clone());
 				}
 			}
 
 			if let Some(seq) = &rule.inner.sequence {
 				for step in &seq.steps {
 					seq_listeners
-						.entry(Arc::from(step.rule_id.as_str()))
-						.or_default()
+						.entry(step.rule_id.clone())
+						.or_insert_with(Vec::new)
 						.push(rule_id.clone());
 				}
 			}

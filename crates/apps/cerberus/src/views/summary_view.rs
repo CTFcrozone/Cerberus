@@ -27,18 +27,13 @@ impl StatefulWidget for SummaryView {
 			.constraints([Constraint::Percentage(70), Constraint::Percentage(30)])
 			.areas(area);
 
-		let [rules_area, chart1_area, chart2_area] = Layout::default()
+		let [rules_area, chart1_area] = Layout::default()
 			.direction(Direction::Horizontal)
-			.constraints([
-				Constraint::Percentage(20),
-				Constraint::Percentage(40),
-				Constraint::Percentage(40),
-			])
+			.constraints([Constraint::Percentage(20), Constraint::Percentage(80)])
 			.areas(top_row);
 
 		render_loaded_rules_count(rules_area, buf, state);
-		render_rule_type_chart(chart1_area, buf, state);
-		render_severity_chart(chart2_area, buf, state);
+		render_severity_chart(chart1_area, buf, state);
 
 		let [last_event_area, hooks_area] = Layout::default()
 			.direction(Direction::Horizontal)
@@ -98,10 +93,9 @@ fn render_last_event_meta(area: Rect, buf: &mut Buffer, state: &AppState) {
 		.last()
 		.map(|evt| {
 			format!(
-				"Rule: {}\nSeverity: {}\nType: {}\nPID: {} \nUID: {} \nCOMM: {}",
+				"Rule: {}\nSeverity: {}\nPID: {} \nUID: {} \nCOMM: {}",
 				evt.event.rule_id,
 				evt.event.severity.as_str(),
-				evt.event.rule_type,
 				evt.event.event_meta.pid,
 				evt.event.event_meta.uid,
 				evt.event.event_meta.comm
@@ -125,21 +119,6 @@ fn render_severity_chart(area: Rect, buf: &mut Buffer, state: &AppState) {
 		.bar_width(8)
 		.bar_gap(2)
 		.bar_style(Style::default().fg(Color::Yellow))
-		.value_style(Style::default().fg(Color::White))
-		.label_style(Style::default().fg(Color::Gray));
-
-	chart.render(area, buf);
-}
-
-fn render_rule_type_chart(area: Rect, buf: &mut Buffer, state: &AppState) {
-	let data = state.barchart_rule_type();
-
-	let chart = BarChart::default()
-		.block(Block::bordered().title("Detections by Rule Type"))
-		.data(&data)
-		.bar_width(8)
-		.bar_gap(2)
-		.bar_style(Style::default().fg(Color::Red))
 		.value_style(Style::default().fg(Color::White))
 		.label_style(Style::default().fg(Color::Gray));
 

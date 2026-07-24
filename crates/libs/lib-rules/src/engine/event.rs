@@ -20,7 +20,6 @@ pub struct EvaluatedEvent {
 	pub rule_id: Arc<str>,
 	pub rule_hash: Arc<str>,
 	pub severity: Severity,
-	pub rule_type: Arc<str>,
 	pub event_meta: EventMeta,
 }
 #[derive(Debug, Clone)]

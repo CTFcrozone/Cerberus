@@ -7,11 +7,12 @@ use crate::engine::correlator::ShardedCorrelator;
 use crate::engine::identity::ShardKey;
 use crate::engine::{EngineEvent, EvalCtx, EvaluatedEvent, Evaluator, EventKind, RuleIndex};
 use crate::error::Result;
-use crate::rule::Rule;
+use crate::rule::compiled::rule::CompiledRule;
+use crate::rule::compiled::ruleset::CompiledRuleSet;
 use crate::{Error, RuleSet};
 
 pub struct RuleEngine {
-	pub ruleset: ArcSwap<RuleSet>,
+	pub ruleset: ArcSwap<CompiledRuleSet>,
 	pub index: ArcSwap<RuleIndex>,
 	correlator: ShardedCorrelator,
 }
@@ -24,6 +25,7 @@ impl RuleEngine {
 			return Err(Error::NoRulesInDir(dir.as_ref().display().to_string()));
 		}
 
+		let ruleset = CompiledRuleSet::compile(ruleset)?;
 		let index = RuleIndex::build(&ruleset);
 
 		Ok(Self {
@@ -34,7 +36,8 @@ impl RuleEngine {
 	}
 
 	pub fn reload_ruleset(&self, dir: impl AsRef<Path>) -> Result<()> {
-		let ruleset = Arc::new(RuleSet::load_from_dir(dir)?);
+		let ruleset = RuleSet::load_from_dir(dir)?;
+		let ruleset = Arc::new(CompiledRuleSet::compile(ruleset)?);
 		let index = Arc::new(RuleIndex::build(&ruleset));
 
 		self.ruleset.store(ruleset);
@@ -44,6 +47,7 @@ impl RuleEngine {
 	}
 
 	pub fn new_from_ruleset(ruleset: RuleSet) -> Result<Self> {
+		let ruleset = CompiledRuleSet::compile(ruleset)?;
 		let index = RuleIndex::build(&ruleset);
 
 		Ok(Self {
@@ -70,14 +74,14 @@ impl RuleEngine {
 	fn advance_sequences(
 		&self,
 		shard_key: &ShardKey,
-		matched_rule: &Rule,
+		matched_rule: &CompiledRule,
 		now: Instant,
-		ruleset: &RuleSet,
+		ruleset: &CompiledRuleSet,
 		index: &RuleIndex,
 		out: &mut Vec<EngineEvent>,
 		meta: &EventMeta,
 	) {
-		let key = matched_rule.inner.id.as_str();
+		let key = matched_rule.inner.id.as_ref();
 
 		let Some(root_ids) = index.seq_listeners.get(key) else {
 			return;
@@ -121,7 +125,7 @@ impl RuleEngine {
 					continue;
 				};
 
-				if !Evaluator::rule_matches(&rule.inner, &ctx) {
+				if !Evaluator::rule_matches_compiled(&rule.inner, &ctx) {
 					continue;
 				}
 
@@ -141,12 +145,11 @@ impl RuleEngine {
 		EvalCtx::new(event.to_fields())
 	}
 
-	fn rule_to_eval_event(rule: &Rule, event_meta: EventMeta) -> EvaluatedEvent {
+	fn rule_to_eval_event(rule: &CompiledRule, event_meta: EventMeta) -> EvaluatedEvent {
 		EvaluatedEvent {
-			rule_id: Arc::from(rule.inner.id.as_str()),
+			rule_id: Arc::from(rule.inner.id.clone()),
 			rule_hash: rule.hash_hex.clone(),
 			severity: rule.inner.severity,
-			rule_type: rule.inner.r#type.as_str().into(),
 			event_meta,
 		}
 	}
@@ -201,7 +204,6 @@ mod tests {
 		let header = event.header(); // via Event trait
 		assert_eq!(matched.rule_id, "pid-exists".into());
 		assert_eq!(matched.severity, Severity::Low);
-		assert_eq!(matched.rule_type, "exec".into());
 		assert_eq!(matched.event_meta.pid, header.pid);
 
 		Ok(())
@@ -213,9 +215,7 @@ mod tests {
 			inner: crate::rule::RuleInner {
 				id: "pid-zero-only".to_string(),
 				description: "Matches only pid=0".to_string(),
-				r#type: "exec".to_string(),
 				severity: Severity::High,
-				category: None,
 				conditions: vec![crate::rule::Condition {
 					field: "process.pid".to_string(),
 					op: "equals".to_string(),
@@ -263,9 +263,7 @@ mod tests {
 			inner: crate::rule::RuleInner {
 				id: "tcp-state-change".to_string(),
 				description: "Detect TCP state transitions".to_string(),
-				r#type: "network".to_string(),
 				severity: Severity::Medium,
-				category: None,
 				conditions: vec![
 					crate::rule::Condition {
 						field: "network.protocol".to_string(),
@@ -317,7 +315,6 @@ mod tests {
 		assert_eq!(res.len(), 1);
 		let matched = expect_matched(&res[0]);
 		assert_eq!(matched.rule_id, "tcp-state-change".into());
-		assert_eq!(matched.rule_type, "network".into());
 
 		Ok(())
 	}
@@ -352,13 +349,12 @@ mod tests {
 		let matched_rule = ruleset
 			.rules()
 			.iter()
-			.find(|r| r.inner.id == "test-rule")
+			.find(|r| r.inner.id == "test-rule".into())
 			.expect("rule not loaded");
 
-		let matched = Evaluator::rule_matches(&matched_rule.inner, &ctx);
+		let matched = Evaluator::rule_matches_compiled(&matched_rule.inner, &ctx);
 		assert!(matched);
 		assert_eq!(matched_rule.inner.severity, Severity::VeryLow);
-		assert_eq!(matched_rule.inner.category.as_deref(), Some("test"));
 
 		Ok(())
 	}

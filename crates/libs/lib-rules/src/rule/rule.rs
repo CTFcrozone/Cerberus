@@ -3,7 +3,7 @@ use std::{path::Path, sync::Arc};
 use crate::{
 	error::{Error, Result},
 	hash_utils,
-	rule::Sequence,
+	rule::{Sequence, common::Severity},
 };
 use serde::Deserialize;
 use simple_fs::SPath;
@@ -26,57 +26,12 @@ struct RuleRaw {
 pub struct RuleInner {
 	pub id: String,
 	pub description: String,
-	pub r#type: String,
 	pub severity: Severity,
-	pub category: Option<String>,
 	pub conditions: Vec<Condition>,
 	#[serde(default)]
 	pub sequence: Option<Sequence>,
 	#[serde(default)]
 	pub response: Option<Response>,
-}
-
-#[derive(Debug, Clone, Deserialize, PartialEq, Eq, Hash, Copy)]
-#[serde(rename_all = "kebab-case")]
-pub enum Severity {
-	Info,
-	VeryLow,
-	Low,
-	Medium,
-	High,
-	Critical,
-}
-
-impl Severity {
-	pub const COUNT: usize = 6;
-	pub const ALL: [Severity; Severity::COUNT] = [
-		Severity::Info,
-		Severity::VeryLow,
-		Severity::Low,
-		Severity::Medium,
-		Severity::High,
-		Severity::Critical,
-	];
-	pub const fn index(self) -> usize {
-		match self {
-			Severity::Info => 0,
-			Severity::VeryLow => 1,
-			Severity::Low => 2,
-			Severity::Medium => 3,
-			Severity::High => 4,
-			Severity::Critical => 5,
-		}
-	}
-	pub const fn to_str(self) -> &'static str {
-		match self {
-			Severity::Info => "info",
-			Severity::VeryLow => "very-low",
-			Severity::Low => "low",
-			Severity::Medium => "medium",
-			Severity::High => "high",
-			Severity::Critical => "critical",
-		}
-	}
 }
 
 #[cfg_attr(test, derive(PartialEq))]
@@ -92,8 +47,6 @@ pub struct Condition {
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum Response {
 	KillProcess,
-	DenyExec,
-	IsolateContainer,
 	BlockIp { ip: u32, _duration_secs: u64 },
 
 	EmitSignal { signal: i32 },
@@ -155,9 +108,7 @@ mod tests {
 		let fx_rule_inner = RuleInner {
 			id: "test-rule".to_string(),
 			description: "Suspicious action in /tmp".to_string(),
-			r#type: "file_event".to_string(),
 			severity: Severity::VeryLow,
-			category: Some("test".to_string()),
 
 			conditions: vec![
 				Condition {
@@ -177,10 +128,10 @@ mod tests {
 		let fx_rule = Rule {
 			inner: fx_rule_inner,
 			hash: [
-				187, 181, 245, 203, 20, 180, 1, 230, 228, 18, 86, 2, 144, 141, 180, 82, 76, 251, 69, 94, 56, 107, 41,
-				75, 70, 61, 5, 89, 32, 89, 243, 17,
+				67, 183, 137, 15, 216, 243, 22, 38, 207, 119, 249, 13, 100, 163, 5, 254, 158, 175, 145, 39, 235, 200,
+				24, 42, 91, 39, 6, 93, 172, 29, 90, 101,
 			],
-			hash_hex: Arc::from("bbb5f5cb14b401e6e4125602908db4524cfb455e386b294b463d05592059f311"),
+			hash_hex: Arc::from("43b7890fd8f31626cf77f90d64a305fe9eaf9127ebc8182a5b27065dac1d5a65"),
 		};
 		// -- Exec
 		let rule = Rule::from_file(fx_rule_path)?;

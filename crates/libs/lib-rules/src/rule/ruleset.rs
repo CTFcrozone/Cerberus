@@ -3,7 +3,7 @@ use std::path::Path;
 use std::sync::Arc;
 
 use crate::error::Result;
-use crate::Rule;
+use crate::{Error, Rule};
 use glob::glob;
 use serde::Deserialize;
 use tracing::warn;
@@ -12,11 +12,10 @@ use tracing::warn;
 #[derive(Debug, Deserialize, Clone)]
 pub struct RuleSet {
 	rules: Vec<Rule>,
-
 	#[serde(skip)]
 	by_id: HashMap<Arc<str>, usize>,
 	#[serde(skip)]
-	seq_by_id: HashMap<Arc<str>, Arc<str>>,
+	seq_by_id: HashMap<Arc<str>, usize>,
 }
 
 impl RuleSet {
@@ -37,11 +36,9 @@ impl RuleSet {
 			if let Some(seq) = &rule.inner.sequence {
 				let seq_id: Arc<str> = seq.id.as_str().into();
 
-				if seq_by_id.contains_key(&seq_id) {
-					return Err(crate::Error::DuplicateSequenceId { id: seq_id.to_string() });
+				if seq_by_id.insert(seq_id, idx).is_some() {
+					return Err(Error::DuplicateSequenceId { id: seq.id.to_string() });
 				}
-
-				seq_by_id.insert(seq_id, rule_id.clone());
 			}
 		}
 		Ok(RuleSet {
@@ -77,11 +74,9 @@ impl RuleSet {
 					if let Some(seq) = &rule.inner.sequence {
 						let seq_id: Arc<str> = seq.id.as_str().into();
 
-						if seq_by_id.contains_key(&seq_id) {
-							return Err(crate::Error::DuplicateSequenceId { id: seq_id.to_string() });
+						if seq_by_id.insert(seq_id, idx).is_some() {
+							return Err(Error::DuplicateSequenceId { id: seq.id.to_string() });
 						}
-
-						seq_by_id.insert(seq_id, rule_id.clone());
 					}
 
 					rules.push(rule);
@@ -104,6 +99,10 @@ impl RuleSet {
 
 	pub fn rules(&self) -> &[Rule] {
 		&self.rules
+	}
+
+	pub fn into_rules(self) -> Vec<Rule> {
+		self.rules
 	}
 
 	pub fn rule_count(&self) -> usize {

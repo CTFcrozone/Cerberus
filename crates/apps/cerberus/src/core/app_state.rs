@@ -22,7 +22,6 @@ pub struct AppState {
 	// pub(in crate::core) cerberus_evts_correlated: VecDeque<CorrelationEvent>,
 	pub(in crate::core) cerberus_evts_network: VecDeque<CerberusEvent>,
 	pub(in crate::core) cerberus_evts_matched: IndexMap<Arc<str>, EvaluatedEntry>,
-	pub(in crate::core) rule_type_counts: HashMap<Arc<str>, u64>,
 	pub(in crate::core) severity_counts: [u64; Severity::COUNT],
 	pub correlated_groups: HashMap<(Arc<str>, Arc<str>), CorrelationGroup>,
 	scroll_zones: ScrollZones,
@@ -58,7 +57,6 @@ impl AppState {
 			cerberus_evts_general: VecDeque::with_capacity(250),
 			cerberus_evts_network: VecDeque::with_capacity(250),
 			cerberus_evts_matched: IndexMap::new(),
-			rule_type_counts: HashMap::new(),
 			severity_counts: [0; Severity::COUNT],
 			current_view: View::Main,
 			tab: Tab::General,
@@ -179,14 +177,6 @@ impl AppState {
 }
 
 impl AppState {
-	// pub fn cerberus_evts_general(&self) -> &[CerberusEvent] {
-	// 	&self.cerberus_evts_general
-	// }
-	//
-	pub fn barchart_rule_type(&self) -> Vec<(&str, u64)> {
-		self.rule_type_counts.iter().map(|(k, v)| (k.as_ref(), *v)).collect()
-	}
-
 	pub fn toggle_correlation_group(&mut self, root_rule_id: Arc<str>, seq_id: Arc<str>) {
 		if let Some(group) = self.correlated_groups.get_mut(&(root_rule_id, seq_id)) {
 			group.expanded = !group.expanded;

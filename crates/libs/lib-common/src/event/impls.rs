@@ -183,6 +183,9 @@ impl Event for InetSockEvent {
 
 		f.insert("network.sport".into(), toml::Value::Integer(self.sport as i64));
 		f.insert("network.dport".into(), toml::Value::Integer(self.dport as i64));
+		f.insert("network.saddr".into(), toml::Value::Integer(self.saddr as i64));
+		f.insert("network.daddr".into(), toml::Value::Integer(self.daddr as i64));
+
 		f.insert(
 			"network.protocol".into(),
 			toml::Value::String(self.protocol.to_string()),
@@ -216,7 +219,6 @@ impl Event for SocketEvent {
 		f.insert("socket.port".into(), toml::Value::Integer(self.port as i64));
 		f.insert("socket.family".into(), toml::Value::Integer(self.family as i64));
 		f.insert("socket.op".into(), toml::Value::Integer(self.op as i64));
-		f.insert("socket.addr".into(), toml::Value::Integer(self.addr as i64));
 		f
 	}
 }
