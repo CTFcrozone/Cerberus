@@ -1,6 +1,6 @@
-use crossfire::{mpsc::List, AsyncRx};
+use crossfire::{AsyncRx, mpsc::List};
 
-use crate::{error::Result, Error};
+use crate::{Error, error::Result};
 
 // crossfire::mpsc::unbounded_async()
 
