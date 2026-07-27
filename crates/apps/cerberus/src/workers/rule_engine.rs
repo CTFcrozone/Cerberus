@@ -16,19 +16,26 @@ use governor::{DefaultDirectRateLimiter, Quota};
 use lib_common::event::CerberusEvent;
 
 use lib_event::unbound::{Rx, Tx};
-use lib_rules::RuleEngine;
+use lib_rules::{EngineEvent, ResponseRequest, RuleEngine};
 
 pub struct RuleEngineWorker {
-	pub tx: Tx<AppEvent>,
-	pub ringbuf_rx: Rx<CerberusEvent>,
-	pub rule_engine: Arc<RuleEngine>,
+	tx: Tx<AppEvent>,
+	ringbuf_rx: Rx<CerberusEvent>,
+	rule_engine: Arc<RuleEngine>,
+	response_tx: Tx<ResponseRequest>,
+
 	limiter: DefaultDirectRateLimiter,
 	dropped: AtomicU64,
 }
 
 // TODO: make it shutdown aware
 impl RuleEngineWorker {
-	pub fn start(rule_engine: Arc<RuleEngine>, tx: Tx<AppEvent>, ringbuf_rx: Rx<CerberusEvent>) -> Result<Self> {
+	pub fn start(
+		rule_engine: Arc<RuleEngine>,
+		tx: Tx<AppEvent>,
+		response_tx: Tx<ResponseRequest>,
+		ringbuf_rx: Rx<CerberusEvent>,
+	) -> Result<Self> {
 		let rate = NonZeroU32::new(10).ok_or(Error::InvalidRate)?;
 		let burst = NonZeroU32::new(50).ok_or(Error::InvalidRate)?;
 
@@ -39,6 +46,7 @@ impl RuleEngineWorker {
 			ringbuf_rx,
 			rule_engine,
 			limiter,
+			response_tx,
 			dropped: AtomicU64::new(0),
 		})
 	}
@@ -49,7 +57,22 @@ impl RuleEngineWorker {
 				if logging {
 					log_engine_event(&alert);
 				}
-				self.tx.send(AppEvent::Engine(alert))?;
+				if let Err(e) = self.tx.send(AppEvent::Engine(alert.clone())) {
+					tracing::error!(
+						error.message = %e,
+						error.type = "app_event_send_failed",
+						"Failed to send engine event to app"
+					);
+				}
+				if let EngineEvent::Response(req) = alert {
+					if let Err(e) = self.response_tx.send(req) {
+						tracing::error!(
+							error.message = %e,
+							error.type = "executor_send_failed",
+							"Failed to send response request to executor"
+						);
+					}
+				}
 			}
 
 			if self.limiter.check().is_err() {

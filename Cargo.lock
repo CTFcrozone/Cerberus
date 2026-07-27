@@ -1350,6 +1350,7 @@ dependencies = [
  "humantime",
  "humantime-serde",
  "lib-common",
+ "lib-event",
  "libc",
  "regex",
  "serde",

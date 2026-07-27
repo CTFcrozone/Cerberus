@@ -3,7 +3,7 @@ use std::sync::Arc;
 use derive_more::From;
 use lib_common::event::EventMeta;
 
-use crate::{Response, rule::Severity};
+use crate::rule::{Severity, compiled::response::CompiledResponse};
 
 #[derive(Debug, Clone, From)]
 pub enum EngineEvent {
@@ -44,6 +44,6 @@ pub enum CorrelationEvent {
 #[derive(Debug, Clone)]
 pub struct ResponseRequest {
 	pub rule_id: Arc<str>,
-	pub response: Response,
+	pub response: CompiledResponse,
 	pub event_meta: EventMeta,
 }

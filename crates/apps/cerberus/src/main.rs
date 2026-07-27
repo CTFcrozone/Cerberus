@@ -37,7 +37,7 @@ use clap::Parser;
 use lib_common::event::CerberusEvent;
 use lib_container::{container_manager::ContainerManager, runtime::k8s_connect};
 use lib_event::unbound::new_channel_unbounded_async;
-use lib_rules::{RuleEngine, RuleSet};
+use lib_rules::{ResponseRequest, RuleEngine, RuleSet};
 use std::{path::Path, sync::Arc};
 use tracing_subscriber::EnvFilter;
 #[rustfmt::skip]
@@ -122,7 +122,6 @@ async fn main() -> Result<()> {
 	if ruleset.rule_count() == 0 {
 		return Err(Error::NoRulesInDir(rule_dir.display().to_string()));
 	}
-
 	let rule_engine = Arc::new(RuleEngine::new_from_ruleset(ruleset)?);
 
 	let mut registry = HookRegistry::default();
@@ -146,7 +145,7 @@ async fn main() -> Result<()> {
 	let (ringbuf_tx, ringbuf_rx) = new_channel_unbounded_async::<CerberusEvent>("ringbuf");
 
 	let (hook_tx, hook_rx) = new_channel_unbounded_async::<HookCommand>("hook");
-
+	let (response_tx, response_rx) = new_channel_unbounded_async::<ResponseRequest>("executor");
 	let mut supervisor = Supervisor::new();
 
 	let ringbuf_worker = RingBufWorker::start(ringbuf_fd, ringbuf_tx.clone())?;
@@ -163,7 +162,7 @@ async fn main() -> Result<()> {
 	} else {
 		ringbuf_rx
 	};
-	let rule_worker = RuleEngineWorker::start(rule_engine.clone(), app_tx.clone(), rule_input_rx)?;
+	let rule_worker = RuleEngineWorker::start(rule_engine.clone(), app_tx.clone(), response_tx, rule_input_rx)?;
 	let rule_watch_worker = RuleWatchWorker::start(app_tx.clone(), rule_engine.clone(), rule_dir.clone())?;
 	supervisor.spawn(ringbuf_worker.run());
 	supervisor.spawn(hook_worker.run());

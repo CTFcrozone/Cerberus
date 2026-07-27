@@ -1,6 +1,6 @@
 use std::{net::Ipv4Addr, sync::Arc, time::Duration};
 
-use crate::{Response, error::Result};
+use crate::{error::Result, rule::Response};
 
 #[cfg_attr(test, derive(PartialEq))]
 #[derive(Debug, Clone)]

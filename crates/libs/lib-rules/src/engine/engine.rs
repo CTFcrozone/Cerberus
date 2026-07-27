@@ -1,5 +1,6 @@
 use arc_swap::ArcSwap;
 use lib_common::event::{CerberusEvent, Event, EventMeta};
+use lib_event::unbound::Tx;
 use std::time::Instant;
 use std::{path::Path, sync::Arc};
 
@@ -9,7 +10,7 @@ use crate::engine::{EngineEvent, EvalCtx, EvaluatedEvent, Evaluator, EventKind, 
 use crate::error::Result;
 use crate::rule::compiled::rule::CompiledRule;
 use crate::rule::compiled::ruleset::CompiledRuleSet;
-use crate::{Error, RuleSet};
+use crate::{Error, ResponseRequest, RuleSet};
 
 pub struct RuleEngine {
 	pub ruleset: ArcSwap<CompiledRuleSet>,
@@ -131,6 +132,17 @@ impl RuleEngine {
 
 				out.push(Self::rule_to_eval_event(rule, meta.clone()).into());
 
+				if let Some(response) = &rule.inner.response {
+					out.push(
+						ResponseRequest {
+							rule_id: rule_id.clone(),
+							response: response.clone(),
+							event_meta: meta.clone(),
+						}
+						.into(),
+					);
+				}
+
 				if let Some(seq) = &rule.inner.sequence {
 					self.correlator.on_root_match(&shard_key, &rule.inner.id, seq, now);
 				}
@@ -165,6 +177,7 @@ mod tests {
 
 	use super::*;
 	use lib_common::event::{Event, EventHeader, RingBufEvent};
+	use lib_event::unbound::new_channel_unbounded_async;
 	use std::sync::Arc;
 	use toml::Value;
 

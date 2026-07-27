@@ -3,7 +3,8 @@ use aya::maps::HashMap as AyaHashMap;
 use aya::maps::MapData;
 
 use lib_event::unbound::Rx;
-use lib_rules::{Response, ResponseRequest};
+use lib_rules::CompiledResponse;
+use lib_rules::ResponseRequest;
 
 pub struct ResponseExecutor {
 	req_rx: Rx<ResponseRequest>,
@@ -24,8 +25,8 @@ impl ResponseExecutor {
 
 	fn handle_request(&mut self, req: ResponseRequest) -> Result<()> {
 		match req.response {
-			Response::BlockIp { ip, _duration_secs } => {
-				self.ip_blocklist.insert(ip, 1, 0)?;
+			CompiledResponse::BlockIp { ip, duration } => {
+				self.ip_blocklist.insert(ip.to_bits(), 1, 0)?;
 			}
 			_ => {}
 		}
