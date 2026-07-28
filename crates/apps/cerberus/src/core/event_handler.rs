@@ -112,19 +112,6 @@ fn handle_cerberus_eval_event(event: &EvaluatedEvent, app_state: &mut AppState) 
 	);
 }
 
-// async fn handle_term_event(term_event: &Event, app_tx: &AppTx) -> Result<()> {
-// 	if let Event::Key(key) = term_event {
-// 		if let KeyEventKind::Press = key.kind {
-// 			let mod_ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
-// 			match (key.code, mod_ctrl) {
-// 				(KeyCode::Char('c'), true) => app_tx.send(ActionEvent::Quit).await?,
-// 				_ => (),
-// 			}
-// 		}
-// 	}
-// 	Ok(())
-// }
-
 async fn _handle_term_event(
 	state: &mut AppState,
 	term_event: &Event,

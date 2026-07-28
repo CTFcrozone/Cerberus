@@ -23,7 +23,7 @@ use crate::{
 		registry::HookRegistry,
 	},
 	supervisor::Supervisor,
-	workers::{ContainerResolver, HookWorker, RingBufWorker, RuleEngineWorker, RuleWatchWorker},
+	workers::{ContainerResolver, HookWorker, ResponseExecutor, RingBufWorker, RuleEngineWorker, RuleWatchWorker},
 };
 
 pub use self::error::{Error, Result};
@@ -147,7 +147,11 @@ async fn main() -> Result<()> {
 	let (hook_tx, hook_rx) = new_channel_unbounded_async::<HookCommand>("hook");
 	let (response_tx, response_rx) = new_channel_unbounded_async::<ResponseRequest>("executor");
 	let mut supervisor = Supervisor::new();
-
+	let blocklist: aya::maps::HashMap<_, u32, u32> =
+		aya::maps::HashMap::try_from(ebpf.take_map("BLOCKLIST").ok_or(Error::EbpfMapNotFound {
+			map: "BLOCKLIST".into(),
+		})?)?;
+	let response_worker = ResponseExecutor::start(response_rx, blocklist)?;
 	let ringbuf_worker = RingBufWorker::start(ringbuf_fd, ringbuf_tx.clone())?;
 	let hook_worker = HookWorker::start(ebpf, app_tx.clone(), hook_rx, registry)?;
 
@@ -167,6 +171,7 @@ async fn main() -> Result<()> {
 	supervisor.spawn(ringbuf_worker.run());
 	supervisor.spawn(hook_worker.run());
 	supervisor.spawn(rule_worker.run(logging_enabled));
+	// supervisor.spawn(response_worker.run());
 	supervisor.spawn(rule_watch_worker.run());
 
 	match args.mode {
