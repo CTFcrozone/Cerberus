@@ -171,7 +171,7 @@ async fn main() -> Result<()> {
 	supervisor.spawn(ringbuf_worker.run());
 	supervisor.spawn(hook_worker.run());
 	supervisor.spawn(rule_worker.run(logging_enabled));
-	// supervisor.spawn(response_worker.run());
+	supervisor.spawn(response_worker.run());
 	supervisor.spawn(rule_watch_worker.run());
 
 	match args.mode {

@@ -6,7 +6,7 @@ use crate::{error::Result, rule::Response};
 #[derive(Debug, Clone)]
 pub enum CompiledResponse {
 	KillProcess,
-	BlockIp { ip: Ipv4Addr, duration: Duration },
+	BlockIp { ip: Ipv4Addr },
 	EmitSignal { signal: i32 },
 	Notify { message: Arc<str> },
 	KvmAction { timeout: Duration, exit_budget: u64 },
@@ -16,10 +16,7 @@ pub fn compile_response(raw: Response) -> Result<CompiledResponse> {
 	Ok(match raw {
 		Response::KillProcess => CompiledResponse::KillProcess,
 
-		Response::BlockIp { ip, _duration_secs } => CompiledResponse::BlockIp {
-			ip: Ipv4Addr::from(ip),
-			duration: Duration::from_secs(_duration_secs),
-		},
+		Response::BlockIp { ip } => CompiledResponse::BlockIp { ip: Ipv4Addr::from(ip) },
 
 		Response::EmitSignal { signal } => CompiledResponse::EmitSignal { signal },
 

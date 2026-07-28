@@ -47,7 +47,7 @@ pub struct Condition {
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum Response {
 	KillProcess,
-	BlockIp { ip: u32, _duration_secs: u64 },
+	BlockIp { ip: u32 },
 
 	EmitSignal { signal: i32 },
 	Notify { message: String },

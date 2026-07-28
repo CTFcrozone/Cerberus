@@ -25,7 +25,7 @@ impl ResponseExecutor {
 
 	fn handle_request(&mut self, req: ResponseRequest) -> Result<()> {
 		match req.response {
-			CompiledResponse::BlockIp { ip, duration } => {
+			CompiledResponse::BlockIp { ip } => {
 				self.ip_blocklist.insert(ip.to_bits(), 1, 0)?;
 			}
 			_ => {}
