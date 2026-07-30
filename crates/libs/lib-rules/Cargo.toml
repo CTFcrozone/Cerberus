@@ -10,6 +10,8 @@ license.workspace = true
 [dependencies]
 lib-common = { path = "../lib-common" }
 lib-event = { path = "../lib-event" }
+lib-event-schema = { path = "../lib-event-schema" }
+
 
 
 derive_more = { version = "2.0.0", features = [

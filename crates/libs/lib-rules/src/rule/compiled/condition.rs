@@ -1,5 +1,6 @@
-use std::{net::IpAddr, sync::Arc};
+use std::sync::Arc;
 
+use lib_event_schema::{Field, FieldType, FieldValue};
 use regex::Regex;
 
 use crate::{
@@ -8,42 +9,16 @@ use crate::{
 	rule::{
 		Condition,
 		compiled::{
-			field::{Field, FieldType, compile_field},
+			field::compile_field,
 			op::{Op, compile_op},
 		},
 	},
 };
 
-pub type IpRepr = u32;
 pub struct CompiledCondition {
 	pub field: Field,
 	pub op: Op,
-	pub value: CompiledConditionValue,
-}
-
-pub enum CompiledConditionValue {
-	Bool(bool),
-	Int(i64),
-	String(Arc<str>),
-	Regex(Arc<Regex>),
-	IntSet(Vec<i64>),
-	StringSet(Vec<Arc<str>>),
-	Ip(IpRepr),
-	IpSet(Vec<IpRepr>),
-}
-
-impl CompiledConditionValue {
-	pub fn ty(&self) -> FieldType {
-		match self {
-			Self::Bool(_) => FieldType::Bool,
-
-			Self::Int(_) | Self::IntSet(_) => FieldType::Int,
-
-			Self::String(_) | Self::StringSet(_) | Self::Regex(_) => FieldType::String,
-
-			Self::Ip(_) | Self::IpSet(_) => FieldType::Ip,
-		}
-	}
+	pub value: FieldValue,
 }
 
 pub fn compile_condition(raw: Condition) -> Result<CompiledCondition> {
@@ -54,7 +29,7 @@ pub fn compile_condition(raw: Condition) -> Result<CompiledCondition> {
 		Op::Regex => {
 			let pattern = raw.value.as_str().ok_or(Error::InvalidRegex)?;
 
-			CompiledConditionValue::Regex(Arc::new(Regex::new(pattern)?))
+			FieldValue::Regex(Arc::new(Regex::new(pattern)?))
 		}
 
 		_ => compile_value(raw.value)?,
@@ -63,29 +38,29 @@ pub fn compile_condition(raw: Condition) -> Result<CompiledCondition> {
 	Ok(CompiledCondition { field, op, value })
 }
 
-fn compile_value(value: toml::Value) -> Result<CompiledConditionValue> {
+fn compile_value(value: toml::Value) -> Result<FieldValue> {
 	match value {
-		toml::Value::Boolean(v) => Ok(CompiledConditionValue::Bool(v)),
-		toml::Value::Integer(v) => Ok(CompiledConditionValue::Int(v)),
+		toml::Value::Boolean(v) => Ok(FieldValue::Bool(v)),
+		toml::Value::Integer(v) => Ok(FieldValue::Int(v)),
 		toml::Value::String(v) => {
 			if let Ok(ip) = v.parse::<std::net::Ipv4Addr>() {
-				Ok(CompiledConditionValue::Ip(u32::from_be_bytes(ip.octets())))
+				Ok(FieldValue::Ip(u32::from_be_bytes(ip.octets())))
 			} else {
-				Ok(CompiledConditionValue::String(v.into()))
+				Ok(FieldValue::String(v.into()))
 			}
 		}
 		toml::Value::Array(values) => {
 			let Some(first) = values.first() else {
-				return Err(Error::InvalidConditionValue);
+				return Err(Error::InvalidFieldValue);
 			};
 
 			match first {
 				toml::Value::Integer(_) => {
 					let mut out = Vec::with_capacity(values.len());
 					for v in values {
-						out.push(v.as_integer().ok_or(Error::InvalidConditionValue)?);
+						out.push(v.as_integer().ok_or(Error::InvalidFieldValue)?);
 					}
-					Ok(CompiledConditionValue::IntSet(out))
+					Ok(FieldValue::IntSet(out))
 				}
 
 				toml::Value::String(_) => {
@@ -94,7 +69,7 @@ fn compile_value(value: toml::Value) -> Result<CompiledConditionValue> {
 					let mut all_ips = true;
 
 					for v in values {
-						let s = v.as_str().ok_or(Error::InvalidConditionValue)?;
+						let s = v.as_str().ok_or(Error::InvalidFieldValue)?;
 						if let Ok(ip) = s.parse::<std::net::Ipv4Addr>() {
 							ip_values.push(u32::from_be_bytes(ip.octets()));
 						} else {
@@ -103,46 +78,46 @@ fn compile_value(value: toml::Value) -> Result<CompiledConditionValue> {
 						}
 					}
 					if all_ips && !ip_values.is_empty() {
-						Ok(CompiledConditionValue::IpSet(ip_values))
+						Ok(FieldValue::IpSet(ip_values))
 					} else {
-						Ok(CompiledConditionValue::StringSet(string_values))
+						Ok(FieldValue::StringSet(string_values))
 					}
 				}
-				_ => Err(Error::InvalidConditionValue),
+				_ => Err(Error::InvalidFieldValue),
 			}
 		}
-		_ => Err(Error::InvalidConditionValue),
+		_ => Err(Error::InvalidFieldValue),
 	}
 }
 
-fn validate_condition(field: Field, op: Op, value: &CompiledConditionValue) -> Result<()> {
+fn validate_condition(field: Field, op: Op, value: &FieldValue) -> Result<()> {
 	let ty = field.ty();
 
 	match op {
 		Op::Eq | Op::NotEq => {
 			if value.ty() != ty {
-				return Err(Error::InvalidConditionValue);
+				return Err(Error::InvalidFieldValue);
 			}
 		}
 
 		Op::Gt | Op::Gte | Op::Lt | Op::Lte | Op::BitAnd => {
 			if ty != FieldType::Int || value.ty() != FieldType::Int {
-				return Err(Error::InvalidConditionValue);
+				return Err(Error::InvalidFieldValue);
 			}
 		}
 
 		Op::Contains | Op::StartsWith | Op::Regex => {
 			if ty != FieldType::String {
-				return Err(Error::InvalidConditionValue);
+				return Err(Error::InvalidFieldValue);
 			}
 		}
 
 		Op::In | Op::NotIn => match (ty, value) {
-			(FieldType::Int, CompiledConditionValue::IntSet(_)) => {}
-			(FieldType::String, CompiledConditionValue::StringSet(_)) => {}
-			(FieldType::Ip, CompiledConditionValue::IpSet(_)) => {}
+			(FieldType::Int, FieldValue::IntSet(_)) => {}
+			(FieldType::String, FieldValue::StringSet(_)) => {}
+			(FieldType::Ip, FieldValue::IpSet(_)) => {}
 
-			_ => return Err(Error::InvalidConditionValue),
+			_ => return Err(Error::InvalidFieldValue),
 		},
 
 		Op::Exists => {}
@@ -332,8 +307,8 @@ mod tests {
 		let compiled = compile_condition(condition)?;
 
 		// -- Check
-		assert!(matches!(compiled.value, CompiledConditionValue::Ip(_)));
-		if let CompiledConditionValue::Ip(ip) = compiled.value {
+		assert!(matches!(compiled.value, FieldValue::Ip(_)));
+		if let FieldValue::Ip(ip) = compiled.value {
 			assert_eq!(ip, u32::from_be_bytes([192, 168, 1, 100]));
 		}
 
@@ -356,8 +331,8 @@ mod tests {
 		let compiled = compile_condition(condition)?;
 
 		// -- Check
-		assert!(matches!(compiled.value, CompiledConditionValue::IpSet(_)));
-		if let CompiledConditionValue::IpSet(ips) = compiled.value {
+		assert!(matches!(compiled.value, FieldValue::IpSet(_)));
+		if let FieldValue::IpSet(ips) = compiled.value {
 			assert_eq!(ips.len(), 3);
 			assert!(ips.contains(&u32::from_be_bytes([192, 168, 1, 100])));
 			assert!(ips.contains(&u32::from_be_bytes([10, 0, 0, 1])));
@@ -416,7 +391,7 @@ mod tests {
 		let compiled = compile_condition(condition)?;
 
 		// -- Check
-		assert!(matches!(compiled.value, CompiledConditionValue::IpSet(_)));
+		assert!(matches!(compiled.value, FieldValue::IpSet(_)));
 
 		Ok(())
 	}

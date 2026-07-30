@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+use lib_event_schema::{Field, FieldValue};
+
 use crate::event::{
 	BpfMapEvent, BpfProgLoadEvent, BprmSecurityEvent, CerberusEvent, Event, EventHeader, InetSockEvent, InodeEvent,
 	InodeMutationEvent, ModuleEvent, PtraceAccessCheckEvent, RingBufEvent, SocketEvent,
@@ -13,12 +15,12 @@ impl Event for RingBufEvent {
 		&mut self.header
 	}
 
-	fn to_fields(&self) -> HashMap<String, toml::Value> {
+	fn to_fields(&self) -> HashMap<Field, FieldValue> {
 		let mut fields = HashMap::new();
-		fields.insert("process.uid".into(), toml::Value::Integer(self.header.uid as i64));
-		fields.insert("process.pid".into(), toml::Value::Integer(self.header.pid as i64));
-		fields.insert("process.tgid".into(), toml::Value::Integer(self.header.tgid as i64));
-		fields.insert("process.comm".into(), toml::Value::String(self.header.comm.to_string()));
+		fields.insert(Field::ProcessUid, FieldValue::Int(self.header.uid as i64));
+		fields.insert(Field::ProcessPid, FieldValue::Int(self.header.pid as i64));
+		fields.insert(Field::ProcessTgid, FieldValue::Int(self.header.tgid as i64));
+		fields.insert(Field::ProcessComm, FieldValue::String(self.header.comm.clone()));
 		fields
 	}
 }
@@ -30,15 +32,17 @@ impl Event for BpfMapEvent {
 	fn header_mut(&mut self) -> &mut EventHeader {
 		&mut self.header
 	}
-	fn to_fields(&self) -> HashMap<String, toml::Value> {
+	fn to_fields(&self) -> HashMap<Field, FieldValue> {
 		let mut f = HashMap::new();
-		f.insert("process.uid".into(), toml::Value::Integer(self.header.uid as i64));
-		f.insert("process.pid".into(), toml::Value::Integer(self.header.pid as i64));
-		f.insert("process.tgid".into(), toml::Value::Integer(self.header.tgid as i64));
-		f.insert("process.comm".into(), toml::Value::String(self.header.comm.to_string()));
-		f.insert("bpf.map.id".into(), toml::Value::Integer(self.map_id as i64));
-		f.insert("bpf.map.name".into(), toml::Value::String(self.map_name.to_string()));
-		f.insert("bpf.map.type".into(), toml::Value::String(self.map_type.to_string()));
+		f.insert(Field::ProcessUid, FieldValue::Int(self.header.uid as i64));
+		f.insert(Field::ProcessPid, FieldValue::Int(self.header.pid as i64));
+		f.insert(Field::ProcessTgid, FieldValue::Int(self.header.tgid as i64));
+		f.insert(Field::ProcessComm, FieldValue::String(self.header.comm.clone()));
+
+		f.insert(Field::BpfMapId, FieldValue::Int(self.map_id as i64));
+		f.insert(Field::BpfMapName, FieldValue::String(self.map_name.clone()));
+		f.insert(Field::BpfMapType, FieldValue::String(self.map_type.clone()));
+
 		f
 	}
 }
@@ -50,14 +54,15 @@ impl Event for ModuleEvent {
 	fn header_mut(&mut self) -> &mut EventHeader {
 		&mut self.header
 	}
-	fn to_fields(&self) -> HashMap<String, toml::Value> {
+	fn to_fields(&self) -> HashMap<Field, FieldValue> {
 		let mut f = HashMap::new();
-		f.insert("process.uid".into(), toml::Value::Integer(self.header.uid as i64));
-		f.insert("process.pid".into(), toml::Value::Integer(self.header.pid as i64));
-		f.insert("process.tgid".into(), toml::Value::Integer(self.header.tgid as i64));
-		f.insert("process.comm".into(), toml::Value::String(self.header.comm.to_string()));
-		f.insert("module.name".into(), toml::Value::String(self.module_name.to_string()));
-		f.insert("module.op".into(), toml::Value::Integer(self.op as i64));
+		f.insert(Field::ProcessUid, FieldValue::Int(self.header.uid as i64));
+		f.insert(Field::ProcessPid, FieldValue::Int(self.header.pid as i64));
+		f.insert(Field::ProcessTgid, FieldValue::Int(self.header.tgid as i64));
+		f.insert(Field::ProcessComm, FieldValue::String(self.header.comm.clone()));
+
+		f.insert(Field::ModuleName, FieldValue::String(self.module_name.clone()));
+		f.insert(Field::ModuleOp, FieldValue::Int(self.op as i64));
 		f
 	}
 }
@@ -69,16 +74,15 @@ impl Event for BprmSecurityEvent {
 	fn header_mut(&mut self) -> &mut EventHeader {
 		&mut self.header
 	}
-	fn to_fields(&self) -> HashMap<String, toml::Value> {
+	fn to_fields(&self) -> HashMap<Field, FieldValue> {
 		let mut f = HashMap::new();
-		f.insert("process.uid".into(), toml::Value::Integer(self.header.uid as i64));
-		f.insert("process.pid".into(), toml::Value::Integer(self.header.pid as i64));
-		f.insert("process.tgid".into(), toml::Value::Integer(self.header.tgid as i64));
-		f.insert("process.comm".into(), toml::Value::String(self.header.comm.to_string()));
-		f.insert(
-			"process.filepath".into(),
-			toml::Value::String(self.filepath.to_string()),
-		);
+		f.insert(Field::ProcessUid, FieldValue::Int(self.header.uid as i64));
+		f.insert(Field::ProcessPid, FieldValue::Int(self.header.pid as i64));
+		f.insert(Field::ProcessTgid, FieldValue::Int(self.header.tgid as i64));
+		f.insert(Field::ProcessComm, FieldValue::String(self.header.comm.clone()));
+
+		f.insert(Field::ProcessFilepath, FieldValue::String(self.filepath.clone()));
+
 		f
 	}
 }
@@ -90,21 +94,16 @@ impl Event for InodeMutationEvent {
 	fn header_mut(&mut self) -> &mut EventHeader {
 		&mut self.header
 	}
-	fn to_fields(&self) -> HashMap<String, toml::Value> {
+	fn to_fields(&self) -> HashMap<Field, FieldValue> {
 		let mut f = HashMap::new();
-		f.insert("process.uid".into(), toml::Value::Integer(self.header.uid as i64));
-		f.insert("process.pid".into(), toml::Value::Integer(self.header.pid as i64));
-		f.insert("process.tgid".into(), toml::Value::Integer(self.header.tgid as i64));
-		f.insert("process.comm".into(), toml::Value::String(self.header.comm.to_string()));
-		f.insert(
-			"inode.new_filename".into(),
-			toml::Value::String(self.new_filename.to_string()),
-		);
-		f.insert(
-			"inode.old_filename".into(),
-			toml::Value::String(self.old_filename.to_string()),
-		);
-		f.insert("inode.mutation.type".into(), toml::Value::Integer(self.mutation as i64));
+		f.insert(Field::ProcessUid, FieldValue::Int(self.header.uid as i64));
+		f.insert(Field::ProcessPid, FieldValue::Int(self.header.pid as i64));
+		f.insert(Field::ProcessTgid, FieldValue::Int(self.header.tgid as i64));
+		f.insert(Field::ProcessComm, FieldValue::String(self.header.comm.clone()));
+
+		f.insert(Field::InodeNewFilename, FieldValue::String(self.new_filename.clone()));
+		f.insert(Field::InodeOldFilename, FieldValue::String(self.old_filename.clone()));
+		f.insert(Field::InodeMutationType, FieldValue::Int(self.mutation as i64));
 
 		f
 	}
@@ -117,33 +116,21 @@ impl Event for PtraceAccessCheckEvent {
 	fn header_mut(&mut self) -> &mut EventHeader {
 		&mut self.header
 	}
-	fn to_fields(&self) -> HashMap<String, toml::Value> {
+	fn to_fields(&self) -> HashMap<Field, FieldValue> {
 		let mut f = HashMap::new();
-		f.insert("process.uid".into(), toml::Value::Integer(self.header.uid as i64));
-		f.insert("process.pid".into(), toml::Value::Integer(self.header.pid as i64));
-		f.insert("process.tgid".into(), toml::Value::Integer(self.header.tgid as i64));
-		f.insert("process.comm".into(), toml::Value::String(self.header.comm.to_string()));
-		f.insert(
-			"process.target.pid".into(),
-			toml::Value::Integer(self.target_pid as i64),
-		);
-		f.insert(
-			"process.target.tgid".into(),
-			toml::Value::Integer(self.target_tgid as i64),
-		);
+		f.insert(Field::ProcessUid, FieldValue::Int(self.header.uid as i64));
+		f.insert(Field::ProcessPid, FieldValue::Int(self.header.pid as i64));
+		f.insert(Field::ProcessTgid, FieldValue::Int(self.header.tgid as i64));
+		f.insert(Field::ProcessComm, FieldValue::String(self.header.comm.clone()));
 
-		f.insert(
-			"process.target.uid".into(),
-			toml::Value::Integer(self.target_uid as i64),
-		);
+		f.insert(Field::ProcessTargetPid, FieldValue::Int(self.target_pid as i64));
+		f.insert(Field::ProcessTargetTgid, FieldValue::Int(self.target_tgid as i64));
+		f.insert(Field::ProcessTargetUid, FieldValue::Int(self.target_uid as i64));
+		f.insert(Field::ProcessTargetComm, FieldValue::String(self.target_comm.clone()));
 
-		f.insert(
-			"process.target.comm".into(),
-			toml::Value::String(self.target_comm.to_string()),
-		);
+		f.insert(Field::PtraceMode, FieldValue::Int(self.mode as i64));
+		f.insert(Field::PtraceStage, FieldValue::Int(self.stage as i64));
 
-		f.insert("ptrace.mode".into(), toml::Value::Integer(self.mode as i64));
-		f.insert("ptrace.stage".into(), toml::Value::Integer(self.stage as i64));
 		f
 	}
 }
@@ -155,14 +142,16 @@ impl Event for InodeEvent {
 	fn header_mut(&mut self) -> &mut EventHeader {
 		&mut self.header
 	}
-	fn to_fields(&self) -> HashMap<String, toml::Value> {
+	fn to_fields(&self) -> HashMap<Field, FieldValue> {
 		let mut f = HashMap::new();
-		f.insert("process.uid".into(), toml::Value::Integer(self.header.uid as i64));
-		f.insert("process.pid".into(), toml::Value::Integer(self.header.pid as i64));
-		f.insert("process.tgid".into(), toml::Value::Integer(self.header.tgid as i64));
-		f.insert("process.comm".into(), toml::Value::String(self.header.comm.to_string()));
-		f.insert("inode.filename".into(), toml::Value::String(self.filename.to_string()));
-		f.insert("inode.op".into(), toml::Value::Integer(self.op as i64));
+		f.insert(Field::ProcessUid, FieldValue::Int(self.header.uid as i64));
+		f.insert(Field::ProcessPid, FieldValue::Int(self.header.pid as i64));
+		f.insert(Field::ProcessTgid, FieldValue::Int(self.header.tgid as i64));
+		f.insert(Field::ProcessComm, FieldValue::String(self.header.comm.clone()));
+
+		f.insert(Field::InodeFilename, FieldValue::String(self.filename.clone()));
+		f.insert(Field::InodeOp, FieldValue::Int(self.op as i64));
+
 		f
 	}
 }
@@ -174,30 +163,22 @@ impl Event for InetSockEvent {
 	fn header_mut(&mut self) -> &mut EventHeader {
 		&mut self.header
 	}
-	fn to_fields(&self) -> HashMap<String, toml::Value> {
+	fn to_fields(&self) -> HashMap<Field, FieldValue> {
 		let mut f = HashMap::new();
-		f.insert("process.uid".into(), toml::Value::Integer(self.header.uid as i64));
-		f.insert("process.pid".into(), toml::Value::Integer(self.header.pid as i64));
-		f.insert("process.tgid".into(), toml::Value::Integer(self.header.tgid as i64));
-		f.insert("process.comm".into(), toml::Value::String(self.header.comm.to_string()));
+		f.insert(Field::ProcessUid, FieldValue::Int(self.header.uid as i64));
+		f.insert(Field::ProcessPid, FieldValue::Int(self.header.pid as i64));
+		f.insert(Field::ProcessTgid, FieldValue::Int(self.header.tgid as i64));
+		f.insert(Field::ProcessComm, FieldValue::String(self.header.comm.clone()));
 
-		f.insert("network.sport".into(), toml::Value::Integer(self.sport as i64));
-		f.insert("network.dport".into(), toml::Value::Integer(self.dport as i64));
-		f.insert("network.saddr".into(), toml::Value::Integer(self.saddr as i64));
-		f.insert("network.daddr".into(), toml::Value::Integer(self.daddr as i64));
+		f.insert(Field::NetworkSport, FieldValue::Int(self.sport as i64));
+		f.insert(Field::NetworkDport, FieldValue::Int(self.dport as i64));
+		f.insert(Field::NetworkSaddr, FieldValue::Ip(self.saddr));
+		f.insert(Field::NetworkDaddr, FieldValue::Ip(self.daddr));
 
-		f.insert(
-			"network.protocol".into(),
-			toml::Value::String(self.protocol.to_string()),
-		);
-		f.insert(
-			"socket.old_state".into(),
-			toml::Value::String(self.old_state.to_string()),
-		);
-		f.insert(
-			"socket.new_state".into(),
-			toml::Value::String(self.new_state.to_string()),
-		);
+		f.insert(Field::NetworkProtocol, FieldValue::String(self.protocol.clone()));
+		f.insert(Field::SocketOldState, FieldValue::String(self.old_state.clone()));
+		f.insert(Field::SocketNewState, FieldValue::String(self.new_state.clone()));
+
 		f
 	}
 }
@@ -209,16 +190,18 @@ impl Event for SocketEvent {
 	fn header_mut(&mut self) -> &mut EventHeader {
 		&mut self.header
 	}
-	fn to_fields(&self) -> HashMap<String, toml::Value> {
+	fn to_fields(&self) -> HashMap<Field, FieldValue> {
 		let mut f = HashMap::new();
-		f.insert("process.uid".into(), toml::Value::Integer(self.header.uid as i64));
-		f.insert("process.pid".into(), toml::Value::Integer(self.header.pid as i64));
-		f.insert("process.tgid".into(), toml::Value::Integer(self.header.tgid as i64));
-		f.insert("process.comm".into(), toml::Value::String(self.header.comm.to_string()));
 
-		f.insert("socket.port".into(), toml::Value::Integer(self.port as i64));
-		f.insert("socket.family".into(), toml::Value::Integer(self.family as i64));
-		f.insert("socket.op".into(), toml::Value::Integer(self.op as i64));
+		f.insert(Field::ProcessUid, FieldValue::Int(self.header.uid as i64));
+		f.insert(Field::ProcessPid, FieldValue::Int(self.header.pid as i64));
+		f.insert(Field::ProcessTgid, FieldValue::Int(self.header.tgid as i64));
+		f.insert(Field::ProcessComm, FieldValue::String(self.header.comm.clone()));
+
+		f.insert(Field::SocketPort, FieldValue::Int(self.port as i64));
+		f.insert(Field::SocketFamily, FieldValue::Int(self.family as i64));
+		f.insert(Field::SocketOp, FieldValue::Int(self.op as i64));
+
 		f
 	}
 }
@@ -230,19 +213,17 @@ impl Event for BpfProgLoadEvent {
 	fn header_mut(&mut self) -> &mut EventHeader {
 		&mut self.header
 	}
-	fn to_fields(&self) -> HashMap<String, toml::Value> {
+	fn to_fields(&self) -> HashMap<Field, FieldValue> {
 		let mut f = HashMap::new();
-		f.insert("process.uid".into(), toml::Value::Integer(self.header.uid as i64));
-		f.insert("process.pid".into(), toml::Value::Integer(self.header.pid as i64));
-		f.insert("process.tgid".into(), toml::Value::Integer(self.header.tgid as i64));
-		f.insert("process.comm".into(), toml::Value::String(self.header.comm.to_string()));
+		f.insert(Field::ProcessUid, FieldValue::Int(self.header.uid as i64));
+		f.insert(Field::ProcessPid, FieldValue::Int(self.header.pid as i64));
+		f.insert(Field::ProcessTgid, FieldValue::Int(self.header.tgid as i64));
+		f.insert(Field::ProcessComm, FieldValue::String(self.header.comm.clone()));
 
-		f.insert("bpf.prog.type".into(), toml::Value::Integer(self.prog_type as i64));
-		f.insert("bpf.prog.flags".into(), toml::Value::Integer(self.flags as i64));
-		f.insert(
-			"bpf.prog.attach_type".into(),
-			toml::Value::Integer(self.attach_type as i64),
-		);
+		f.insert(Field::BpfProgType, FieldValue::Int(self.prog_type as i64));
+		f.insert(Field::BpfProgFlags, FieldValue::Int(self.flags as i64));
+		f.insert(Field::BpfProgAttachType, FieldValue::Int(self.attach_type as i64));
+
 		f
 	}
 }
@@ -278,7 +259,7 @@ impl Event for CerberusEvent {
 		}
 	}
 
-	fn to_fields(&self) -> HashMap<String, toml::Value> {
+	fn to_fields(&self) -> HashMap<Field, FieldValue> {
 		match self {
 			CerberusEvent::Generic(e) => e.to_fields(),
 			CerberusEvent::Module(e) => e.to_fields(),
