@@ -1287,6 +1287,7 @@ version = "0.1.0"
 dependencies = [
  "derive_more",
  "lib-container",
+ "lib-event-schema",
  "toml",
 ]
 
@@ -1336,6 +1337,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "lib-event-schema"
+version = "0.1.0"
+dependencies = [
+ "derive_more",
+ "regex",
+]
+
+[[package]]
 name = "lib-rules"
 version = "0.1.0"
 dependencies = [
@@ -1351,6 +1360,7 @@ dependencies = [
  "humantime-serde",
  "lib-common",
  "lib-event",
+ "lib-event-schema",
  "libc",
  "regex",
  "serde",

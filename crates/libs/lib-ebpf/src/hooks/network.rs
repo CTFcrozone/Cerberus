@@ -203,7 +203,7 @@ pub fn try_xdp(ctx: XdpContext) -> Result<u32, ()> {
 	let ethhdr: *const EthHdr = unsafe { ptr_at(&ctx, 0)? };
 	match unsafe { (*ethhdr).ether_type() } {
 		Ok(EtherType::Ipv4) => {}
-		_ => return Ok(xdp_action::XDP_DROP),
+		_ => return Ok(xdp_action::XDP_PASS),
 	}
 	let ipv4hdr: *const Ipv4Hdr = unsafe { ptr_at(&ctx, EthHdr::LEN)? };
 	let src = u32::from_be_bytes(unsafe { (*ipv4hdr).src_addr });

@@ -38,7 +38,7 @@ pub enum Error {
 	UnknownOp {
 		op: String,
 	},
-	InvalidConditionValue,
+	InvalidFieldValue,
 	InvalidRegex,
 	// -- Externals
 	#[from]

@@ -1,6 +1,5 @@
 use arc_swap::ArcSwap;
 use lib_common::event::{CerberusEvent, Event, EventMeta};
-use lib_event::unbound::Tx;
 use std::time::Instant;
 use std::{path::Path, sync::Arc};
 
@@ -177,7 +176,6 @@ mod tests {
 
 	use super::*;
 	use lib_common::event::{Event, EventHeader, RingBufEvent};
-	use lib_event::unbound::new_channel_unbounded_async;
 	use std::sync::Arc;
 	use toml::Value;
 
@@ -356,7 +354,10 @@ mod tests {
 		});
 
 		let mut ctx = RuleEngine::event_to_ctx(&event);
-		ctx.insert("process.filepath".into(), toml::Value::String("/tmp/test.txt".into()));
+		ctx.insert(
+			lib_event_schema::Field::ProcessFilepath,
+			lib_event_schema::FieldValue::String("/tmp/test.txt".into()),
+		);
 
 		let ruleset = engine.ruleset.load();
 		let matched_rule = ruleset

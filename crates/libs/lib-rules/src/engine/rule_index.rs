@@ -1,10 +1,11 @@
 use std::{collections::HashMap, sync::Arc};
 
 use lib_common::event::CerberusEvent;
+use lib_event_schema::Field;
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 
-use crate::rule::compiled::{field::Field, ruleset::CompiledRuleSet};
+use crate::rule::compiled::ruleset::CompiledRuleSet;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, EnumIter)]
 pub enum EventKind {
