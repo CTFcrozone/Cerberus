@@ -7,4 +7,7 @@ mod rule;
 
 pub use engine::{CorrelationEvent, EngineEvent, EvaluatedEvent, ResponseRequest, RuleEngine};
 pub use error::Error;
-pub use rule::{Rule, RuleSet, Severity, compiled::response::CompiledResponse};
+pub use rule::{
+	Rule, RuleSet, Severity, Trigger,
+	compiled::response::{CompiledAction, CompiledResponse},
+};

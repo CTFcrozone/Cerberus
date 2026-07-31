@@ -11,6 +11,14 @@ pub enum Severity {
 	Critical,
 }
 
+#[cfg_attr(test, derive(PartialEq))]
+#[derive(Debug, Deserialize, Clone)]
+#[serde(rename_all = "snake_case")]
+pub enum Trigger {
+	RuleMatch,
+	SequenceFinished,
+}
+
 impl Severity {
 	pub const COUNT: usize = 6;
 

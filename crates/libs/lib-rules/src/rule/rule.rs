@@ -3,7 +3,7 @@ use std::{path::Path, sync::Arc};
 use crate::{
 	error::{Error, Result},
 	hash_utils,
-	rule::{Sequence, common::Severity},
+	rule::{Sequence, Trigger, common::Severity},
 };
 use serde::Deserialize;
 use simple_fs::SPath;
@@ -44,11 +44,17 @@ pub struct Condition {
 
 #[cfg_attr(test, derive(PartialEq))]
 #[derive(Debug, Deserialize, Clone)]
-#[serde(tag = "type", rename_all = "snake_case")]
-pub enum Response {
+pub struct Response {
+	pub action: Action,
+	pub trigger: Trigger,
+}
+
+#[cfg_attr(test, derive(PartialEq))]
+#[derive(Debug, Deserialize, Clone)]
+#[serde(tag = "type", content = "params", rename_all = "snake_case")]
+pub enum Action {
 	KillProcess,
 	BlockIp { ip: u32 },
-
 	EmitSignal { signal: i32 },
 	Notify { message: String },
 	KvmAction { timeout_ms: u64, exit_budget: u64 },
