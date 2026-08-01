@@ -9,7 +9,7 @@ use crate::engine::{EngineEvent, EvalCtx, EvaluatedEvent, Evaluator, EventKind, 
 use crate::error::Result;
 use crate::rule::compiled::rule::CompiledRule;
 use crate::rule::compiled::ruleset::CompiledRuleSet;
-use crate::{Error, ResponseRequest, RuleSet};
+use crate::{CorrelationEvent, Error, ResponseRequest, RuleSet, Trigger};
 
 pub struct RuleEngine {
 	pub ruleset: ArcSwap<CompiledRuleSet>,
@@ -101,6 +101,24 @@ impl RuleEngine {
 					.on_rule_match(shard_key, &matched_rule.inner.id, seq, &root_rule.inner.id, now, meta);
 
 			for m in matches {
+				if let CorrelationEvent::Completed {
+					root_rule_id,
+					seq_id,
+					event_meta,
+					..
+				} = &m
+				{
+					if let Some(response) = index.seq_responses.get(seq_id) {
+						out.push(
+							ResponseRequest {
+								rule_id: root_rule_id.clone(),
+								response: response.clone(),
+								event_meta: event_meta.clone(),
+							}
+							.into(),
+						);
+					}
+				}
 				out.push(m.into());
 			}
 		}
@@ -132,14 +150,16 @@ impl RuleEngine {
 				out.push(Self::rule_to_eval_event(rule, meta.clone()).into());
 
 				if let Some(response) = &rule.inner.response {
-					out.push(
-						ResponseRequest {
-							rule_id: rule_id.clone(),
-							response: response.clone(),
-							event_meta: meta.clone(),
-						}
-						.into(),
-					);
+					if matches!(response.trigger, Trigger::RuleMatch) {
+						out.push(
+							ResponseRequest {
+								rule_id: rule_id.clone(),
+								response: response.clone(),
+								event_meta: meta.clone(),
+							}
+							.into(),
+						);
+					}
 				}
 
 				if let Some(seq) = &rule.inner.sequence {
