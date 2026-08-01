@@ -1,6 +1,6 @@
 use crate::{
 	core::{AppState, ScrollIden},
-	views::support::render::line_from_event,
+	log_line::format::string_from_event,
 };
 use ratatui::{
 	buffer::Buffer,
@@ -37,7 +37,7 @@ impl StatefulWidget for GeneralEventView {
 fn render_events(area: Rect, buf: &mut Buffer, state: &mut AppState, block: Block) {
 	const SCROLL_IDEN: ScrollIden = GeneralEventView::SCROLL_IDEN;
 
-	let lines: Vec<Line> = state.cerberus_evts_general().map(line_from_event).collect();
+	let lines: Vec<Line> = state.cerberus_evts_general().map(|e| Line::raw(string_from_event(e))).collect();
 
 	let scroll = state.clamp_scroll(SCROLL_IDEN, lines.len());
 

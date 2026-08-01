@@ -2,4 +2,4 @@
 runner = "sudo -E"
 
 [env]
-RUST_LOG = "cerberus=debug,lib_rules=debug"
+RUST_LOG = "cerberus=debug"

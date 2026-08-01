@@ -39,7 +39,7 @@ use lib_container::{container_manager::ContainerManager, runtime::k8s_connect};
 use lib_event::unbound::new_channel_unbounded_async;
 use lib_rules::{ResponseRequest, RuleEngine, RuleSet};
 use std::{path::Path, sync::Arc};
-use tracing_subscriber::EnvFilter;
+use tracing_subscriber::{EnvFilter, fmt::time::ChronoLocal, layer::SubscriberExt, util::SubscriberInitExt};
 #[rustfmt::skip]
 use tracing::{debug};
 use tokio::io::unix::AsyncFd;
@@ -47,6 +47,11 @@ use tokio::io::unix::AsyncFd;
 #[tokio::main]
 async fn main() -> Result<()> {
 	let args = Cli::parse();
+
+	let console_layer = tracing_subscriber::fmt::layer()
+		.with_target(false)
+		.with_timer(ChronoLocal::new("[%H:%M:%S]".to_string()));
+	let filter = EnvFilter::from_default_env();
 
 	let (_guard, logging_enabled) = if let Some(path) = &args.log {
 		let dir = path.parent().unwrap_or(Path::new("."));
@@ -57,22 +62,22 @@ async fn main() -> Result<()> {
 		let appender = tracing_appender::rolling::hourly(dir, file);
 		let (writer, guard) = tracing_appender::non_blocking(appender);
 
-		tracing_subscriber::fmt()
+		let json_layer = tracing_subscriber::fmt::layer()
 			.json()
 			.with_current_span(false)
 			.with_span_list(false)
 			.with_target(false)
-			.with_env_filter(EnvFilter::from_default_env())
-			.with_writer(writer)
+			.with_writer(writer);
+
+		tracing_subscriber::registry()
+			.with(filter)
+			.with(console_layer)
+			.with(json_layer)
 			.init();
 
 		(Some(guard), true)
 	} else {
-		tracing_subscriber::fmt()
-			.with_target(false)
-			.without_time()
-			.with_env_filter(EnvFilter::from_default_env())
-			.init();
+		tracing_subscriber::registry().with(filter).with(console_layer).init();
 
 		(None, false)
 	};
