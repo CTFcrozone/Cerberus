@@ -38,7 +38,7 @@ pub fn alert_from_engine_event(e: &EngineEvent) -> String {
 				..
 			} => {
 				format!(
-					"[CORRELATION] {}::{} attack chain completed ({} steps): {}",
+					"[CORRELATION] {}::{} completed ({} steps): {}",
 					root_rule_id,
 					seq_id,
 					steps,
