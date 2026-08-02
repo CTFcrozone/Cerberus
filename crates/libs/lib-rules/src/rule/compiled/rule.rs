@@ -26,26 +26,33 @@ pub struct CompiledRuleInner {
 }
 
 pub fn compile_rule(raw: Rule, hash: [u8; 32], hash_hex: Arc<str>) -> Result<CompiledRule> {
+	let conditions = raw
+		.inner
+		.conditions
+		.into_iter()
+		.map(compile_condition)
+		.collect::<Result<Vec<_>>>()?;
+
+	let sequence = raw.inner.sequence.map(compile_sequence).transpose()?;
+
+	let response_chain = raw.inner.response_chain.map(compile_response_chain).transpose()?;
+
+	if let Some(chain) = &response_chain {
+		if matches!(chain.trigger, crate::Trigger::SequenceFinished) && sequence.is_none() {
+			return Err(crate::Error::SequenceFinishedTriggerWithoutSequence);
+		}
+	}
+
 	Ok(CompiledRule {
 		hash,
 		hash_hex,
-
 		inner: CompiledRuleInner {
 			id: raw.inner.id.into(),
 			description: raw.inner.description.into(),
-
 			severity: raw.inner.severity,
-
-			conditions: raw
-				.inner
-				.conditions
-				.into_iter()
-				.map(compile_condition)
-				.collect::<Result<Vec<_>>>()?,
-
-			sequence: raw.inner.sequence.map(compile_sequence).transpose()?,
-
-			response_chain: raw.inner.response_chain.map(compile_response_chain).transpose()?,
+			conditions,
+			sequence,
+			response_chain,
 		},
 	})
 }

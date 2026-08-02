@@ -38,6 +38,7 @@ pub enum Error {
 	UnknownOp {
 		op: String,
 	},
+	SequenceFinishedTriggerWithoutSequence,
 	InvalidFieldValue,
 	InvalidRegex,
 	// -- Externals
