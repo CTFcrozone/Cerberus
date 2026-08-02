@@ -48,7 +48,7 @@ pub fn alert_from_engine_event(e: &EngineEvent) -> String {
 		},
 
 		EngineEvent::Response(r) => {
-			format!("[RESPONSE] rule={} action={:?}", r.rule_id, r.response)
+			format!("[RESPONSE] rule={} action={:?}", r.rule_id, r.response_chain)
 		}
 	}
 }

@@ -228,7 +228,7 @@ pub fn log_engine_event(evt: &EngineEvent) {
 				event.kind = "response",
 
 				rule.id = %r.rule_id,
-				response.action = %format!("{:?}", r.response),
+				response.action = %format!("{:?}", r.response_chain),
 			);
 		}
 	}

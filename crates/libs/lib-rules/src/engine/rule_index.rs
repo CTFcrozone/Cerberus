@@ -5,7 +5,7 @@ use lib_event_schema::Field;
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 
-use crate::{CompiledResponse, rule::compiled::ruleset::CompiledRuleSet};
+use crate::rule::compiled::{response::CompiledResponseChain, ruleset::CompiledRuleSet};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, EnumIter)]
 pub enum EventKind {
@@ -129,14 +129,14 @@ pub struct RuleIndex {
 	pub by_evt_kind: HashMap<EventKind, Vec<Arc<str>>>,
 	// step rule id -> root rule ids that have a sequence with this rule from the step
 	pub seq_listeners: HashMap<Arc<str>, Vec<Arc<str>>>,
-	pub seq_responses: HashMap<Arc<str>, CompiledResponse>,
+	pub rule_response_chains: HashMap<Arc<str>, CompiledResponseChain>,
 }
 
 impl RuleIndex {
 	pub fn build(ruleset: &CompiledRuleSet) -> Self {
 		let mut by_evt_kind: HashMap<EventKind, Vec<Arc<str>>> = HashMap::new();
 		let mut seq_listeners: HashMap<Arc<str>, Vec<Arc<str>>> = HashMap::new();
-		let mut seq_responses: HashMap<Arc<str>, CompiledResponse> = HashMap::new();
+		let mut rule_response_chains: HashMap<Arc<str>, CompiledResponseChain> = HashMap::new();
 
 		for rule in ruleset.rules() {
 			let rule_id = rule.inner.id.clone();
@@ -153,18 +153,17 @@ impl RuleIndex {
 				for step in &seq.steps {
 					seq_listeners.entry(step.rule_id.clone()).or_default().push(rule_id.clone());
 				}
-				if let Some(response) = &rule.inner.response {
-					if matches!(response.trigger, crate::Trigger::SequenceFinished) {
-						seq_responses.insert(seq.id.clone(), response.clone());
-					}
-				}
+			}
+
+			if let Some(chain) = &rule.inner.response_chain {
+				rule_response_chains.insert(rule_id, chain.clone());
 			}
 		}
 
 		Self {
 			by_evt_kind,
 			seq_listeners,
-			seq_responses,
+			rule_response_chains,
 		}
 	}
 }

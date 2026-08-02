@@ -31,7 +31,14 @@ pub struct RuleInner {
 	#[serde(default)]
 	pub sequence: Option<Sequence>,
 	#[serde(default)]
-	pub response: Option<Response>,
+	pub response_chain: Option<ResponseChain>,
+}
+
+#[cfg_attr(test, derive(PartialEq))]
+#[derive(Debug, Deserialize, Clone)]
+pub struct ResponseChain {
+	pub trigger: Trigger,
+	pub actions: Vec<Action>,
 }
 
 #[cfg_attr(test, derive(PartialEq))]
@@ -44,20 +51,10 @@ pub struct Condition {
 
 #[cfg_attr(test, derive(PartialEq))]
 #[derive(Debug, Deserialize, Clone)]
-pub struct Response {
-	pub action: Action,
-	pub trigger: Trigger,
-}
-
-#[cfg_attr(test, derive(PartialEq))]
-#[derive(Debug, Deserialize, Clone)]
 #[serde(tag = "type", content = "params", rename_all = "snake_case")]
 pub enum Action {
 	KillProcess,
 	BlockIp { ip: u32 },
-	EmitSignal { signal: i32 },
-	Notify { message: String },
-	KvmAction { timeout_ms: u64, exit_budget: u64 },
 }
 
 impl Rule {
@@ -129,7 +126,7 @@ mod tests {
 				},
 			],
 			sequence: None,
-			response: None,
+			response_chain: None,
 		};
 		let fx_rule = Rule {
 			inner: fx_rule_inner,

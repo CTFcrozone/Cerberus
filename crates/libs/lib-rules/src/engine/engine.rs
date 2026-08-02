@@ -103,20 +103,21 @@ impl RuleEngine {
 			for m in matches {
 				if let CorrelationEvent::Completed {
 					root_rule_id,
-					seq_id,
 					event_meta,
 					..
 				} = &m
 				{
-					if let Some(response) = index.seq_responses.get(seq_id) {
-						out.push(
-							ResponseRequest {
-								rule_id: root_rule_id.clone(),
-								response: response.clone(),
-								event_meta: event_meta.clone(),
-							}
-							.into(),
-						);
+					if let Some(chain) = index.rule_response_chains.get(root_rule_id) {
+						if matches!(chain.trigger, Trigger::SequenceFinished) {
+							out.push(
+								ResponseRequest {
+									rule_id: root_rule_id.clone(),
+									response_chain: chain.clone(),
+									event_meta: event_meta.clone(),
+								}
+								.into(),
+							);
+						}
 					}
 				}
 				out.push(m.into());
@@ -149,12 +150,12 @@ impl RuleEngine {
 
 				out.push(Self::rule_to_eval_event(rule, meta.clone()).into());
 
-				if let Some(response) = &rule.inner.response {
-					if matches!(response.trigger, Trigger::RuleMatch) {
+				if let Some(chain) = &rule.inner.response_chain {
+					if matches!(chain.trigger, Trigger::RuleMatch) {
 						out.push(
 							ResponseRequest {
 								rule_id: rule_id.clone(),
-								response: response.clone(),
+								response_chain: chain.clone(),
 								event_meta: meta.clone(),
 							}
 							.into(),
@@ -253,7 +254,7 @@ mod tests {
 					value: Value::Integer(0),
 				}],
 				sequence: None,
-				response: None,
+				response_chain: None,
 			},
 			hash: [0u8; 32],
 			hash_hex: Arc::from("0".repeat(64)),
@@ -308,7 +309,7 @@ mod tests {
 					},
 				],
 				sequence: None,
-				response: None,
+				response_chain: None,
 			},
 			hash: [0u8; 32],
 			hash_hex: Arc::from("0".repeat(64)),

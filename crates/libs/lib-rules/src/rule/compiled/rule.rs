@@ -5,7 +5,7 @@ use crate::{
 	error::Result,
 	rule::compiled::{
 		condition::{CompiledCondition, compile_condition},
-		response::{CompiledResponse, compile_response},
+		response::{CompiledResponseChain, compile_response_chain},
 		sequence::{CompiledSequence, compile_sequence},
 	},
 };
@@ -22,7 +22,7 @@ pub struct CompiledRuleInner {
 	pub severity: Severity,
 	pub conditions: Vec<CompiledCondition>,
 	pub sequence: Option<CompiledSequence>,
-	pub response: Option<CompiledResponse>,
+	pub response_chain: Option<CompiledResponseChain>,
 }
 
 pub fn compile_rule(raw: Rule, hash: [u8; 32], hash_hex: Arc<str>) -> Result<CompiledRule> {
@@ -45,7 +45,7 @@ pub fn compile_rule(raw: Rule, hash: [u8; 32], hash_hex: Arc<str>) -> Result<Com
 
 			sequence: raw.inner.sequence.map(compile_sequence).transpose()?,
 
-			response: raw.inner.response.map(compile_response).transpose()?,
+			response_chain: raw.inner.response_chain.map(compile_response_chain).transpose()?,
 		},
 	})
 }
