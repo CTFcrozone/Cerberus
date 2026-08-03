@@ -6,17 +6,18 @@ pub type Result<T> = core::result::Result<T, Error>;
 #[display("{self:?}")]
 pub enum Error {
 	#[from(String, &String, &str)]
+	#[display("{_0}")]
 	Custom(String),
-	#[from]
-	TonicTrx(tonic::transport::Error),
-	CgroupFsNotMounted,
-	TonicW {
-		status: String,
-	},
 
-	// -- Externals
 	#[from]
-	Io(std::io::Error), // as example
+	#[display("Failed to connect using tonic transport: {_0}")]
+	TonicTrx(tonic::transport::Error),
+
+	#[display("Cgroup filesystem is not mounted")]
+	CgroupFsNotMounted,
+
+	#[display("Tonic error: {status}")]
+	TonicW { status: String },
 }
 
 // region:    --- Custom

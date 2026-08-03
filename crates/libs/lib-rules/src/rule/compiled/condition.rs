@@ -27,18 +27,24 @@ pub fn compile_condition(raw: Condition) -> Result<CompiledCondition> {
 
 	let value = match op {
 		Op::Regex => {
-			let pattern = raw.value.as_str().ok_or(Error::InvalidRegex)?;
+			let pattern = raw.value.as_str().ok_or_else(|| Error::InvalidRegex {
+				pattern: "<non-string>".into(),
+				reason: "regex value must be a string".into(),
+			})?;
 
-			FieldValue::Regex(Arc::new(Regex::new(pattern)?))
+			FieldValue::Regex(Arc::new(Regex::new(pattern).map_err(|e| Error::InvalidRegex {
+				pattern: pattern.into(),
+				reason: e.to_string(),
+			})?))
 		}
 
-		_ => compile_value(raw.value)?,
+		_ => compile_value(field.as_str(), raw.value)?,
 	};
 	validate_condition(field, op, &value)?;
 	Ok(CompiledCondition { field, op, value })
 }
 
-fn compile_value(value: toml::Value) -> Result<FieldValue> {
+fn compile_value(field: &str, value: toml::Value) -> Result<FieldValue> {
 	match value {
 		toml::Value::Boolean(v) => Ok(FieldValue::Bool(v)),
 		toml::Value::Integer(v) => Ok(FieldValue::Int(v)),
@@ -51,14 +57,20 @@ fn compile_value(value: toml::Value) -> Result<FieldValue> {
 		}
 		toml::Value::Array(values) => {
 			let Some(first) = values.first() else {
-				return Err(Error::InvalidFieldValue);
+				return Err(Error::InvalidFieldValue {
+					field: field.into(),
+					value: "empty array".into(),
+				});
 			};
 
 			match first {
 				toml::Value::Integer(_) => {
 					let mut out = Vec::with_capacity(values.len());
 					for v in values {
-						out.push(v.as_integer().ok_or(Error::InvalidFieldValue)?);
+						out.push(v.as_integer().ok_or(Error::InvalidFieldValue {
+							field: field.into(),
+							value: v.to_string(),
+						})?);
 					}
 					Ok(FieldValue::IntSet(out))
 				}
@@ -69,7 +81,10 @@ fn compile_value(value: toml::Value) -> Result<FieldValue> {
 					let mut all_ips = true;
 
 					for v in values {
-						let s = v.as_str().ok_or(Error::InvalidFieldValue)?;
+						let s = v.as_str().ok_or(Error::InvalidFieldValue {
+							field: field.into(),
+							value: v.to_string(),
+						})?;
 						if let Ok(ip) = s.parse::<std::net::Ipv4Addr>() {
 							ip_values.push(u32::from_be_bytes(ip.octets()));
 						} else {
@@ -83,10 +98,16 @@ fn compile_value(value: toml::Value) -> Result<FieldValue> {
 						Ok(FieldValue::StringSet(string_values))
 					}
 				}
-				_ => Err(Error::InvalidFieldValue),
+				_ => Err(Error::InvalidFieldValue {
+					field: field.into(),
+					value: "unsupported array type".into(),
+				}),
 			}
 		}
-		_ => Err(Error::InvalidFieldValue),
+		other => Err(Error::InvalidFieldValue {
+			field: field.into(),
+			value: other.to_string(),
+		}),
 	}
 }
 
@@ -96,19 +117,28 @@ fn validate_condition(field: Field, op: Op, value: &FieldValue) -> Result<()> {
 	match op {
 		Op::Eq | Op::NotEq => {
 			if value.ty() != ty {
-				return Err(Error::InvalidFieldValue);
+				return Err(Error::InvalidFieldValue {
+					field: field.as_str().into(),
+					value: format!("{value:?}"),
+				});
 			}
 		}
 
 		Op::Gt | Op::Gte | Op::Lt | Op::Lte | Op::BitAnd => {
 			if ty != FieldType::Int || value.ty() != FieldType::Int {
-				return Err(Error::InvalidFieldValue);
+				return Err(Error::InvalidFieldValue {
+					field: field.as_str().into(),
+					value: format!("{value:?}"),
+				});
 			}
 		}
 
 		Op::Contains | Op::StartsWith | Op::Regex => {
 			if ty != FieldType::String {
-				return Err(Error::InvalidFieldValue);
+				return Err(Error::InvalidFieldValue {
+					field: field.as_str().into(),
+					value: format!("{value:?}"),
+				});
 			}
 		}
 
@@ -117,7 +147,12 @@ fn validate_condition(field: Field, op: Op, value: &FieldValue) -> Result<()> {
 			(FieldType::String, FieldValue::StringSet(_)) => {}
 			(FieldType::Ip, FieldValue::IpSet(_)) => {}
 
-			_ => return Err(Error::InvalidFieldValue),
+			_ => {
+				return Err(Error::InvalidFieldValue {
+					field: field.as_str().into(),
+					value: format!("{value:?}"),
+				});
+			}
 		},
 
 		Op::Exists => {}

@@ -9,64 +9,61 @@ pub type Result<T> = core::result::Result<T, Error>;
 #[display("{self:?}")]
 pub enum Error {
 	#[from(String, &String, &str)]
+	#[display("{_0}")]
 	Custom(String),
-	EbpfProgNotFound {
-		program: Arc<str>,
-	},
-	EbpfMapNotFound {
-		map: String,
-	},
-	HookAlreadyDisabled {
-		program: String,
-	},
-	HookNotFound {
-		hook: Arc<str>,
-	},
-	HookAlreadyExists {
-		hook: Arc<str>,
-	},
-	InvalidEventAlign,
+	#[display("eBPF program '{program}' was not found")]
+	EbpfProgNotFound { program: Arc<str> },
+	#[display("eBPF map '{map}' was not found")]
+	EbpfMapNotFound { map: String },
+	#[display("Hook for program '{program}' is already disabled")]
+	HookAlreadyDisabled { program: String },
+	#[display("Hook '{hook}' was not found")]
+	HookNotFound { hook: Arc<str> },
+	#[display("Hook '{hook}' already exists")]
+	HookAlreadyExists { hook: Arc<str> },
+	#[display("Invalid event size")]
 	InvalidEventSize,
 	#[display("Timed run is only possible in 'agent' mode")]
 	InvalidTimeMode,
 	#[display("No time specified for 'agent' mode")]
 	NoTimeSpecified,
+	#[display("Invalid event rate")]
 	InvalidRate,
 	#[display("No rules found in '{_0}'")]
 	NoRulesInDir(String),
+	#[display("Unknown event type '{_0}'")]
 	UnknownEventType(u8),
-	MutexPoison,
-	// -- Externals
-	//
 	#[from]
+	#[display("System time error: {_0}")]
 	SystemTime(std::time::SystemTimeError),
 	#[from]
-	Var(std::env::VarError),
-	#[from]
-	Oneshot(tokio::sync::oneshot::error::RecvError),
-	#[from]
-	JoinError(JoinError),
-	#[from]
-	Utf8(Utf8Error),
-	#[from]
+	#[display("eBPF error: {_0}")]
 	AyaEbpf(aya::EbpfError),
 	#[from]
+	#[display("BTF error: {_0}")]
 	AyaBtf(aya::BtfError),
 	#[from]
+	#[display("eBPF map error: {_0}")]
 	AyaMaps(aya::maps::MapError),
 	#[from]
+	#[display("Container resolver error: {_0}")]
 	LibContainer(lib_container::Error),
 	#[from]
+	#[display("eBPF program error: {_0}")]
 	AyaProgram(aya::programs::ProgramError),
 	#[from]
-	Event(lib_event::Error),
-	#[display("Rule engine error: {_0}")]
+	#[display("Event TRX error: {_0}")]
+	EventTrx(lib_event::Error),
 	#[from]
+	#[display("Rule engine error: {_0}")]
 	RuleEngine(lib_rules::Error),
 	#[from]
-	Io(std::io::Error), // as example
+	#[display("IO error: {_0}")]
+	Io(std::io::Error),
 	#[from]
+	#[display("Notify error: {_0}")]
 	Notify(notify::Error),
+	#[display("Lock poisoned")]
 	LockPoison,
 }
 

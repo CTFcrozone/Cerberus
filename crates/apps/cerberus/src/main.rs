@@ -114,7 +114,6 @@ async fn main() -> Result<()> {
 	// 		});
 	// 	}
 	// }
-
 	let rule_dir = args.rules;
 	let ruleset = RuleSet::load_from_dir(&rule_dir)?;
 	let rules: Arc<[Arc<str>]> = ruleset

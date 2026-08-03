@@ -8,43 +8,58 @@ pub enum Error {
 	#[from(String, &String, &str)]
 	#[display("{_0}")]
 	Custom(String),
+
 	#[from]
-	#[display("{_0}")]
+	#[display("Failed to read glob pattern: {_0}")]
 	Glob(glob::GlobError),
+
 	#[from]
-	#[display("{_0}")]
+	#[display("Invalid glob pattern: {_0}")]
 	GlobPattern(glob::PatternError),
+
 	#[from]
-	#[display("{_0}")]
+	#[display("Failed to parse TOML: {_0}")]
 	TomlDe(toml::de::Error),
+
 	#[display("No rule file found at '{_0}'")]
 	RulePathNotFound(String),
+
 	#[from]
-	#[display("{_0}")]
+	#[display("Filesystem error: {_0}")]
 	SimpleFs(simple_fs::Error),
+
 	#[display("No rules found in '{_0}'")]
 	NoRulesInDir(String),
+
 	#[from]
+	#[display("Invalid regex: {_0}")]
 	Regex(regex::Error),
-	DuplicateRuleId {
-		id: String,
-	},
-	DuplicateSequenceId {
-		id: String,
-	},
-	UnknownField {
-		field: String,
-	},
-	UnknownOp {
-		op: String,
-	},
+
+	#[display("Duplicate rule id '{id}'")]
+	DuplicateRuleId { id: String },
+
+	#[display("Duplicate sequence id '{id}'")]
+	DuplicateSequenceId { id: String },
+
+	#[display("Unknown field '{field}'")]
+	UnknownField { field: String },
+
+	#[display("Unknown operation '{op}'")]
+	UnknownOp { op: String },
+
+	#[display("Encountered a sequence_finished trigger outside of a sequence")]
 	SequenceFinishedTriggerWithoutSequence,
-	InvalidFieldValue,
-	InvalidRegex,
-	// -- Externals
+
+	#[display("Invalid value '{value}' for field '{field}'")]
+	InvalidFieldValue { field: String, value: String },
+
+	#[display("Invalid regex '{pattern}': {reason}")]
+	InvalidRegex { pattern: String, reason: String },
+
 	#[from]
-	#[display("{_0}")]
-	Io(std::io::Error), // as example
+	#[display("IO error: {_0}")]
+	Io(std::io::Error),
+
 	#[display("Poisoned lock")]
 	LockPoison,
 }

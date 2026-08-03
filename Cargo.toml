@@ -36,7 +36,7 @@ crossfire = "3.1.19"
 # See https://github.com/clap-rs/clap/blob/61f5ee5/clap_builder/src/lib.rs#L15.
 clap = { version = "4.5.20", default-features = false, features = ["std", "cargo", "derive"] }
 libc = { version = "0.2.159", default-features = false }
-derive_more = { version = "2", features = ["from", "display"] }
+derive_more = { version = "2", features = ["from","display","debug", "into", "deref"] }
 tokio = { version = "1.40.0", default-features = false }
 which = { version = "8.0.0", default-features = false, features = ["real-sys"] }
 tracing = { version = "0.1", default-features = false }

@@ -6,14 +6,12 @@ pub type Result<T> = core::result::Result<T, Error>;
 #[display("{self:?}")]
 pub enum Error {
 	#[from(String, &String, &str)]
+	#[display("{_0}")]
 	Custom(String),
 	#[display("Send on channel '{name}' fail.\nCause: {cause}")]
 	ChannelTx { name: &'static str, cause: String },
 	#[display("Recieve on channel '{name}' fail.\nCause: {cause}")]
 	ChannelRx { name: &'static str, cause: String },
-
-	#[from]
-	Io(std::io::Error), // as example
 }
 
 // region:    --- Custom
