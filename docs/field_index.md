@@ -6,6 +6,7 @@
 - `process.pid`
 - `process.tgid`
 - `process.comm`
+- `process.filepath`
 
 ---
 
@@ -13,6 +14,11 @@
 
 - `socket.old_state`
 - `socket.new_state`
+- `socket.port`
+- `socket.family`
+- `socket.op`
+- `network.saddr`
+- `network.daddr`
 - `network.sport`
 - `network.dport`
 - `network.protocol`
@@ -47,7 +53,6 @@
 - `bpf.prog.type`
 - `bpf.prog.attach_type`
 - `bpf.prog.flags`
-- `bpf.prog.tag`
 
 ---
 
@@ -70,6 +75,8 @@
 - `process.tgid`
 - `process.comm`
 - `inode.filename`
+- `inode.old_filename`
+- `inode.new_filename`
 - `inode.op`
 
 ---
@@ -80,8 +87,10 @@
 - `process.pid`
 - `process.tgid`
 - `process.comm`
-- `inode.new_filename`
+- `inode.filename`
 - `inode.old_filename`
+- `inode.new_filename`
+- `inode.op`
 - `inode.mutation.type`
 
 ---
