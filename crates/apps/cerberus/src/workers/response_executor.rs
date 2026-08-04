@@ -3,8 +3,9 @@ use aya::maps::HashMap as AyaHashMap;
 use aya::maps::MapData;
 
 use lib_event::unbound::Rx;
-use lib_rules::CompiledAction;
+use lib_rules::ResolvedAction;
 use lib_rules::ResponseRequest;
+use lib_rules::resolve_action;
 
 pub struct ResponseExecutor {
 	req_rx: Rx<ResponseRequest>,
@@ -25,15 +26,30 @@ impl ResponseExecutor {
 
 	fn handle_request(&mut self, req: ResponseRequest) -> Result<()> {
 		for action in &req.response_chain.actions {
+			let action = resolve_action(action, &req.fields)?;
 			match action {
-				CompiledAction::BlockIp { ip } => {
+				ResolvedAction::BlockIp { ip } => {
 					self.ip_blocklist.insert(ip.to_bits(), 1, 0)?;
 				}
-				_ => {}
+
+				ResolvedAction::KillProcess { pid } => {
+					Self::kill_process(pid)?;
+				}
 			}
 		}
 		Ok(())
 	}
+
+	fn kill_process(pid: u32) -> Result<()> {
+		let ret = unsafe { libc::kill(pid as libc::pid_t, libc::SIGKILL) };
+
+		if ret == 0 {
+			Ok(())
+		} else {
+			Err(std::io::Error::last_os_error().into())
+		}
+	}
+
 	#[allow(unused)]
 	fn is_blocked(&self, ip: u32) -> Result<bool> {
 		match self.ip_blocklist.get(&ip, 0) {

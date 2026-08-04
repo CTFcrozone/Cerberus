@@ -1,7 +1,8 @@
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
 use derive_more::From;
 use lib_common::event::EventMeta;
+use lib_event_schema::{Field, FieldValue};
 
 use crate::rule::{Severity, compiled::response::CompiledResponseChain};
 
@@ -46,4 +47,5 @@ pub struct ResponseRequest {
 	pub rule_id: Arc<str>,
 	pub response_chain: CompiledResponseChain,
 	pub event_meta: EventMeta,
+	pub fields: HashMap<Field, FieldValue>,
 }

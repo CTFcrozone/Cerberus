@@ -5,7 +5,7 @@ use crate::{
 	hash_utils,
 	rule::{Sequence, Trigger, common::Severity},
 };
-use serde::Deserialize;
+use serde::{Deserialize, Deserializer};
 use simple_fs::SPath;
 
 #[cfg_attr(test, derive(PartialEq))]
@@ -49,12 +49,39 @@ pub struct Condition {
 	pub value: toml::Value,
 }
 
+#[derive(Debug, PartialEq, Clone)]
+pub enum ActionValue {
+	Literal(toml::Value),
+	Field(String),
+}
+
+impl<'de> Deserialize<'de> for ActionValue {
+	fn deserialize<D>(deserializer: D) -> core::result::Result<Self, D::Error>
+	where
+		D: Deserializer<'de>,
+	{
+		let value = toml::Value::deserialize(deserializer)?;
+
+		match value {
+			toml::Value::String(s) => {
+				if let Some(field) = s.strip_prefix('$') {
+					Ok(ActionValue::Field(field.to_string()))
+				} else {
+					Ok(ActionValue::Literal(toml::Value::String(s)))
+				}
+			}
+
+			other => Ok(ActionValue::Literal(other)),
+		}
+	}
+}
+
 #[cfg_attr(test, derive(PartialEq))]
 #[derive(Debug, Deserialize, Clone)]
 #[serde(tag = "type", content = "params", rename_all = "snake_case")]
 pub enum Action {
-	KillProcess,
-	BlockIp { ip: u32 },
+	KillProcess { pid: ActionValue },
+	BlockIp { ip: ActionValue },
 }
 
 impl Rule {

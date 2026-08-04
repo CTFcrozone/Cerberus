@@ -1,5 +1,7 @@
 use arc_swap::ArcSwap;
 use lib_common::event::{CerberusEvent, Event, EventMeta};
+use lib_event_schema::{Field, FieldValue};
+use std::collections::HashMap;
 use std::time::Instant;
 use std::{path::Path, sync::Arc};
 
@@ -80,6 +82,7 @@ impl RuleEngine {
 		index: &RuleIndex,
 		out: &mut Vec<EngineEvent>,
 		meta: &EventMeta,
+		fields: &HashMap<Field, FieldValue>,
 	) {
 		let key = matched_rule.inner.id.as_ref();
 
@@ -114,6 +117,7 @@ impl RuleEngine {
 									rule_id: root_rule_id.clone(),
 									response_chain: chain.clone(),
 									event_meta: event_meta.clone(),
+									fields: fields.clone(),
 								}
 								.into(),
 							);
@@ -157,6 +161,7 @@ impl RuleEngine {
 								rule_id: rule_id.clone(),
 								response_chain: chain.clone(),
 								event_meta: meta.clone(),
+								fields: ctx.fields().clone(),
 							}
 							.into(),
 						);
@@ -166,7 +171,7 @@ impl RuleEngine {
 				if let Some(seq) = &rule.inner.sequence {
 					self.correlator.on_root_match(&shard_key, &rule.inner.id, seq, now);
 				}
-				self.advance_sequences(&shard_key, rule, now, &ruleset, &index, &mut out, &meta);
+				self.advance_sequences(&shard_key, rule, now, &ruleset, &index, &mut out, &meta, ctx.fields());
 			}
 		}
 

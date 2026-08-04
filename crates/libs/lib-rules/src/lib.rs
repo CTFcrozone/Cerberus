@@ -9,5 +9,5 @@ pub use engine::{CorrelationEvent, EngineEvent, EvaluatedEvent, ResponseRequest,
 pub use error::Error;
 pub use rule::{
 	Rule, RuleSet, Severity, Trigger,
-	compiled::response::{CompiledAction, CompiledResponseChain},
+	compiled::response::{CompiledResponseChain, ResolvedAction, resolve_action},
 };

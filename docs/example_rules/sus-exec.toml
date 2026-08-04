@@ -1,0 +1,17 @@
+[rule]
+id = "suspicious-exec"
+description = "Suspicious process execution"
+severity = "high"
+
+[[rule.conditions]]
+field = "process.filepath"
+op = "regex"
+value = "(curl|wget)"
+
+[rule.response_chain]
+trigger = "rule_match"
+
+[[rule.response_chain.actions]]
+type = "kill_process"
+params = { pid = "$process.pid" }
+

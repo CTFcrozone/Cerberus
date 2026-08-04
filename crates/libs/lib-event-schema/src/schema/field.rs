@@ -109,6 +109,17 @@ impl FromStr for Field {
 	}
 }
 
+impl FieldType {
+	pub const fn as_str(self) -> &'static str {
+		match self {
+			FieldType::Bool => "bool",
+			FieldType::Int => "int",
+			FieldType::String => "string",
+			FieldType::Ip => "ip",
+		}
+	}
+}
+
 impl Field {
 	pub const fn as_str(&self) -> &'static str {
 		match self {

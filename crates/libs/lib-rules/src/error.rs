@@ -1,3 +1,5 @@
+use std::net::AddrParseError;
+
 use derive_more::{Display, From};
 
 pub type Result<T> = core::result::Result<T, Error>;
@@ -56,6 +58,23 @@ pub enum Error {
 	#[display("Invalid regex '{pattern}': {reason}")]
 	InvalidRegex { pattern: String, reason: String },
 
+	#[display("Field '{field}' has type '{actual}', but '{expected}' was expected")]
+	InvalidBinding {
+		field: String,
+		expected: String,
+		actual: String,
+	},
+
+	#[display("Expected {expected}, found {found}")]
+	ExpectedType { expected: String, found: String },
+
+	#[display("Missing required field '{field}'")]
+	MissingField { field: String },
+	#[display("Cannot resolve action parameter: expected {expected}, got {actual}")]
+	InvalidActionParamValue { expected: String, actual: String },
+	#[from]
+	#[display("Failed to parse the address: {_0}")]
+	IpParse(AddrParseError),
 	#[from]
 	#[display("IO error: {_0}")]
 	Io(std::io::Error),
