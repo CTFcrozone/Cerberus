@@ -1,3 +1,7 @@
+use std::str::FromStr;
+
+use crate::Error;
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Field {
 	ProcessPid,
@@ -50,6 +54,59 @@ pub enum FieldType {
 	Int,
 	String,
 	Ip,
+}
+
+impl FromStr for Field {
+	type Err = Error;
+
+	fn from_str(s: &str) -> Result<Self, Self::Err> {
+		Ok(match s {
+			"process.pid" => Field::ProcessPid,
+			"process.uid" => Field::ProcessUid,
+			"process.tgid" => Field::ProcessTgid,
+			"process.comm" => Field::ProcessComm,
+			"process.filepath" => Field::ProcessFilepath,
+
+			"process.target.pid" => Field::ProcessTargetPid,
+			"process.target.tgid" => Field::ProcessTargetTgid,
+			"process.target.uid" => Field::ProcessTargetUid,
+			"process.target.comm" => Field::ProcessTargetComm,
+
+			"socket.old_state" => Field::SocketOldState,
+			"socket.new_state" => Field::SocketNewState,
+			"socket.port" => Field::SocketPort,
+			"socket.family" => Field::SocketFamily,
+			"socket.op" => Field::SocketOp,
+
+			"network.saddr" => Field::NetworkSaddr,
+			"network.daddr" => Field::NetworkDaddr,
+			"network.sport" => Field::NetworkSport,
+			"network.dport" => Field::NetworkDport,
+			"network.protocol" => Field::NetworkProtocol,
+
+			"module.name" => Field::ModuleName,
+			"module.op" => Field::ModuleOp,
+
+			"inode.filename" => Field::InodeFilename,
+			"inode.old_filename" => Field::InodeOldFilename,
+			"inode.new_filename" => Field::InodeNewFilename,
+			"inode.op" => Field::InodeOp,
+			"inode.mutation.type" => Field::InodeMutationType,
+
+			"ptrace.mode" => Field::PtraceMode,
+			"ptrace.stage" => Field::PtraceStage,
+
+			"bpf.prog.type" => Field::BpfProgType,
+			"bpf.prog.attach_type" => Field::BpfProgAttachType,
+			"bpf.prog.flags" => Field::BpfProgFlags,
+
+			"bpf.map.name" => Field::BpfMapName,
+			"bpf.map.type" => Field::BpfMapType,
+			"bpf.map.id" => Field::BpfMapId,
+
+			_ => return Err(Error::FieldParseFail { field: s.to_string() }),
+		})
+	}
 }
 
 impl Field {

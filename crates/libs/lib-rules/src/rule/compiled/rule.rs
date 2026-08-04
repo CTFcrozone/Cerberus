@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use crate::{
-	Rule, Severity,
+	Error, Rule, Severity, Trigger,
 	error::Result,
 	rule::compiled::{
 		condition::{CompiledCondition, compile_condition},
@@ -38,8 +38,8 @@ pub fn compile_rule(raw: Rule, hash: [u8; 32], hash_hex: Arc<str>) -> Result<Com
 	let response_chain = raw.inner.response_chain.map(compile_response_chain).transpose()?;
 
 	if let Some(chain) = &response_chain {
-		if matches!(chain.trigger, crate::Trigger::SequenceFinished) && sequence.is_none() {
-			return Err(crate::Error::SequenceFinishedTriggerWithoutSequence);
+		if matches!(chain.trigger, Trigger::SequenceFinished) && sequence.is_none() {
+			return Err(Error::SequenceFinishedTriggerWithoutSequence { rule_id: raw.inner.id });
 		}
 	}
 

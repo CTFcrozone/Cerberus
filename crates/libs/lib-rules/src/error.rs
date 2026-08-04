@@ -47,8 +47,8 @@ pub enum Error {
 	#[display("Unknown operation '{op}'")]
 	UnknownOp { op: String },
 
-	#[display("Encountered a sequence_finished trigger outside of a sequence")]
-	SequenceFinishedTriggerWithoutSequence,
+	#[display("Encountered a sequence_finished trigger outside of a sequence in rule '{rule_id}'")]
+	SequenceFinishedTriggerWithoutSequence { rule_id: String },
 
 	#[display("Invalid value '{value}' for field '{field}'")]
 	InvalidFieldValue { field: String, value: String },
