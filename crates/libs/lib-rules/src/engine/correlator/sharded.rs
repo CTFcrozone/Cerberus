@@ -1,4 +1,4 @@
-use std::time::Instant;
+use std::{sync::Arc, time::Instant};
 
 use dashmap::{DashMap, mapref::one::RefMut};
 use lib_common::event::EventMeta;
@@ -30,7 +30,7 @@ impl ShardedCorrelator {
 		}
 	}
 
-	pub fn on_root_match(&self, shard_key: &ShardKey, root_rule_id: &str, seq: &CompiledSequence, now: Instant) {
+	pub fn on_root_match(&self, shard_key: &ShardKey, root_rule_id: &Arc<str>, seq: &CompiledSequence, now: Instant) {
 		let mut correlator = self.get_or_create(shard_key);
 		correlator.on_root_match(root_rule_id, seq, now);
 	}
@@ -38,9 +38,9 @@ impl ShardedCorrelator {
 	pub fn on_rule_match(
 		&self,
 		shard_key: &ShardKey,
-		matched_rule_id: &str,
+		matched_rule_id: &Arc<str>,
 		seq: &CompiledSequence,
-		root_rule_id: &str,
+		root_rule_id: &Arc<str>,
 		now: Instant,
 		event_meta: &EventMeta,
 	) -> Vec<CorrelationEvent> {

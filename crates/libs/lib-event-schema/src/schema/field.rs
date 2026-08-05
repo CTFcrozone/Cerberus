@@ -1,8 +1,10 @@
 use std::str::FromStr;
 
-use crate::Error;
+use strum_macros::EnumCount;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+use crate::Error;
+#[repr(u8)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, EnumCount)]
 pub enum Field {
 	ProcessPid,
 	ProcessUid,
@@ -121,6 +123,10 @@ impl FieldType {
 }
 
 impl Field {
+	#[inline]
+	pub const fn index(self) -> usize {
+		self as usize
+	}
 	pub const fn as_str(&self) -> &'static str {
 		match self {
 			Field::ProcessPid => "process.pid",

@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use lib_event_schema::{Field, FieldValue};
+use strum::EnumCount;
 
 use crate::event::{
 	BpfMapEvent, BpfProgLoadEvent, BprmSecurityEvent, CerberusEvent, Event, EventHeader, InetSockEvent, InodeEvent,
@@ -15,13 +16,13 @@ impl Event for RingBufEvent {
 		&mut self.header
 	}
 
-	fn to_fields(&self) -> HashMap<Field, FieldValue> {
-		let mut fields = HashMap::new();
-		fields.insert(Field::ProcessUid, FieldValue::Int(self.header.uid as i64));
-		fields.insert(Field::ProcessPid, FieldValue::Int(self.header.pid as i64));
-		fields.insert(Field::ProcessTgid, FieldValue::Int(self.header.tgid as i64));
-		fields.insert(Field::ProcessComm, FieldValue::String(self.header.comm.clone()));
-		fields
+	fn to_fields(&self) -> [Option<FieldValue>; Field::COUNT] {
+		let mut f = [const { None }; Field::COUNT];
+		f[Field::ProcessUid.index()] = Some(FieldValue::Int(self.header.uid as i64));
+		f[Field::ProcessPid.index()] = Some(FieldValue::Int(self.header.pid as i64));
+		f[Field::ProcessTgid.index()] = Some(FieldValue::Int(self.header.tgid as i64));
+		f[Field::ProcessComm.index()] = Some(FieldValue::String(self.header.comm.clone()));
+		f
 	}
 }
 
@@ -32,17 +33,15 @@ impl Event for BpfMapEvent {
 	fn header_mut(&mut self) -> &mut EventHeader {
 		&mut self.header
 	}
-	fn to_fields(&self) -> HashMap<Field, FieldValue> {
-		let mut f = HashMap::new();
-		f.insert(Field::ProcessUid, FieldValue::Int(self.header.uid as i64));
-		f.insert(Field::ProcessPid, FieldValue::Int(self.header.pid as i64));
-		f.insert(Field::ProcessTgid, FieldValue::Int(self.header.tgid as i64));
-		f.insert(Field::ProcessComm, FieldValue::String(self.header.comm.clone()));
-
-		f.insert(Field::BpfMapId, FieldValue::Int(self.map_id as i64));
-		f.insert(Field::BpfMapName, FieldValue::String(self.map_name.clone()));
-		f.insert(Field::BpfMapType, FieldValue::String(self.map_type.clone()));
-
+	fn to_fields(&self) -> [Option<FieldValue>; Field::COUNT] {
+		let mut f = [const { None }; Field::COUNT];
+		f[Field::ProcessUid.index()] = Some(FieldValue::Int(self.header.uid as i64));
+		f[Field::ProcessPid.index()] = Some(FieldValue::Int(self.header.pid as i64));
+		f[Field::ProcessTgid.index()] = Some(FieldValue::Int(self.header.tgid as i64));
+		f[Field::ProcessComm.index()] = Some(FieldValue::String(self.header.comm.clone()));
+		f[Field::BpfMapId.index()] = Some(FieldValue::Int(self.map_id as i64));
+		f[Field::BpfMapName.index()] = Some(FieldValue::String(self.map_name.clone()));
+		f[Field::BpfMapType.index()] = Some(FieldValue::String(self.map_type.clone()));
 		f
 	}
 }
@@ -54,15 +53,14 @@ impl Event for ModuleEvent {
 	fn header_mut(&mut self) -> &mut EventHeader {
 		&mut self.header
 	}
-	fn to_fields(&self) -> HashMap<Field, FieldValue> {
-		let mut f = HashMap::new();
-		f.insert(Field::ProcessUid, FieldValue::Int(self.header.uid as i64));
-		f.insert(Field::ProcessPid, FieldValue::Int(self.header.pid as i64));
-		f.insert(Field::ProcessTgid, FieldValue::Int(self.header.tgid as i64));
-		f.insert(Field::ProcessComm, FieldValue::String(self.header.comm.clone()));
-
-		f.insert(Field::ModuleName, FieldValue::String(self.module_name.clone()));
-		f.insert(Field::ModuleOp, FieldValue::Int(self.op as i64));
+	fn to_fields(&self) -> [Option<FieldValue>; Field::COUNT] {
+		let mut f = [const { None }; Field::COUNT];
+		f[Field::ProcessUid.index()] = Some(FieldValue::Int(self.header.uid as i64));
+		f[Field::ProcessPid.index()] = Some(FieldValue::Int(self.header.pid as i64));
+		f[Field::ProcessTgid.index()] = Some(FieldValue::Int(self.header.tgid as i64));
+		f[Field::ProcessComm.index()] = Some(FieldValue::String(self.header.comm.clone()));
+		f[Field::ModuleName.index()] = Some(FieldValue::String(self.module_name.clone()));
+		f[Field::ModuleOp.index()] = Some(FieldValue::Int(self.op as i64));
 		f
 	}
 }
@@ -74,15 +72,13 @@ impl Event for BprmSecurityEvent {
 	fn header_mut(&mut self) -> &mut EventHeader {
 		&mut self.header
 	}
-	fn to_fields(&self) -> HashMap<Field, FieldValue> {
-		let mut f = HashMap::new();
-		f.insert(Field::ProcessUid, FieldValue::Int(self.header.uid as i64));
-		f.insert(Field::ProcessPid, FieldValue::Int(self.header.pid as i64));
-		f.insert(Field::ProcessTgid, FieldValue::Int(self.header.tgid as i64));
-		f.insert(Field::ProcessComm, FieldValue::String(self.header.comm.clone()));
-
-		f.insert(Field::ProcessFilepath, FieldValue::String(self.filepath.clone()));
-
+	fn to_fields(&self) -> [Option<FieldValue>; Field::COUNT] {
+		let mut f = [const { None }; Field::COUNT];
+		f[Field::ProcessUid.index()] = Some(FieldValue::Int(self.header.uid as i64));
+		f[Field::ProcessPid.index()] = Some(FieldValue::Int(self.header.pid as i64));
+		f[Field::ProcessTgid.index()] = Some(FieldValue::Int(self.header.tgid as i64));
+		f[Field::ProcessComm.index()] = Some(FieldValue::String(self.header.comm.clone()));
+		f[Field::ProcessFilepath.index()] = Some(FieldValue::String(self.filepath.clone()));
 		f
 	}
 }
@@ -94,17 +90,15 @@ impl Event for InodeMutationEvent {
 	fn header_mut(&mut self) -> &mut EventHeader {
 		&mut self.header
 	}
-	fn to_fields(&self) -> HashMap<Field, FieldValue> {
-		let mut f = HashMap::new();
-		f.insert(Field::ProcessUid, FieldValue::Int(self.header.uid as i64));
-		f.insert(Field::ProcessPid, FieldValue::Int(self.header.pid as i64));
-		f.insert(Field::ProcessTgid, FieldValue::Int(self.header.tgid as i64));
-		f.insert(Field::ProcessComm, FieldValue::String(self.header.comm.clone()));
-
-		f.insert(Field::InodeNewFilename, FieldValue::String(self.new_filename.clone()));
-		f.insert(Field::InodeOldFilename, FieldValue::String(self.old_filename.clone()));
-		f.insert(Field::InodeMutationType, FieldValue::Int(self.mutation as i64));
-
+	fn to_fields(&self) -> [Option<FieldValue>; Field::COUNT] {
+		let mut f = [const { None }; Field::COUNT];
+		f[Field::ProcessUid.index()] = Some(FieldValue::Int(self.header.uid as i64));
+		f[Field::ProcessPid.index()] = Some(FieldValue::Int(self.header.pid as i64));
+		f[Field::ProcessTgid.index()] = Some(FieldValue::Int(self.header.tgid as i64));
+		f[Field::ProcessComm.index()] = Some(FieldValue::String(self.header.comm.clone()));
+		f[Field::InodeNewFilename.index()] = Some(FieldValue::String(self.new_filename.clone()));
+		f[Field::InodeOldFilename.index()] = Some(FieldValue::String(self.old_filename.clone()));
+		f[Field::InodeMutationType.index()] = Some(FieldValue::Int(self.mutation as i64));
 		f
 	}
 }
@@ -116,20 +110,18 @@ impl Event for PtraceAccessCheckEvent {
 	fn header_mut(&mut self) -> &mut EventHeader {
 		&mut self.header
 	}
-	fn to_fields(&self) -> HashMap<Field, FieldValue> {
-		let mut f = HashMap::new();
-		f.insert(Field::ProcessUid, FieldValue::Int(self.header.uid as i64));
-		f.insert(Field::ProcessPid, FieldValue::Int(self.header.pid as i64));
-		f.insert(Field::ProcessTgid, FieldValue::Int(self.header.tgid as i64));
-		f.insert(Field::ProcessComm, FieldValue::String(self.header.comm.clone()));
-
-		f.insert(Field::ProcessTargetPid, FieldValue::Int(self.target_pid as i64));
-		f.insert(Field::ProcessTargetTgid, FieldValue::Int(self.target_tgid as i64));
-		f.insert(Field::ProcessTargetUid, FieldValue::Int(self.target_uid as i64));
-		f.insert(Field::ProcessTargetComm, FieldValue::String(self.target_comm.clone()));
-
-		f.insert(Field::PtraceMode, FieldValue::Int(self.mode as i64));
-		f.insert(Field::PtraceStage, FieldValue::Int(self.stage as i64));
+	fn to_fields(&self) -> [Option<FieldValue>; Field::COUNT] {
+		let mut f = [const { None }; Field::COUNT];
+		f[Field::ProcessUid.index()] = Some(FieldValue::Int(self.header.uid as i64));
+		f[Field::ProcessPid.index()] = Some(FieldValue::Int(self.header.pid as i64));
+		f[Field::ProcessTgid.index()] = Some(FieldValue::Int(self.header.tgid as i64));
+		f[Field::ProcessComm.index()] = Some(FieldValue::String(self.header.comm.clone()));
+		f[Field::ProcessTargetPid.index()] = Some(FieldValue::Int(self.target_pid as i64));
+		f[Field::ProcessTargetTgid.index()] = Some(FieldValue::Int(self.target_tgid as i64));
+		f[Field::ProcessTargetUid.index()] = Some(FieldValue::Int(self.target_uid as i64));
+		f[Field::ProcessTargetComm.index()] = Some(FieldValue::String(self.target_comm.clone()));
+		f[Field::PtraceMode.index()] = Some(FieldValue::Int(self.mode as i64));
+		f[Field::PtraceStage.index()] = Some(FieldValue::Int(self.stage as i64));
 
 		f
 	}
@@ -142,16 +134,14 @@ impl Event for InodeEvent {
 	fn header_mut(&mut self) -> &mut EventHeader {
 		&mut self.header
 	}
-	fn to_fields(&self) -> HashMap<Field, FieldValue> {
-		let mut f = HashMap::new();
-		f.insert(Field::ProcessUid, FieldValue::Int(self.header.uid as i64));
-		f.insert(Field::ProcessPid, FieldValue::Int(self.header.pid as i64));
-		f.insert(Field::ProcessTgid, FieldValue::Int(self.header.tgid as i64));
-		f.insert(Field::ProcessComm, FieldValue::String(self.header.comm.clone()));
-
-		f.insert(Field::InodeFilename, FieldValue::String(self.filename.clone()));
-		f.insert(Field::InodeOp, FieldValue::Int(self.op as i64));
-
+	fn to_fields(&self) -> [Option<FieldValue>; Field::COUNT] {
+		let mut f = [const { None }; Field::COUNT];
+		f[Field::ProcessUid.index()] = Some(FieldValue::Int(self.header.uid as i64));
+		f[Field::ProcessPid.index()] = Some(FieldValue::Int(self.header.pid as i64));
+		f[Field::ProcessTgid.index()] = Some(FieldValue::Int(self.header.tgid as i64));
+		f[Field::ProcessComm.index()] = Some(FieldValue::String(self.header.comm.clone()));
+		f[Field::InodeFilename.index()] = Some(FieldValue::String(self.filename.clone()));
+		f[Field::InodeOp.index()] = Some(FieldValue::Int(self.op as i64));
 		f
 	}
 }
@@ -163,21 +153,19 @@ impl Event for InetSockEvent {
 	fn header_mut(&mut self) -> &mut EventHeader {
 		&mut self.header
 	}
-	fn to_fields(&self) -> HashMap<Field, FieldValue> {
-		let mut f = HashMap::new();
-		f.insert(Field::ProcessUid, FieldValue::Int(self.header.uid as i64));
-		f.insert(Field::ProcessPid, FieldValue::Int(self.header.pid as i64));
-		f.insert(Field::ProcessTgid, FieldValue::Int(self.header.tgid as i64));
-		f.insert(Field::ProcessComm, FieldValue::String(self.header.comm.clone()));
-
-		f.insert(Field::NetworkSport, FieldValue::Int(self.sport as i64));
-		f.insert(Field::NetworkDport, FieldValue::Int(self.dport as i64));
-		f.insert(Field::NetworkSaddr, FieldValue::Ip(self.saddr));
-		f.insert(Field::NetworkDaddr, FieldValue::Ip(self.daddr));
-
-		f.insert(Field::NetworkProtocol, FieldValue::String(self.protocol.clone()));
-		f.insert(Field::SocketOldState, FieldValue::String(self.old_state.clone()));
-		f.insert(Field::SocketNewState, FieldValue::String(self.new_state.clone()));
+	fn to_fields(&self) -> [Option<FieldValue>; Field::COUNT] {
+		let mut f = [const { None }; Field::COUNT];
+		f[Field::ProcessUid.index()] = Some(FieldValue::Int(self.header.uid as i64));
+		f[Field::ProcessPid.index()] = Some(FieldValue::Int(self.header.pid as i64));
+		f[Field::ProcessTgid.index()] = Some(FieldValue::Int(self.header.tgid as i64));
+		f[Field::ProcessComm.index()] = Some(FieldValue::String(self.header.comm.clone()));
+		f[Field::NetworkSport.index()] = Some(FieldValue::Int(self.sport as i64));
+		f[Field::NetworkDport.index()] = Some(FieldValue::Int(self.dport as i64));
+		f[Field::NetworkSaddr.index()] = Some(FieldValue::Ip(self.saddr));
+		f[Field::NetworkDaddr.index()] = Some(FieldValue::Ip(self.daddr));
+		f[Field::NetworkProtocol.index()] = Some(FieldValue::String(self.protocol.clone()));
+		f[Field::SocketOldState.index()] = Some(FieldValue::String(self.old_state.clone()));
+		f[Field::SocketNewState.index()] = Some(FieldValue::String(self.new_state.clone()));
 
 		f
 	}
@@ -190,18 +178,15 @@ impl Event for SocketEvent {
 	fn header_mut(&mut self) -> &mut EventHeader {
 		&mut self.header
 	}
-	fn to_fields(&self) -> HashMap<Field, FieldValue> {
-		let mut f = HashMap::new();
-
-		f.insert(Field::ProcessUid, FieldValue::Int(self.header.uid as i64));
-		f.insert(Field::ProcessPid, FieldValue::Int(self.header.pid as i64));
-		f.insert(Field::ProcessTgid, FieldValue::Int(self.header.tgid as i64));
-		f.insert(Field::ProcessComm, FieldValue::String(self.header.comm.clone()));
-
-		f.insert(Field::SocketPort, FieldValue::Int(self.port as i64));
-		f.insert(Field::SocketFamily, FieldValue::Int(self.family as i64));
-		f.insert(Field::SocketOp, FieldValue::Int(self.op as i64));
-
+	fn to_fields(&self) -> [Option<FieldValue>; Field::COUNT] {
+		let mut f = [const { None }; Field::COUNT];
+		f[Field::ProcessUid.index()] = Some(FieldValue::Int(self.header.uid as i64));
+		f[Field::ProcessPid.index()] = Some(FieldValue::Int(self.header.pid as i64));
+		f[Field::ProcessTgid.index()] = Some(FieldValue::Int(self.header.tgid as i64));
+		f[Field::ProcessComm.index()] = Some(FieldValue::String(self.header.comm.clone()));
+		f[Field::SocketPort.index()] = Some(FieldValue::Int(self.port as i64));
+		f[Field::SocketFamily.index()] = Some(FieldValue::Int(self.family as i64));
+		f[Field::SocketOp.index()] = Some(FieldValue::Int(self.op as i64));
 		f
 	}
 }
@@ -213,17 +198,15 @@ impl Event for BpfProgLoadEvent {
 	fn header_mut(&mut self) -> &mut EventHeader {
 		&mut self.header
 	}
-	fn to_fields(&self) -> HashMap<Field, FieldValue> {
-		let mut f = HashMap::new();
-		f.insert(Field::ProcessUid, FieldValue::Int(self.header.uid as i64));
-		f.insert(Field::ProcessPid, FieldValue::Int(self.header.pid as i64));
-		f.insert(Field::ProcessTgid, FieldValue::Int(self.header.tgid as i64));
-		f.insert(Field::ProcessComm, FieldValue::String(self.header.comm.clone()));
-
-		f.insert(Field::BpfProgType, FieldValue::Int(self.prog_type as i64));
-		f.insert(Field::BpfProgFlags, FieldValue::Int(self.flags as i64));
-		f.insert(Field::BpfProgAttachType, FieldValue::Int(self.attach_type as i64));
-
+	fn to_fields(&self) -> [Option<FieldValue>; Field::COUNT] {
+		let mut f = [const { None }; Field::COUNT];
+		f[Field::ProcessUid.index()] = Some(FieldValue::Int(self.header.uid as i64));
+		f[Field::ProcessPid.index()] = Some(FieldValue::Int(self.header.pid as i64));
+		f[Field::ProcessTgid.index()] = Some(FieldValue::Int(self.header.tgid as i64));
+		f[Field::ProcessComm.index()] = Some(FieldValue::String(self.header.comm.clone()));
+		f[Field::BpfProgType.index()] = Some(FieldValue::Int(self.prog_type as i64));
+		f[Field::BpfProgFlags.index()] = Some(FieldValue::Int(self.flags as i64));
+		f[Field::BpfProgAttachType.index()] = Some(FieldValue::Int(self.attach_type as i64));
 		f
 	}
 }
@@ -259,7 +242,7 @@ impl Event for CerberusEvent {
 		}
 	}
 
-	fn to_fields(&self) -> HashMap<Field, FieldValue> {
+	fn to_fields(&self) -> [Option<FieldValue>; Field::COUNT] {
 		match self {
 			CerberusEvent::Generic(e) => e.to_fields(),
 			CerberusEvent::Module(e) => e.to_fields(),

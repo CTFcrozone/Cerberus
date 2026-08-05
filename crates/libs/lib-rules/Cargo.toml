@@ -14,21 +14,15 @@ lib-event-schema = { path = "../lib-event-schema" }
 
 
 
-derive_more = { version = "2.0.0", features = [
-    "from",
-    "display",
-    "debug",
-    "into",
-    "deref",
-] }
+derive_more = { workspace=true }
 aya = { workspace = true }
 aya-log = { workspace = true }
 libc = { workspace = true }
 regex = "1"
 humantime-serde = "1"
 tracing = { workspace = true }
-strum = "0.27"
-strum_macros = "0.27"
+strum = {workspace=true}
+strum_macros = {workspace=true}
 # tokio = { workspace = true, features = [
 #     "macros",
 #     "rt",

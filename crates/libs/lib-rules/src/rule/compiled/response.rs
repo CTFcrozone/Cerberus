@@ -1,6 +1,7 @@
 use std::{collections::HashMap, net::Ipv4Addr, str::FromStr};
 
 use lib_event_schema::{Field, FieldType, FieldValue};
+use strum::EnumCount;
 
 use crate::{
 	Error,
@@ -40,7 +41,7 @@ pub fn compile_response_chain(raw: ResponseChain) -> Result<CompiledResponseChai
 		actions,
 	})
 }
-pub fn resolve_action(action: &CompiledAction, fields: &HashMap<Field, FieldValue>) -> Result<ResolvedAction> {
+pub fn resolve_action(action: &CompiledAction, fields: &[Option<FieldValue>; Field::COUNT]) -> Result<ResolvedAction> {
 	match action {
 		CompiledAction::BlockIp { ip } => {
 			let value = resolve_param(ip, fields)?;
@@ -147,11 +148,11 @@ fn compile_literal(value: toml::Value, expected: FieldType) -> Result<FieldValue
 		},
 	}
 }
-fn resolve_param(param: &CompiledActionValue, fields: &HashMap<Field, FieldValue>) -> Result<FieldValue> {
+fn resolve_param(param: &CompiledActionValue, fields: &[Option<FieldValue>; Field::COUNT]) -> Result<FieldValue> {
 	match param {
 		CompiledActionValue::Literal(v) => Ok(v.clone()),
 
-		CompiledActionValue::Field(field) => fields.get(field).cloned().ok_or(Error::MissingField {
+		CompiledActionValue::Field(field) => fields[field.index()].clone().ok_or(Error::MissingField {
 			field: field.as_str().to_string(),
 		}),
 	}

@@ -201,11 +201,12 @@ impl AppState {
 	pub fn correlated_groups(&self) -> &HashMap<(Arc<str>, Arc<str>), CorrelationGroup> {
 		&self.correlated_groups
 	}
-	pub fn barchart_severity(&self) -> Vec<(&str, u64)> {
-		Severity::ALL
-			.iter()
-			.map(|s| (s.as_str(), self.severity_counts[s.index()]))
-			.collect()
+	pub fn barchart_severity(&self) -> [(&str, u64); Severity::COUNT] {
+		let mut out = [("", 0u64); Severity::COUNT];
+		for (i, s) in Severity::ALL.iter().enumerate() {
+			out[i] = (s.as_str(), self.severity_counts[s.index()]);
+		}
+		out
 	}
 
 	pub fn cerberus_evts_general(&self) -> impl Iterator<Item = &CerberusEvent> {

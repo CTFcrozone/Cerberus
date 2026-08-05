@@ -1,38 +1,35 @@
 use lib_common::event::Event;
 use lib_event_schema::{Field, FieldValue};
 use std::collections::HashMap;
+use strum::EnumCount;
 
 #[derive(Debug)]
 pub struct EvalCtx {
-	fields: HashMap<Field, FieldValue>,
+	fields: [Option<FieldValue>; Field::COUNT],
 }
 
 impl EvalCtx {
-	pub fn new(fields: HashMap<Field, FieldValue>) -> Self {
+	pub fn new(fields: [Option<FieldValue>; Field::COUNT]) -> Self {
 		Self { fields }
 	}
-	#[allow(unused)]
-	pub fn get(&self, key: &Field) -> Option<&FieldValue> {
-		self.fields.get(key)
-	}
-	pub fn get_field(&self, field: &Field) -> Option<&FieldValue> {
-		self.fields.get(field)
+
+	#[inline]
+	pub fn get_field(&self, field: Field) -> Option<&FieldValue> {
+		self.fields[field.index()].as_ref()
 	}
 
 	#[allow(dead_code)]
-	pub fn fields(&self) -> &HashMap<Field, FieldValue> {
+	pub fn fields(&self) -> &[Option<FieldValue>; Field::COUNT] {
 		&self.fields
 	}
-
-	#[allow(dead_code)]
-	pub fn insert(&mut self, key: Field, value: FieldValue) -> Option<FieldValue> {
-		self.fields.insert(key, value)
+	#[inline]
+	pub fn insert(&mut self, field: Field, value: FieldValue) {
+		self.fields[field.index()] = Some(value);
 	}
 }
 
 impl<T: Event> From<&T> for EvalCtx {
 	fn from(event: &T) -> Self {
-		let fields: HashMap<Field, FieldValue> = event.to_fields();
-		EvalCtx::new(fields)
+		Self::new(event.to_fields())
 	}
 }

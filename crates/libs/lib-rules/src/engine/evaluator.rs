@@ -84,7 +84,7 @@ impl Evaluator {
 
 	pub fn rule_matches_compiled(rule: &CompiledRuleInner, ctx: &EvalCtx) -> bool {
 		rule.conditions.iter().all(|cond| {
-			let left = ctx.get_field(&cond.field);
+			let left = ctx.get_field(cond.field);
 			Self::eval_condition_compiled(left, cond)
 		})
 	}
@@ -104,14 +104,18 @@ mod tests {
 	use super::*;
 	use lib_event_schema::Field;
 	use std::collections::HashMap;
+	use strum::EnumCount;
 	use toml::Value;
 
 	fn ctx(fields: &[(Field, FieldValue)]) -> EvalCtx {
-		let map: HashMap<Field, FieldValue> = fields.iter().map(|(k, v)| (*k, v.clone())).collect();
+		let mut ctx = EvalCtx::new([const { None }; Field::COUNT]);
 
-		EvalCtx::new(map)
+		for (field, value) in fields {
+			ctx.insert(*field, value.clone());
+		}
+
+		ctx
 	}
-
 	fn compiled_cond(field: &str, op: &str, value: Value) -> Result<CompiledCondition> {
 		Ok(compile_condition(Condition {
 			field: field.into(),
@@ -127,8 +131,8 @@ mod tests {
 		let exists = compiled_cond("process.pid", "exists", Value::Boolean(true))?;
 		let ctx = ctx(&[(Field::ProcessPid, FieldValue::Int(42))]);
 		// -- Exec
-		let equals_res = Evaluator::eval_condition_compiled(ctx.get_field(&equals.field), &equals);
-		let exists_res = Evaluator::eval_condition_compiled(ctx.get_field(&exists.field), &exists);
+		let equals_res = Evaluator::eval_condition_compiled(ctx.get_field(equals.field), &equals);
+		let exists_res = Evaluator::eval_condition_compiled(ctx.get_field(exists.field), &exists);
 		// -- Check
 		assert!(equals_res);
 		assert!(exists_res);
@@ -154,9 +158,9 @@ mod tests {
 		let ctx = ctx(&[(Field::ProcessUid, FieldValue::Int(1000))]);
 
 		// -- Exec
-		let in_res = Evaluator::eval_condition_compiled(ctx.get_field(&in_cond.field), &in_cond);
+		let in_res = Evaluator::eval_condition_compiled(ctx.get_field(in_cond.field), &in_cond);
 
-		let not_in_res = Evaluator::eval_condition_compiled(ctx.get_field(&not_in_cond.field), &not_in_cond);
+		let not_in_res = Evaluator::eval_condition_compiled(ctx.get_field(not_in_cond.field), &not_in_cond);
 
 		// -- Check
 		assert!(in_res);
@@ -180,11 +184,11 @@ mod tests {
 		]);
 
 		// -- Exec
-		let regex_res = Evaluator::eval_condition_compiled(ctx.get_field(&regex.field), &regex);
+		let regex_res = Evaluator::eval_condition_compiled(ctx.get_field(regex.field), &regex);
 
-		let gt_res = Evaluator::eval_condition_compiled(ctx.get_field(&gt.field), &gt);
+		let gt_res = Evaluator::eval_condition_compiled(ctx.get_field(gt.field), &gt);
 
-		let lt_res = Evaluator::eval_condition_compiled(ctx.get_field(&lt.field), &lt);
+		let lt_res = Evaluator::eval_condition_compiled(ctx.get_field(lt.field), &lt);
 
 		// -- Check
 		assert!(regex_res);

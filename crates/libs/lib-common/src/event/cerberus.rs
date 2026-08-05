@@ -1,6 +1,7 @@
 use lib_container::container::ContainerInfo;
 use lib_event_schema::{Field, FieldValue};
 use std::{collections::HashMap, sync::Arc};
+use strum::EnumCount;
 
 use derive_more::From;
 
@@ -33,7 +34,7 @@ pub enum CerberusEvent {
 pub trait Event {
 	fn header(&self) -> &EventHeader;
 	fn header_mut(&mut self) -> &mut EventHeader;
-	fn to_fields(&self) -> HashMap<Field, FieldValue>;
+	fn to_fields(&self) -> [Option<FieldValue>; Field::COUNT];
 }
 
 #[derive(Debug, Clone)]

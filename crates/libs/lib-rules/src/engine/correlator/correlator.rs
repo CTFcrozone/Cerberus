@@ -37,12 +37,12 @@ impl Correlator {
 		Self { active: HashMap::new() }
 	}
 
-	pub fn on_root_match(&mut self, root_rule_id: &str, seq: &CompiledSequence, now: Instant) {
+	pub fn on_root_match(&mut self, root_rule_id: &Arc<str>, seq: &CompiledSequence, now: Instant) {
 		if seq.steps.is_empty() {
 			return;
 		}
 
-		let root = self.active.entry(root_rule_id.into()).or_insert_with(HashMap::new);
+		let root = self.active.entry(root_rule_id.clone()).or_insert_with(HashMap::new);
 		let instance_id: Arc<str> = Uuid::new_v4().to_string().into();
 
 		root.insert(
@@ -59,9 +59,9 @@ impl Correlator {
 
 	pub fn on_rule_match(
 		&mut self,
-		matched_rule_id: &str,
+		matched_rule_id: &Arc<str>,
 		seq: &CompiledSequence,
-		root_rule_id: &str,
+		root_rule_id: &Arc<str>,
 		now: Instant,
 		event_meta: &EventMeta,
 	) -> Vec<CorrelationEvent> {
@@ -84,22 +84,22 @@ impl Correlator {
 				None => continue,
 			};
 
-			if expected.rule_id.as_ref() != matched_rule_id {
+			if expected.rule_id.as_ref() != matched_rule_id.as_ref() {
 				continue;
 			}
 
 			let prev_idx = prog.step_idx;
 			prog.step_idx += 1;
 			prog.last_match = now;
-			prog.path.push(matched_rule_id.into());
+			prog.path.push(matched_rule_id.clone());
 			let seq_id = prog.seq_id.clone();
 
 			out.push(CorrelationEvent::Step {
-				root_rule_id: root_rule_id.into(),
+				root_rule_id: root_rule_id.clone(),
 				seq_id: seq_id.clone(),
 				seq_instance_id: instance_id.clone(),
 				step_idx: prev_idx,
-				matched_rule_id: matched_rule_id.into(),
+				matched_rule_id: matched_rule_id.clone(),
 			});
 
 			match seq.steps.get(prog.step_idx) {
@@ -109,7 +109,7 @@ impl Correlator {
 
 				None => {
 					out.push(CorrelationEvent::Completed {
-						root_rule_id: root_rule_id.into(),
+						root_rule_id: root_rule_id.clone(),
 						seq_id,
 						seq_instance_id: instance_id.clone(),
 						path: prog.path.clone(),
@@ -173,12 +173,12 @@ mod tests {
 		let seq = mk_seq();
 		let t0 = Instant::now();
 
-		corr.on_root_match("kernel-module-loader", &seq, t0);
+		corr.on_root_match(&Arc::<str>::from("kernel-module-loader"), &seq, t0);
 
 		let res = corr.on_rule_match(
-			"port-scan",
+			&Arc::<str>::from("port-scan"),
 			&seq,
-			"kernel-module-loader",
+			&Arc::<str>::from("kernel-module-loader"),
 			t0 + Duration::from_secs(5),
 			&mk_meta(),
 		);
@@ -196,9 +196,9 @@ mod tests {
 		}
 
 		let res = corr.on_rule_match(
-			"service-probe",
+			&Arc::<str>::from("service-probe"),
 			&seq,
-			"kernel-module-loader",
+			&Arc::<str>::from("kernel-module-loader"),
 			t0 + Duration::from_secs(10),
 			&mk_meta(),
 		);
@@ -230,22 +230,19 @@ mod tests {
 
 	#[test]
 	fn rule_sequence_expires() -> Result<()> {
-		// -- Setup & Fixtures
 		let mut corr = Correlator::new();
 		let seq = mk_seq();
 		let t0 = Instant::now();
 
-		// -- Exec
-		corr.on_root_match("kernel-module-loader", &seq, t0);
+		corr.on_root_match(&Arc::<str>::from("kernel-module-loader"), &seq, t0);
 		let res = corr.on_rule_match(
-			"port-scan",
+			&Arc::<str>::from("port-scan"),
 			&seq,
-			"kernel-module-loader",
+			&Arc::<str>::from("kernel-module-loader"),
 			t0 + Duration::from_secs(20),
 			&mk_meta(),
 		);
 
-		// -- Check
 		assert!(res.is_empty());
 		assert!(corr.active.is_empty());
 
@@ -258,12 +255,12 @@ mod tests {
 		let seq = mk_seq();
 		let t0 = Instant::now();
 
-		corr.on_root_match("kernel-module-loader", &seq, t0);
+		corr.on_root_match(&Arc::<str>::from("kernel-module-loader"), &seq, t0);
 
 		let res = corr.on_rule_match(
-			"unrelated-rule",
+			&Arc::<str>::from("unrelated-rule"),
 			&seq,
-			"kernel-module-loader",
+			&Arc::<str>::from("kernel-module-loader"),
 			t0 + Duration::from_secs(2),
 			&mk_meta(),
 		);
@@ -279,12 +276,12 @@ mod tests {
 		let seq = mk_seq();
 		let t0 = Instant::now();
 
-		corr.on_root_match("kernel-module-loader", &seq, t0);
+		corr.on_root_match(&Arc::<str>::from("kernel-module-loader"), &seq, t0);
 
 		let res = corr.on_rule_match(
-			"service-probe",
+			&Arc::<str>::from("service-probe"),
 			&seq,
-			"kernel-module-loader",
+			&Arc::<str>::from("kernel-module-loader"),
 			t0 + Duration::from_secs(2),
 			&mk_meta(),
 		);
@@ -300,20 +297,22 @@ mod tests {
 		let seq = mk_seq();
 		let t0 = Instant::now();
 
-		corr.on_root_match("kernel-module-loader", &seq, t0);
-		corr.on_root_match("kernel-module-loader", &seq, t0 + Duration::from_secs(1));
+		corr.on_root_match(&Arc::<str>::from("kernel-module-loader"), &seq, t0);
+		corr.on_root_match(
+			&Arc::<str>::from("kernel-module-loader"),
+			&seq,
+			t0 + Duration::from_secs(1),
+		);
 
 		let res = corr.on_rule_match(
-			"port-scan",
+			&Arc::<str>::from("port-scan"),
 			&seq,
-			"kernel-module-loader",
+			&Arc::<str>::from("kernel-module-loader"),
 			t0 + Duration::from_secs(3),
 			&mk_meta(),
 		);
 
-		// Should affect BOTH instances → so multiple Step events
 		assert_eq!(res.len(), 2);
-
 		assert!(matches!(res[0], CorrelationEvent::Step { .. }));
 		assert!(matches!(res[1], CorrelationEvent::Step { .. }));
 
@@ -321,7 +320,6 @@ mod tests {
 	}
 	#[test]
 	fn root_match_without_steps_does_nothing() -> Result<()> {
-		// -- Setup & Fixtures
 		let mut corr = Correlator::new();
 		let t0 = Instant::now();
 		let seq = CompiledSequence {
@@ -330,10 +328,9 @@ mod tests {
 			steps: vec![],
 			scope: None,
 		};
-		// -- Exec
-		corr.on_root_match("tmp-exec", &seq, t0);
 
-		// -- Check
+		corr.on_root_match(&Arc::<str>::from("tmp-exec"), &seq, t0);
+
 		assert!(corr.active.is_empty());
 
 		Ok(())
