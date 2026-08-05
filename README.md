@@ -18,29 +18,88 @@
 
 ## Build & Run
 
-Use `cargo build`, `cargo check`, etc. as normal. Run your program with:
+Build the project as usual:
 
-TUI version:
-
-```shell
-cargo run -p cerberus --release --config 'target."cfg(all())".runner="sudo -E"' -- --mode tui --rules path/to/rule/dir
+```sh
+cargo build
+cargo check
 ```
 
-Agent version:
+Run Cerberus with:
 
-```shell
-# timed run
-cargo run -p cerberus --release --config 'target."cfg(all())".runner="sudo -E"' -- --mode agent --rules path/to/rule/dir --time <time in humantime format e.g 5s>
-
-# normal run
-cargo run -p cerberus --release --config 'target."cfg(all())".runner="sudo -E"' -- --mode agent --rules path/to/rule/dir
-
-# example
-cargo run -p cerberus --release --config 'target."cfg(all())".runner="sudo -E"' -- --mode agent --rules path/to/rule/dir --time 2m
+```sh
+cargo run -p cerberus --release \
+  --config 'target."cfg(all())".runner="sudo -E"' -- \
+  --rules path/to/rules \
+  --iface <interface> \
+  [OPTIONS]
 ```
 
-Cargo build scripts are used to automatically build the eBPF correctly and include it in the
-program.
+### Common options
+
+| Option                 | Description                                                                                      |
+| ---------------------- | ------------------------------------------------------------------------------------------------ |
+| `--mode <tui\|agent>`  | Run mode (default: `tui`)                                                                        |
+| `--log <PATH>`         | Write logs to a file or directory                                                                |
+| `--container-resolver` | **Experimental (currently unavailable)**. Enable Docker/Kubernetes container metadata resolution |
+
+### TUI mode
+
+```sh
+cargo run -p cerberus --release \
+  --config 'target."cfg(all())".runner="sudo -E"' -- \
+  --mode tui \
+  --rules path/to/rules \
+  --iface eth0
+```
+
+With logging:
+
+```sh
+cargo run -p cerberus --release \
+  --config 'target."cfg(all())".runner="sudo -E"' -- \
+  --mode tui \
+  --rules path/to/rules \
+  --iface eth0 \
+  --log ./logs
+```
+
+### Agent mode
+
+Run continuously:
+
+```sh
+cargo run -p cerberus --release \
+  --config 'target."cfg(all())".runner="sudo -E"' -- \
+  --mode agent \
+  --rules path/to/rules \
+  --iface eth0
+```
+
+Run for a fixed duration:
+
+```sh
+cargo run -p cerberus --release \
+  --config 'target."cfg(all())".runner="sudo -E"' -- \
+  --mode agent \
+  --rules path/to/rules \
+  --iface eth0 \
+  --time 2m
+```
+
+With logging:
+
+```sh
+cargo run -p cerberus --release \
+  --config 'target."cfg(all())".runner="sudo -E"' -- \
+  --mode agent \
+  --rules path/to/rules \
+  --iface eth0 \
+  --time 2m \
+  --log ./logs
+```
+
+Cargo build scripts automatically build the eBPF program and bundle it with the userspace binary.
 
 ## Cross-compiling on macOS
 
