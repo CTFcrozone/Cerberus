@@ -1,9 +1,8 @@
 # Cerberus Rule Writing Guide
 
-This guide explains how to write detection rules for the **Cerberus rule
-engine**.
+This guide explains how to write detection rules for the **Cerberus rule engine**.
 
-Rules are written in **TOML** and stored in the `rules/` directory.
+Rules are written in **TOML**.
 
 ---
 
@@ -15,9 +14,7 @@ Every rule file contains a `[rule]` section.
 [rule]
 id = "example-rule"
 description = "Example rule"
-type = "exec"
 severity = "medium"
-category = "process"
 
 [[rule.conditions]]
 field = "process.uid"
@@ -72,42 +69,6 @@ severity = "high"
 
 ---
 
-## type
-
-Defines what **event type** the rule applies to.
-
-Examples:
-
-    exec
-    network
-    bpf_prog_load
-    file_event
-    kernel
-
----
-
-# Optional Fields
-
-## category
-
-Used to group rules.
-
-Examples:
-
-    process
-    network
-    kernel
-    filesystem
-    container
-
-Example:
-
-```toml
-category = "kernel"
-```
-
----
-
 # Conditions
 
 Rules contain one or more **conditions**.
@@ -121,21 +82,24 @@ value = 0
 
 Each condition has:
 
----
-
-- field - event field
-- op - operator
-- value - value to compare
+- `field` — event field
+- `op` — operator
+- `value` — value to compare
 
 ---
 
 # Condition Operators
 
-## equals
+## equals / ==
 
 ```toml
 op = "equals"
 value = 0
+```
+
+```toml
+op = "=="
+value = "lkm"
 ```
 
 ---
@@ -200,6 +164,8 @@ op = "regex"
 value = "^/tmp"
 ```
 
+---
+
 ## not_regex
 
 ```toml
@@ -262,9 +228,7 @@ Detect execution from `/tmp` by non-root users.
 [rule]
 id = "tmp-exec"
 description = "Detect execution from /tmp"
-type = "exec"
 severity = "medium"
-category = "filesystem"
 
 [[rule.conditions]]
 field = "process.filepath"
@@ -285,9 +249,7 @@ value = [0]
 [rule]
 id = "suspicious-bpf-tracing-load"
 description = "Detect tracing/kprobe BPF program load"
-type = "bpf_prog_load"
 severity = "high"
-category = "kernel"
 
 [[rule.conditions]]
 field = "bpf.prog.type"
@@ -327,7 +289,6 @@ Then steps must occur in order within time windows.
 [rule]
 id = "attack-chain"
 description = "Detect multi-stage attack"
-type = "exec"
 severity = "high"
 
 [rule.sequence]
@@ -357,45 +318,143 @@ If a step does not occur in time, the sequence resets.
 
 ---
 
-# Responses (Not fully implemented yet)
+# Response Chains
 
-Rules may trigger automatic responses.
-
-Example:
+Rules may trigger automatic **response chains**. A response chain consists of a `trigger` and a list of `actions`.
 
 ```toml
-[rule.response]
+[rule.response_chain]
+trigger = "sequence_finished"
+
+[[rule.response_chain.actions]]
+type = "block_ip"
+params = { ip = "1.1.1.1" }
+```
+
+---
+
+## Triggers
+
+The `trigger` field determines when the response chain executes.
+
+| Trigger             | Description                                         |
+| ------------------- | --------------------------------------------------- |
+| `sequence_finished` | Fires when all sequence steps complete successfully |
+| `rule_match`        | Fires when the rule itself matches                  |
+
+---
+
+## Actions
+
+Each action has a `type` and a `params` map.
+
+### kill_process
+
+Terminate a process by PID.
+
+```toml
+[[rule.response_chain.actions]]
 type = "kill_process"
+params = { pid = 1234 }
 ```
 
-Supported responses:
-
-    kill_process
-    deny_exec
-    isolate_container
-    throttle_network
-    emit_signal
-    notify
-    kvm_action
-
----
-
-## Emit Signal
+Use a **field reference** (prefix with `$`) to bind the PID from the event:
 
 ```toml
-[rule.response]
-type = "emit_signal"
-signal = 9
+[[rule.response_chain.actions]]
+type = "kill_process"
+params = { pid = "$process.pid" }
 ```
 
 ---
 
-## Notify
+### block_ip
+
+Block an IPv4 address.
 
 ```toml
-[rule.response]
-type = "notify"
-message = "Suspicious activity detected"
+[[rule.response_chain.actions]]
+type = "block_ip"
+params = { ip = "10.0.0.5" }
+```
+
+Use a **field reference** to bind the IP from the event:
+
+```toml
+[[rule.response_chain.actions]]
+type = "block_ip"
+params = { ip = "$network.dst_ip" }
+```
+
+---
+
+## Action Parameters
+
+Action parameters accept either:
+
+- **Literal values** — hard-coded strings, integers, or IPs
+- **Field references** — strings prefixed with `$` that bind to event fields at runtime
+
+Field references are validated at rule-compile time against the expected type for that action parameter.
+
+---
+
+## Full Response Chain Example
+
+```toml
+[rule.response_chain]
+trigger = "sequence_finished"
+
+[[rule.response_chain.actions]]
+type = "block_ip"
+params = { ip = "1.1.1.1" }
+
+[[rule.response_chain.actions]]
+type = "block_ip"
+params = { ip = "8.8.8.8" }
+
+[[rule.response_chain.actions]]
+type = "kill_process"
+params = { pid = "$process.pid" }
+```
+
+---
+
+## Sequence + Response Chain Example
+
+```toml
+[rule]
+id = "kernel-module-loader"
+description = "Detect kernel module loading followed by exec"
+severity = "critical"
+
+[[rule.conditions]]
+field = "module.name"
+op = "=="
+value = "lkm"
+
+[rule.sequence]
+id = "lkm-loader-seq"
+kind = "rule"
+
+[[rule.sequence.steps]]
+rule_id = "rk-load"
+within = "10s"
+
+[[rule.sequence.steps]]
+rule_id = "sus-exec"
+within = "10s"
+
+[rule.response_chain]
+trigger = "sequence_finished"
+
+[[rule.response_chain.actions]]
+type = "block_ip"
+params = { ip = "1.1.1.1" }
+
+[[rule.response_chain.actions]]
+type = "block_ip"
+params = { ip = "8.8.8.8" }
 ```
 
 ---
@@ -406,6 +465,8 @@ Keep rules simple.
 
 Prefer multiple rules + sequences instead of complex single rules.
 
+Use field references (`$field.name`) in actions to make responses dynamic and context-aware.
+
 ---
 
 # Minimal Rule Example
@@ -414,7 +475,6 @@ Prefer multiple rules + sequences instead of complex single rules.
 [rule]
 id = "pid-exists"
 description = "Detect any process event"
-type = "exec"
 severity = "low"
 
 [[rule.conditions]]
