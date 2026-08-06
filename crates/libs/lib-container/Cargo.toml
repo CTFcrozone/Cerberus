@@ -22,19 +22,13 @@ tracing = { workspace = true }
 #     "net",
 #     "signal",
 # ] }
-tonic = {version="0.14.3", features=["transport"]}
-prost = "0.14.3"
-tonic-prost = "0.14.3"
+tonic = {version="0.14.6", features=["transport"]}
+prost = "0.14.4"
+tonic-prost = "0.14.6"
 tower = "0.5.3"
 tokio = { workspace = true, features = ["full"] }
 hyper-util = "0.1.19"
 walkdir = "2.5.0"
 [build-dependencies]
-tonic-prost-build = "0.14.3"
-derive_more = { version = "2.0.0", features = [
-    "from",
-    "display",
-    "debug",
-    "into",
-    "deref",
-] }
+tonic-prost-build = "0.14.6"
+derive_more = { workspace=true }

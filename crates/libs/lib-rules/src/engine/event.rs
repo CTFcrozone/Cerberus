@@ -1,4 +1,4 @@
-use std::{collections::HashMap, sync::Arc};
+use std::sync::Arc;
 
 use derive_more::From;
 use lib_common::event::EventMeta;

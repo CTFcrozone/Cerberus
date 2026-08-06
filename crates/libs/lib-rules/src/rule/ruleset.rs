@@ -14,8 +14,6 @@ pub struct RuleSet {
 	rules: Vec<Rule>,
 	#[serde(skip)]
 	by_id: HashMap<Arc<str>, usize>,
-	#[serde(skip)]
-	seq_by_id: HashMap<Arc<str>, usize>,
 }
 
 impl RuleSet {
@@ -41,11 +39,7 @@ impl RuleSet {
 				}
 			}
 		}
-		Ok(RuleSet {
-			rules,
-			by_id,
-			seq_by_id,
-		})
+		Ok(RuleSet { rules, by_id })
 	}
 
 	pub fn load_from_dir(dir: impl AsRef<Path>) -> Result<RuleSet> {
@@ -85,11 +79,7 @@ impl RuleSet {
 			}
 		}
 
-		Ok(RuleSet {
-			rules,
-			by_id,
-			seq_by_id,
-		})
+		Ok(RuleSet { rules, by_id })
 	}
 
 	pub fn find_rule_by_id(&self, rule_id: &str) -> Option<&Rule> {

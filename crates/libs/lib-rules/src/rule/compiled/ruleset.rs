@@ -10,7 +10,6 @@ use crate::{
 pub struct CompiledRuleSet {
 	rules: Vec<CompiledRule>,
 	by_id: HashMap<Arc<str>, usize>,
-	seq_by_id: HashMap<Arc<str>, usize>,
 }
 
 impl CompiledRuleSet {
@@ -32,11 +31,7 @@ impl CompiledRuleSet {
 			}
 		}
 
-		Ok(Self {
-			rules,
-			by_id,
-			seq_by_id,
-		})
+		Ok(Self { rules, by_id })
 	}
 	pub fn compile(raw: RuleSet) -> Result<Self> {
 		let mut compiled = Vec::with_capacity(raw.rules().len());

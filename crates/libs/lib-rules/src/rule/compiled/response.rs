@@ -1,4 +1,4 @@
-use std::{collections::HashMap, net::Ipv4Addr, str::FromStr};
+use std::{net::Ipv4Addr, str::FromStr};
 
 use lib_event_schema::{Field, FieldType, FieldValue};
 use strum::EnumCount;
