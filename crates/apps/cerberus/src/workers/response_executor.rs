@@ -6,7 +6,6 @@ use lib_event::unbound::Rx;
 use lib_rules::ResolvedAction;
 use lib_rules::ResponseRequest;
 use lib_rules::resolve_action;
-use tracing::debug;
 
 pub struct ResponseExecutor {
 	req_rx: Rx<ResponseRequest>,

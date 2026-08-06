@@ -78,9 +78,7 @@ impl RuleEngineWorker {
 				self.dropped.fetch_add(1, Ordering::Relaxed);
 				continue;
 			}
-			if logging {
-				log_cerberus_event(&evt);
-			}
+
 			self.tx.send(AppEvent::Cerberus(evt))?;
 		}
 		Ok(())
