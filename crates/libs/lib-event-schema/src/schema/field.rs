@@ -197,10 +197,6 @@ impl Field {
 
 			Field::NetworkProtocol => FieldType::String,
 
-			// When you expose saddr/daddr later:
-			// Field::NetworkSaddr
-			// | Field::NetworkDaddr => FieldType::Ip,
-
 			// Module
 			Field::ModuleName => FieldType::String,
 			Field::ModuleOp => FieldType::Int,
