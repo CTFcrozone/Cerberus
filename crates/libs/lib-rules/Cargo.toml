@@ -15,10 +15,7 @@ lib-event-schema = { path = "../lib-event-schema" }
 
 
 derive_more = { workspace=true }
-aya = { workspace = true }
-aya-log = { workspace = true }
-libc = { workspace = true }
-regex = "1"
+regex = {workspace=true}
 humantime-serde = "1"
 tracing = { workspace = true }
 strum = {workspace=true}
@@ -31,14 +28,14 @@ strum_macros = {workspace=true}
 #     "net",
 #     "signal",
 # ] }
-toml = "0.9.5"
-serde = { version = "1", features = ["derive", "rc"] }
-serde_json = "1"
+toml = {workspace=true}
+serde = {workspace=true}
+serde_json = {workspace=true}
 glob = "0.3.2"
 simple-fs = { version = "0.7.1", features = ["with-json"] }
 arc-swap = "1.8.0"
 blake3 = "1.8.2"
 hex = "0.4.3"
-humantime = "2.3.0"
+humantime = {workspace=true}
 dashmap = "6.1.0"
 uuid = {version="1.23.3", features=["v4"]}

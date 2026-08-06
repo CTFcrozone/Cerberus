@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use lib_event_schema::{Field, FieldValue};
 use strum::EnumCount;
 

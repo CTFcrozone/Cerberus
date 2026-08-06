@@ -103,7 +103,6 @@ mod tests {
 
 	use super::*;
 	use lib_event_schema::Field;
-	use std::collections::HashMap;
 	use strum::EnumCount;
 	use toml::Value;
 

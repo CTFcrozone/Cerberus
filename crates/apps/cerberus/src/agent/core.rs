@@ -1,5 +1,3 @@
-use std::string;
-
 use crate::{
 	error::Result,
 	event::AppEvent,
@@ -13,7 +11,7 @@ use humantime::Duration;
 use lib_event::unbound::Rx;
 use lib_rules::EngineEvent;
 use tokio_util::sync::CancellationToken;
-use tracing::{debug, info, warn};
+use tracing::{debug, info};
 
 pub async fn _run_agent_sink(mut rx: Rx<AppEvent>, shutdown: CancellationToken) -> Result<()> {
 	info!("Agent sink started, waiting for events...");

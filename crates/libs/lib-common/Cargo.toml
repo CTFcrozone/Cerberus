@@ -11,8 +11,4 @@ lib-container = { path = "../lib-container" }
 lib-event-schema = { path = "../lib-event-schema" }
 strum = {workspace=true}
 strum_macros = {workspace=true}
-
-
-toml = "0.9.5"
-
 derive_more = { workspace=true}

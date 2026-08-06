@@ -1,7 +1,6 @@
 use arc_swap::ArcSwap;
 use lib_common::event::{CerberusEvent, Event, EventMeta};
 use lib_event_schema::{Field, FieldValue};
-use std::collections::HashMap;
 use std::time::Instant;
 use std::{path::Path, sync::Arc};
 use strum::EnumCount;

@@ -33,6 +33,12 @@ zerocopy-derive = "0.8"
 crossfire = "3.1.19"
 strum = "0.27"
 strum_macros = "0.27"
+regex = "1"
+toml = "0.9.5"
+serde = { version = "1", features = ["derive", "rc"] }
+serde_json = "1"
+humantime = "2.3.0"
+
 # `std` feature is currently required to build `clap`.
 #
 # See https://github.com/clap-rs/clap/blob/61f5ee5/clap_builder/src/lib.rs#L15.

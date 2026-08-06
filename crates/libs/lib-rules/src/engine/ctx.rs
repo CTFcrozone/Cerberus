@@ -1,6 +1,5 @@
 use lib_common::event::Event;
 use lib_event_schema::{Field, FieldValue};
-use std::collections::HashMap;
 use strum::EnumCount;
 
 #[derive(Debug)]

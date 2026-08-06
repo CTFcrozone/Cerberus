@@ -17,7 +17,7 @@ use crate::{
 	vmlinux::task_struct,
 };
 
-pub fn try_sys_enter_ptrace(ctx: TracePointContext) -> Result<u32, u32> {
+pub fn try_sys_enter_ptrace(_ctx: TracePointContext) -> Result<u32, u32> {
 	let uid = bpf_get_current_uid_gid() as u32;
 	let pid = bpf_get_current_pid_tgid() as u32;
 	let tgid = (bpf_get_current_pid_tgid() >> 32) as u32;
