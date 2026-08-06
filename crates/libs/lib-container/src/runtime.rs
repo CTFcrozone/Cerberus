@@ -2,6 +2,8 @@ mod runtime {
 	tonic::include_proto!("runtime.v1");
 }
 
+use std::time::Duration;
+
 use crate::error::Result;
 use hyper_util::rt::TokioIo;
 use runtime::runtime_service_client::RuntimeServiceClient;
@@ -12,7 +14,7 @@ use tower::service_fn;
 pub type K8sRtServiceClient = RuntimeServiceClient<tonic::transport::Channel>;
 
 pub async fn k8s_connect() -> Result<K8sRtServiceClient> {
-	let endpoint = tonic::transport::Endpoint::from_static("http://localhost");
+	let endpoint = tonic::transport::Endpoint::from_static("http://localhost").timeout(Duration::from_secs(2));
 
 	let channel = endpoint
 		.connect_with_connector(service_fn(|_: Uri| async {

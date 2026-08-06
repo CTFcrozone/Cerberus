@@ -1331,6 +1331,7 @@ dependencies = [
  "simple-fs",
  "strum 0.27.2",
  "strum_macros 0.27.2",
+ "tokio",
  "toml",
  "tracing",
  "uuid",

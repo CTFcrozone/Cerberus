@@ -155,7 +155,12 @@ async fn main() -> Result<()> {
 		aya::maps::HashMap::try_from(ebpf.take_map("BLOCKLIST").ok_or(Error::EbpfMapNotFound {
 			map: "BLOCKLIST".into(),
 		})?)?;
-	let response_worker = ResponseExecutor::start(response_rx, blocklist)?;
+	let lsm_exec_deny: aya::maps::HashMap<_, [u8; 128], u8> =
+		aya::maps::HashMap::try_from(ebpf.take_map("LSM_EXEC_DENY").ok_or(Error::EbpfMapNotFound {
+			map: "LSM_EXEC_DENY".into(),
+		})?)?;
+
+	let response_worker = ResponseExecutor::start(response_rx, blocklist, lsm_exec_deny)?;
 	let ringbuf_worker = RingBufWorker::start(ringbuf_fd, ringbuf_tx.clone())?;
 	let hook_worker = HookWorker::start(ebpf, app_tx.clone(), hook_rx, registry)?;
 

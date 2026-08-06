@@ -28,7 +28,6 @@ pub struct RuleEngineWorker {
 	dropped: AtomicU64,
 }
 
-// TODO: make it shutdown aware
 impl RuleEngineWorker {
 	pub fn start(
 		rule_engine: Arc<RuleEngine>,

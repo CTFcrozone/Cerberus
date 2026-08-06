@@ -37,6 +37,24 @@ impl RuleEngine {
 		})
 	}
 
+	pub async fn reload_ruleset_async(&self, dir: impl AsRef<Path>) -> Result<()> {
+		let dir = dir.as_ref().to_path_buf();
+
+		let (ruleset, index) = tokio::task::spawn_blocking(move || -> Result<_> {
+			let raw = RuleSet::load_from_dir(&dir)?;
+			let compiled = CompiledRuleSet::compile(raw)?;
+			let index = RuleIndex::build(&compiled);
+			Ok((compiled, index))
+		})
+		.await
+		.map_err(|e| Error::Custom(format!("reload task panicked: {e}")))??;
+
+		self.ruleset.store(Arc::new(ruleset));
+		self.index.store(Arc::new(index));
+
+		Ok(())
+	}
+
 	pub fn reload_ruleset(&self, dir: impl AsRef<Path>) -> Result<()> {
 		let ruleset = RuleSet::load_from_dir(dir)?;
 		let ruleset = Arc::new(CompiledRuleSet::compile(ruleset)?);

@@ -147,10 +147,8 @@ pub fn prog_type_to_string(ptype: u32) -> &'static str {
 }
 
 pub fn ip_to_string(ip: u32) -> String {
-	let octets = ip.to_le_bytes();
-	format!("{}.{}.{}.{}", octets[0], octets[1], octets[2], octets[3])
+	std::net::Ipv4Addr::from(ip.to_be()).to_string()
 }
-
 pub fn family_to_string<T: Into<i32>>(family: T) -> &'static str {
 	let family = family.into();
 	match family {

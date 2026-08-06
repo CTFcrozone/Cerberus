@@ -7,6 +7,7 @@ use aya_ebpf::{
 	maps::{HashMap, RingBuf},
 	programs::{LsmContext, ProbeContext, TracePointContext, XdpContext},
 };
+use lib_ebpf_common::FILE_PATH_LEN;
 
 #[macro_use]
 mod utils;
@@ -17,6 +18,8 @@ mod vmlinux;
 #[map]
 static EVT_MAP: RingBuf = RingBuf::with_byte_size(32 * 1024, 0);
 
+#[map]
+static LSM_EXEC_DENY: HashMap<[u8; FILE_PATH_LEN], u8> = HashMap::with_max_entries(1024, 0);
 #[map]
 static BLOCKLIST: HashMap<u32, u32> = HashMap::with_max_entries(1024, 0);
 

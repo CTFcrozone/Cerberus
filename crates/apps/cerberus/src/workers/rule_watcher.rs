@@ -18,7 +18,6 @@ pub struct RuleWatchWorker {
 	rule_dir: PathBuf,
 }
 
-// TODO: make it shutdown aware
 impl RuleWatchWorker {
 	pub fn start(app_tx: Tx<AppEvent>, rule_engine: Arc<RuleEngine>, rule_dir: PathBuf) -> Result<Self> {
 		let (tx, rx) = new_channel_unbounded_async::<RuleWatchEvent>("rules");
@@ -41,7 +40,10 @@ impl RuleWatchWorker {
 	}
 	pub async fn run(mut self) -> Result<()> {
 		while let Ok(_) = self.rx.recv().await {
-			self.rule_engine.reload_ruleset(&self.rule_dir)?;
+			if let Err(e) = self.rule_engine.reload_ruleset_async(&self.rule_dir).await {
+				tracing::error!("Rule reload failed: {e}");
+				continue;
+			}
 			let rules: Arc<[Arc<str>]> = self
 				.rule_engine
 				.ruleset

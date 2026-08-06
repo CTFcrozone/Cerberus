@@ -6,16 +6,25 @@ use lib_event::unbound::Rx;
 use lib_rules::ResolvedAction;
 use lib_rules::ResponseRequest;
 use lib_rules::resolve_action;
+use tracing::debug;
 
 pub struct ResponseExecutor {
 	req_rx: Rx<ResponseRequest>,
 	ip_blocklist: AyaHashMap<MapData, u32, u32>,
+	lsm_exec_deny: AyaHashMap<MapData, [u8; 128], u8>,
 }
 
-// TODO: make it shutdown aware
 impl ResponseExecutor {
-	pub fn start(req_rx: Rx<ResponseRequest>, ip_blocklist: AyaHashMap<MapData, u32, u32>) -> Result<Self> {
-		Ok(Self { req_rx, ip_blocklist })
+	pub fn start(
+		req_rx: Rx<ResponseRequest>,
+		ip_blocklist: AyaHashMap<MapData, u32, u32>,
+		lsm_exec_deny: AyaHashMap<MapData, [u8; 128], u8>,
+	) -> Result<Self> {
+		Ok(Self {
+			req_rx,
+			ip_blocklist,
+			lsm_exec_deny,
+		})
 	}
 	pub async fn run(mut self) -> Result<()> {
 		while let Ok(request) = self.req_rx.recv().await {
@@ -34,6 +43,10 @@ impl ResponseExecutor {
 
 				ResolvedAction::KillProcess { pid } => {
 					Self::kill_process(pid)?;
+				}
+				ResolvedAction::DenyExec { path_key } => {
+					// debug!("{path_key:?}");
+					// self.lsm_exec_deny.insert(path_key, 1, 0)?;
 				}
 			}
 		}

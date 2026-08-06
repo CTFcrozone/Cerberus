@@ -82,6 +82,7 @@ impl<'de> Deserialize<'de> for ActionValue {
 pub enum Action {
 	KillProcess { pid: ActionValue },
 	BlockIp { ip: ActionValue },
+	DenyExec { path: ActionValue },
 }
 
 impl Rule {

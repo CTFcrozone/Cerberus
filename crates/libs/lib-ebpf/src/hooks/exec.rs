@@ -11,7 +11,7 @@ use aya_ebpf::{
 use lib_ebpf_common::{BprmSecurityCheckEvent, EVT_BPRM_CHECK_SEC, EventHeader, FILE_PATH_LEN};
 
 use crate::{
-	EVT_MAP,
+	EVT_MAP, LSM_EXEC_DENY,
 	utils::{get_mnt_ns, get_ppid, resolve_file_path},
 	vmlinux::linux_binprm,
 };
@@ -63,5 +63,10 @@ pub fn try_bprm_check_security(ctx: LsmContext) -> Result<i32, i32> {
 	// 	error!(&ctx, "ringbuf write failed: {}", e);
 	// }
 	let _ = EVT_MAP.output::<BprmSecurityCheckEvent>(&event, 0);
+
+	if unsafe { LSM_EXEC_DENY.get(&event.filepath) }.is_some() {
+		return Err(-1);
+	}
+
 	Ok(0)
 }

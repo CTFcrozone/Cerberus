@@ -15,7 +15,6 @@ pub struct HookWorker {
 	ebpf: Ebpf,
 }
 
-// TODO: make it shutdown aware
 impl HookWorker {
 	pub fn start(ebpf: Ebpf, tx: Tx<AppEvent>, rx: Rx<HookCommand>, registry: HookRegistry) -> Result<Self> {
 		Ok(HookWorker { ebpf, tx, rx, registry })

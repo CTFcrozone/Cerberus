@@ -12,6 +12,7 @@ use std::{
 	os::unix::fs::MetadataExt,
 	path::{Path, PathBuf},
 	sync::Arc,
+	time::Duration,
 };
 
 use crate::container::{ContainerInfo, ContainerRuntime};
@@ -25,7 +26,6 @@ pub struct ContainerManager {
 	k8s_cache: HashMap<String, K8sMetadata>,
 	_cgroup_root: PathBuf,
 }
-
 const CGROUP_DIR: &str = "/sys/fs/cgroup";
 
 #[derive(Clone)]
@@ -51,12 +51,20 @@ impl ContainerManager {
 		})
 	}
 
-	pub async fn resolve(&mut self, cgroup_id: u64) -> Option<&ContainerInfo> {
+	pub async fn resolve(&mut self, cgroup_id: u64) -> Option<ContainerInfo> {
+		if let Some(info) = self.cache.get(&cgroup_id) {
+			return Some(info.clone());
+		}
+
+		let info = tokio::task::spawn_blocking(move || Self::resolve_container(cgroup_id))
+			.await
+			.ok()??;
+
 		match self.cache.entry(cgroup_id) {
-			Entry::Occupied(entry) => Some(entry.into_mut()),
+			Entry::Occupied(entry) => Some(entry.get().clone()),
 			Entry::Vacant(entry) => {
-				let info = Self::resolve_container(cgroup_id)?;
-				Some(entry.insert(info))
+				entry.insert(info.clone());
+				Some(info)
 			}
 		}
 	}

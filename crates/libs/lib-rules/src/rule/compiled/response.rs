@@ -19,12 +19,14 @@ pub enum CompiledActionValue {
 pub enum CompiledAction {
 	KillProcess { pid: CompiledActionValue },
 	BlockIp { ip: CompiledActionValue },
+	DenyExec { path: CompiledActionValue },
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ResolvedAction {
 	KillProcess { pid: u32 },
 	BlockIp { ip: Ipv4Addr },
+	DenyExec { path_key: [u8; 128] },
 }
 
 #[derive(Debug, Clone)]
@@ -75,6 +77,18 @@ pub fn resolve_action(action: &CompiledAction, fields: &[Option<FieldValue>; Fie
 				}),
 			}
 		}
+		CompiledAction::DenyExec { path } => {
+			let value = resolve_param(path, fields)?;
+			match value {
+				FieldValue::String(s) => Ok(ResolvedAction::DenyExec {
+					path_key: path_to_deny_key(&s),
+				}),
+				other => Err(Error::InvalidActionParamValue {
+					expected: "string".into(),
+					actual: other.ty().as_str().into(),
+				}),
+			}
+		}
 	}
 }
 fn compile_action(action: Action) -> Result<CompiledAction> {
@@ -85,6 +99,9 @@ fn compile_action(action: Action) -> Result<CompiledAction> {
 
 		Action::BlockIp { ip } => CompiledAction::BlockIp {
 			ip: compile_action_value(ip, FieldType::Ip)?,
+		},
+		Action::DenyExec { path } => CompiledAction::DenyExec {
+			path: compile_action_value(path, FieldType::String)?,
 		},
 	})
 }
@@ -157,7 +174,14 @@ fn resolve_param(param: &CompiledActionValue, fields: &[Option<FieldValue>; Fiel
 		}),
 	}
 }
-
+fn path_to_deny_key(path: &str) -> [u8; 128] {
+	let bytes = path.as_bytes();
+	let len = bytes.len().min(128);
+	let mut key = [0u8; 128];
+	let start = 128 - len;
+	key[start..].copy_from_slice(&bytes[..len]);
+	key
+}
 // pub fn compile_response_chain(raw: ResponseChain) -> Result<CompiledResponseChain> {
 // 	Ok(raw.into())
 // }
