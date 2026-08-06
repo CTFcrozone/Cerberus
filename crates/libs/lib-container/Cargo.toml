@@ -28,6 +28,7 @@ tonic-prost = "0.14.3"
 tower = "0.5.3"
 tokio = { workspace = true, features = ["full"] }
 hyper-util = "0.1.19"
+walkdir = "2.5.0"
 [build-dependencies]
 tonic-prost-build = "0.14.3"
 derive_more = { version = "2.0.0", features = [

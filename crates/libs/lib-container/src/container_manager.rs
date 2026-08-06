@@ -1,3 +1,5 @@
+use walkdir::WalkDir;
+
 use crate::{
 	error::{Error, Result},
 	runtime::{
@@ -166,23 +168,13 @@ impl ContainerManager {
 	}
 
 	fn walk(dir: &Path, target: u64) -> Option<String> {
-		for entry in std::fs::read_dir(dir).ok()? {
-			let entry = entry.ok()?;
-			let path = entry.path();
-			let meta = entry.metadata().ok()?;
-
-			if meta.ino() == target {
-				return Some(path.to_string_lossy().to_string());
-			}
-
-			if meta.is_dir() {
-				if let Some(found) = Self::walk(&path, target) {
-					return Some(found);
-				}
-			}
-		}
-
-		None
+		WalkDir::new(dir)
+			.follow_links(false)
+			.max_depth(20)
+			.into_iter()
+			.filter_map(|e| e.ok())
+			.find(|e| e.metadata().map(|m| m.ino() == target).unwrap_or(false))
+			.map(|e| e.path().to_string_lossy().into_owned())
 	}
 
 	fn read_cgroup_path(cgroup_id: u64) -> Option<String> {

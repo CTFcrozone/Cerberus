@@ -12,7 +12,7 @@ use tower::service_fn;
 pub type K8sRtServiceClient = RuntimeServiceClient<tonic::transport::Channel>;
 
 pub async fn k8s_connect() -> Result<K8sRtServiceClient> {
-	let endpoint = tonic::transport::Endpoint::from_static("http://[::]");
+	let endpoint = tonic::transport::Endpoint::from_static("http://localhost");
 
 	let channel = endpoint
 		.connect_with_connector(service_fn(|_: Uri| async {

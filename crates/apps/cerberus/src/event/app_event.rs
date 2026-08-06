@@ -13,8 +13,6 @@ pub enum AppEvent {
 	#[from]
 	Engine(EngineEvent),
 	#[from]
-	LoadedHooks,
-	#[from]
 	Watcher(RuleWatchEvent),
 	RuleReload {
 		rules: Arc<[Arc<str>]>,

@@ -1359,6 +1359,7 @@ dependencies = [
  "tonic-prost-build",
  "tower",
  "tracing",
+ "walkdir",
 ]
 
 [[package]]

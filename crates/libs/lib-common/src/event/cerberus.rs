@@ -1,6 +1,6 @@
 use lib_container::container::ContainerInfo;
 use lib_event_schema::{Field, FieldValue};
-use std::{collections::HashMap, sync::Arc};
+use std::sync::Arc;
 use strum::EnumCount;
 
 use derive_more::From;
