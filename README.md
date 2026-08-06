@@ -14,6 +14,21 @@
 1. (if cross-compiling) LLVM: (e.g.) `brew install llvm` (on macOS)
 1. (if cross-compiling) C toolchain: (e.g.) [`brew install filosottile/musl-cross/musl-cross`](https://github.com/FiloSottile/homebrew-musl-cross) (on macOS)
 1. bpf-linker: `cargo install bpf-linker` (`--no-default-features` on macOS)
+1. Linux kernel with eBPF and LSM support:
+   - Kernel 5.7+ (5.10+ recommended)
+   - `CONFIG_BPF_LSM=y` enabled
+   - `bpf` listed in the active LSMs (`cat /sys/kernel/security/lsm`)
+
+   If `bpf` is not present in the output, you may need to enable it by adding
+   `bpf` to the kernel boot parameters, for example:
+
+   ```sh
+   # Edit /etc/default/grub and append ',bpf' to the LSM list
+   GRUB_CMDLINE_LINUX="... lsm=lockdown,yama,integrity,apparmor,bpf"
+   sudo grub-mkconfig -o /boot/grub/grub.cfg
+   # Reboot
+   ```
+
 1. libbpf-devel (Package manager)
 
 ## Build & Run
