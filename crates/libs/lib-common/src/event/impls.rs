@@ -72,6 +72,7 @@ impl Event for BprmSecurityEvent {
 	}
 	fn to_fields(&self) -> [Option<FieldValue>; Field::COUNT] {
 		let mut f = [const { None }; Field::COUNT];
+
 		f[Field::ProcessUid.index()] = Some(FieldValue::Int(self.header.uid as i64));
 		f[Field::ProcessPid.index()] = Some(FieldValue::Int(self.header.pid as i64));
 		f[Field::ProcessTgid.index()] = Some(FieldValue::Int(self.header.tgid as i64));

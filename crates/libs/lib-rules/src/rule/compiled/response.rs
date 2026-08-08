@@ -178,8 +178,7 @@ fn path_to_deny_key(path: &str) -> [u8; 128] {
 	let bytes = path.as_bytes();
 	let len = bytes.len().min(128);
 	let mut key = [0u8; 128];
-	let start = 128 - len;
-	key[start..].copy_from_slice(&bytes[..len]);
+	key[..len].copy_from_slice(&bytes[..len]);
 	key
 }
 // pub fn compile_response_chain(raw: ResponseChain) -> Result<CompiledResponseChain> {

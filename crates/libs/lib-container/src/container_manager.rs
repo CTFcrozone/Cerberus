@@ -12,7 +12,6 @@ use std::{
 	os::unix::fs::MetadataExt,
 	path::{Path, PathBuf},
 	sync::Arc,
-	time::Duration,
 };
 
 use crate::container::{ContainerInfo, ContainerRuntime};

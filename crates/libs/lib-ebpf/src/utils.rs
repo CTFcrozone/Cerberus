@@ -107,7 +107,6 @@ pub fn read_dentry_name(dentry: *const dentry, buf: &mut [u8; FILE_NAME_LEN]) ->
 		Some(copy_len as u32)
 	}
 }
-
 #[inline(always)]
 pub unsafe fn resolve_file_path(file: *mut crate::vmlinux::file, buf: *mut [u8; FILE_PATH_LEN]) -> u32 {
 	if file.is_null() || buf.is_null() {
@@ -117,9 +116,16 @@ pub unsafe fn resolve_file_path(file: *mut crate::vmlinux::file, buf: *mut [u8; 
 	let f_path = unsafe { &(*file).__bindgen_anon_1.f_path } as *const _ as *mut path;
 
 	let ret = unsafe { bpf_d_path(f_path, (*buf).as_mut_ptr() as *mut c_char, FILE_PATH_LEN as u32) };
+	let ret_usize = ret as usize;
 
-	if ret <= 0 || ret as usize > FILE_PATH_LEN {
+	if ret <= 0 || ret_usize as usize > FILE_PATH_LEN {
 		return 0;
+	}
+
+	for i in ret_usize..FILE_PATH_LEN {
+		if i >= ret_usize {
+			unsafe { (*buf)[i] = 0 };
+		}
 	}
 
 	ret as u32

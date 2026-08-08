@@ -1,5 +1,7 @@
 use zerocopy_derive::{FromBytes, Immutable, KnownLayout};
 
+use crate::FILE_PATH_LEN;
+
 // EVT_TYPE
 // 1 => KILL,
 // 2 => IO_URING,
@@ -69,7 +71,7 @@ pub struct ModuleEvent {
 #[derive(Clone, Copy, Debug, FromBytes, Immutable, KnownLayout)]
 pub struct BprmSecurityCheckEvent {
 	pub header: EventHeader,
-	pub filepath: [u8; 128],
+	pub filepath: [u8; FILE_PATH_LEN],
 	pub path_len: u32,
 	pub _pad0: [u8; 4],
 }

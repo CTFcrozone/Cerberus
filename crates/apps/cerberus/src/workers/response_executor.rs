@@ -6,6 +6,7 @@ use lib_event::unbound::Rx;
 use lib_rules::ResolvedAction;
 use lib_rules::ResponseRequest;
 use lib_rules::resolve_action;
+use tracing::debug;
 
 pub struct ResponseExecutor {
 	req_rx: Rx<ResponseRequest>,
@@ -44,8 +45,7 @@ impl ResponseExecutor {
 					Self::kill_process(pid)?;
 				}
 				ResolvedAction::DenyExec { path_key } => {
-					// debug!("{path_key:?}");
-					// self.lsm_exec_deny.insert(path_key, 1, 0)?;
+					self.lsm_exec_deny.insert(path_key, 1, 0)?;
 				}
 			}
 		}

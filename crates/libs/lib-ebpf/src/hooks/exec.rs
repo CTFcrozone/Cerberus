@@ -35,7 +35,6 @@ pub fn try_bprm_check_security(ctx: LsmContext) -> Result<i32, i32> {
 	}
 
 	let buf = FPATH.get_ptr_mut(0).ok_or(0)?;
-
 	let ret = unsafe { resolve_file_path((*bprm).file, buf) };
 	if ret == 0 {
 		return Ok(0);

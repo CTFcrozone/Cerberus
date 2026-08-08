@@ -15,6 +15,7 @@ use lib_ebpf_common::{
 use lib_event::unbound::Tx;
 use tokio::io::unix::AsyncFd;
 
+use tracing::debug;
 use zerocopy::FromBytes;
 
 pub struct RingBufWorker {
@@ -185,13 +186,11 @@ fn parse_cerberus_event(evt: EbpfEvent) -> Result<CerberusEvent> {
 
 		EbpfEvent::BprmSecurityCheck(ref e) => {
 			let comm = arc_from_bytes(&e.header.comm);
-
 			let path_len = e.path_len as usize;
-			let start = FILE_PATH_LEN.saturating_sub(path_len);
-			let filepath = arc_from_bytes(&e.filepath[start..FILE_PATH_LEN]);
+			let filepath_bytes = &e.filepath[..path_len.min(FILE_PATH_LEN)];
 
 			CerberusEvent::Bprm(BprmSecurityEvent {
-				filepath,
+				filepath: arc_from_bytes(filepath_bytes),
 				header: EventHeader {
 					cgroup_id: e.header.cgroup_id,
 					container: None,

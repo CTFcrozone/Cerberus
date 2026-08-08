@@ -9,7 +9,7 @@ use std::{
 use crate::{
 	error::{Error, Result},
 	event::AppEvent,
-	log_line::{log_cerberus_event, log_engine_event},
+	log_line::log_engine_event,
 };
 
 use governor::{DefaultDirectRateLimiter, Quota};
