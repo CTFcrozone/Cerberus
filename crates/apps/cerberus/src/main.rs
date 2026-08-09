@@ -118,6 +118,7 @@ async fn main() -> Result<()> {
 		Some(path) => path,
 		None => dirs::home_dir().ok_or(Error::HomeDirNotFound)?.join(".cerberus").join("rules"),
 	};
+	std::fs::create_dir_all(&rule_dir)?;
 	let ruleset = RuleSet::load_from_dir(&rule_dir)?;
 	let rules: Arc<[Arc<str>]> = ruleset
 		.rules()
