@@ -40,12 +40,19 @@ cargo build
 cargo check
 ```
 
+By default, Cerberus looks for detection rules in:
+
+```text
+~/.cerberus/rules
+```
+
+You can use a custom rules directory with `--rules`.
+
 Run Cerberus with:
 
 ```sh
 cargo run -p cerberus --release \
   --config 'target."cfg(all())".runner="sudo -E"' -- \
-  --rules path/to/rules \
   --iface <interface> \
   [OPTIONS]
 ```
@@ -55,10 +62,22 @@ cargo run -p cerberus --release \
 | Option                 | Description                                                                                      |
 | ---------------------- | ------------------------------------------------------------------------------------------------ |
 | `--mode <tui\|agent>`  | Run mode (default: `tui`)                                                                        |
+| `--rules <DIR>`        | Directory containing detection rules (default: `~/.cerberus/rules`)                              |
 | `--log <PATH>`         | Write logs to a file or directory                                                                |
 | `--container-resolver` | **Experimental (currently unavailable)**. Enable Docker/Kubernetes container metadata resolution |
 
 ### TUI mode
+
+Using the default rules directory:
+
+```sh
+cargo run -p cerberus --release \
+  --config 'target."cfg(all())".runner="sudo -E"' -- \
+  --mode tui \
+  --iface eth0
+```
+
+Using a custom rules directory:
 
 ```sh
 cargo run -p cerberus --release \
@@ -74,7 +93,6 @@ With logging:
 cargo run -p cerberus --release \
   --config 'target."cfg(all())".runner="sudo -E"' -- \
   --mode tui \
-  --rules path/to/rules \
   --iface eth0 \
   --log ./logs
 ```
@@ -82,6 +100,15 @@ cargo run -p cerberus --release \
 ### Agent mode
 
 Run continuously:
+
+```sh
+cargo run -p cerberus --release \
+  --config 'target."cfg(all())".runner="sudo -E"' -- \
+  --mode agent \
+  --iface eth0
+```
+
+Using a custom rules directory:
 
 ```sh
 cargo run -p cerberus --release \
@@ -97,7 +124,6 @@ Run for a fixed duration:
 cargo run -p cerberus --release \
   --config 'target."cfg(all())".runner="sudo -E"' -- \
   --mode agent \
-  --rules path/to/rules \
   --iface eth0 \
   --time 2m
 ```
@@ -108,7 +134,6 @@ With logging:
 cargo run -p cerberus --release \
   --config 'target."cfg(all())".runner="sudo -E"' -- \
   --mode agent \
-  --rules path/to/rules \
   --iface eth0 \
   --time 2m \
   --log ./logs

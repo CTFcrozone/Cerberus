@@ -9,8 +9,12 @@ pub struct Cli {
 	#[arg(long, value_enum, default_value = "tui")]
 	pub mode: RunMode,
 
-	#[arg(long, value_name = "DIR", help = "Directory containing detection rules")]
-	pub rules: PathBuf,
+	#[arg(
+		long,
+		value_name = "DIR",
+		help = "Directory containing detection rules [default: ~/.cerberus/rules]"
+	)]
+	pub rules: Option<PathBuf>,
 
 	#[arg(long, value_name = "IFACE", help = "Network interface to attach the XDP program")]
 	pub iface: String,

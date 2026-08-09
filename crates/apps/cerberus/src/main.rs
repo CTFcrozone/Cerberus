@@ -114,7 +114,10 @@ async fn main() -> Result<()> {
 	// 		});
 	// 	}
 	// }
-	let rule_dir = args.rules;
+	let rule_dir = match args.rules {
+		Some(path) => path,
+		None => dirs::home_dir().ok_or(Error::HomeDirNotFound)?.join(".cerberus").join("rules"),
+	};
 	let ruleset = RuleSet::load_from_dir(&rule_dir)?;
 	let rules: Arc<[Arc<str>]> = ruleset
 		.rules()

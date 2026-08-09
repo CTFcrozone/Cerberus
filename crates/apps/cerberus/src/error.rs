@@ -59,6 +59,8 @@ pub enum Error {
 	#[from]
 	#[display("IO error: {_0}")]
 	Io(std::io::Error),
+	#[display("User home directory not found")]
+	HomeDirNotFound,
 	#[from]
 	#[display("Notify error: {_0}")]
 	Notify(notify::Error),

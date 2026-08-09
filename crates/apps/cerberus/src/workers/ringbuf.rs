@@ -15,7 +15,6 @@ use lib_ebpf_common::{
 use lib_event::unbound::Tx;
 use tokio::io::unix::AsyncFd;
 
-use tracing::debug;
 use zerocopy::FromBytes;
 
 pub struct RingBufWorker {
