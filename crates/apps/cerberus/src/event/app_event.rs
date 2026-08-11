@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use derive_more::From;
 use lib_common::event::CerberusEvent;
-use lib_rules::EngineEvent;
+use lib_rules::{EngineEvent, ResolvedAction};
 
 #[derive(From, Clone)]
 pub enum AppEvent {
@@ -22,6 +22,12 @@ pub enum AppEvent {
 	},
 	HookDisabled {
 		hook: Arc<str>,
+	},
+	ResponseExecuted {
+		id: u64,
+		rule_id: Arc<str>,
+		actions: Vec<ResolvedAction>,
+		success: bool,
 	},
 	HookFailed {
 		hook: Arc<str>,

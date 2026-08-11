@@ -2,6 +2,7 @@ use std::{collections::VecDeque, sync::Arc};
 
 use super::AppState;
 use crate::core::View;
+use crate::core::app_state::{ResponseItem, ResponseStatus};
 use crate::event::AppEvent;
 use crate::hook_registry::HookState;
 use crate::hook_registry::event::HookCommand;
@@ -23,6 +24,7 @@ fn handle_engine_event(event: &EngineEvent, app_state: &mut AppState) {
 		EngineEvent::Correlation(evt) => {
 			handle_correlation_event(evt, app_state);
 		}
+
 		_ => {}
 	}
 }

@@ -132,6 +132,7 @@ impl RuleEngine {
 						if matches!(chain.trigger, Trigger::SequenceFinished) {
 							out.push(
 								ResponseRequest {
+									id: 0,
 									rule_id: root_rule_id.clone(),
 									response_chain: chain.clone(),
 									event_meta: event_meta.clone(),
@@ -176,6 +177,7 @@ impl RuleEngine {
 					if matches!(chain.trigger, Trigger::RuleMatch) {
 						out.push(
 							ResponseRequest {
+								id: 0,
 								rule_id: rule_id.clone(),
 								response_chain: chain.clone(),
 								event_meta: meta.clone(),

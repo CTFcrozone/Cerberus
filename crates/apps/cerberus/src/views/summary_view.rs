@@ -7,7 +7,7 @@ use ratatui::{
 };
 
 use crate::{
-	core::{AppState, ScrollIden},
+	core::{AppState, ResponseStatus, ScrollIden},
 	hook_registry::HookState,
 };
 
@@ -22,9 +22,13 @@ impl StatefulWidget for SummaryView {
 	fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
 		const SCROLL_IDEN: ScrollIden = SummaryView::HOOK_SCROLL_IDEN;
 
-		let [top_row, bottom_row] = Layout::default()
+		let [top_row, middle_row, bottom_row] = Layout::default()
 			.direction(Direction::Vertical)
-			.constraints([Constraint::Percentage(70), Constraint::Percentage(30)])
+			.constraints([
+				Constraint::Percentage(55),
+				Constraint::Percentage(30),
+				Constraint::Percentage(15),
+			])
 			.areas(area);
 
 		let [rules_area, chart1_area] = Layout::default()
@@ -123,4 +127,58 @@ fn render_severity_chart(area: Rect, buf: &mut Buffer, state: &AppState) {
 		.label_style(Style::default().fg(Color::Gray));
 
 	chart.render(area, buf);
+}
+
+fn render_response_queue(area: Rect, buf: &mut Buffer, state: &AppState) {
+	let block = Block::bordered().title("Response Queue");
+
+	let max_items = area.height.saturating_sub(2) as usize;
+	if max_items == 0 {
+		block.render(area, buf);
+		return;
+	}
+
+	let items: Vec<Line> = state
+		.response_evts()
+		.take(max_items)
+		.map(|item| {
+			let (tag, tag_color) = match item.status {
+				ResponseStatus::Done => ("OK", Color::Green),
+				ResponseStatus::Failed => ("ERR", Color::Red),
+			};
+
+			let time_str = match item.completed {
+				Some(completed) => {
+					let dur = completed.duration_since(item.created);
+					format!("{:>5.1}s", dur.as_secs_f32())
+				}
+				None => {
+					let dur = item.created.elapsed();
+					format!("{:>5.1}s", dur.as_secs_f32())
+				}
+			};
+
+			Line::from(vec![
+				Span::styled(
+					format!("[{}]", tag),
+					Style::default().fg(tag_color).add_modifier(Modifier::BOLD),
+				),
+				Span::raw(" "),
+				Span::styled(time_str, Style::default().fg(Color::DarkGray)),
+				Span::raw("  "),
+				Span::styled(item.rule_id.as_ref(), Style::default().fg(Color::Indexed(250))),
+				Span::raw("  "),
+				Span::styled(item.summary.as_ref(), Style::default().fg(Color::White)),
+			])
+		})
+		.collect();
+
+	if items.is_empty() {
+		Paragraph::new("No responses")
+			.block(block)
+			.style(Style::default().fg(Color::DarkGray))
+			.render(area, buf);
+	} else {
+		Paragraph::new(items).block(block).render(area, buf);
+	}
 }

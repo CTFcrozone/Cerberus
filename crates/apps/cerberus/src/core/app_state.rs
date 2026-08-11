@@ -22,6 +22,7 @@ pub struct AppState {
 	// pub(in crate::core) cerberus_evts_correlated: VecDeque<CorrelationEvent>,
 	pub(in crate::core) cerberus_evts_network: VecDeque<CerberusEvent>,
 	pub(in crate::core) cerberus_evts_matched: IndexMap<Arc<str>, EvaluatedEntry>,
+	pub(in crate::core) response_evts: VecDeque<ResponseItem>,
 	pub(in crate::core) severity_counts: [u64; Severity::COUNT],
 	pub correlated_groups: HashMap<(Arc<str>, Arc<str>), CorrelationGroup>,
 	scroll_zones: ScrollZones,
@@ -56,6 +57,8 @@ impl AppState {
 			// cerberus_evts_correlated: VecDeque::with_capacity(250),
 			cerberus_evts_general: VecDeque::with_capacity(250),
 			cerberus_evts_network: VecDeque::with_capacity(250),
+			response_evts: VecDeque::with_capacity(250),
+
 			cerberus_evts_matched: IndexMap::new(),
 			severity_counts: [0; Severity::COUNT],
 			current_view: View::Main,
@@ -215,6 +218,9 @@ impl AppState {
 
 	pub fn cerberus_evts_network(&self) -> impl Iterator<Item = &CerberusEvent> {
 		self.cerberus_evts_network.iter()
+	}
+	pub fn response_evts(&self) -> impl Iterator<Item = &ResponseItem> {
+		self.response_evts.iter().rev()
 	}
 
 	pub fn cerberus_evts_matched(&self) -> impl Iterator<Item = &EvaluatedEntry> {
@@ -376,4 +382,20 @@ impl Tab {
 			Tab::CorrelatedRules => 3,
 		}
 	}
+}
+
+#[derive(Debug, Clone)]
+pub struct ResponseItem {
+	pub id: u64,
+	pub rule_id: Arc<str>,
+	pub summary: Arc<str>,
+	pub status: ResponseStatus,
+	pub created: std::time::Instant,
+	pub completed: Option<std::time::Instant>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ResponseStatus {
+	Done,
+	Failed,
 }
