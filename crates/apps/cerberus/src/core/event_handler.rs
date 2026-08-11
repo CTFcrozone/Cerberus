@@ -65,6 +65,29 @@ pub async fn _handle_app_event(
 			app_state.loaded_rules = rules.clone();
 		}
 
+		AppEvent::ResponseExecuted {
+			id,
+			rule_id,
+			actions,
+			success,
+		} => {
+			push_bounded(
+				&mut app_state.response_evts,
+				&ResponseItem {
+					id: *id,
+					rule_id: Arc::clone(rule_id),
+					actions: actions.clone(),
+					status: if *success {
+						ResponseStatus::Done
+					} else {
+						ResponseStatus::Failed
+					},
+					created: std::time::Instant::now(),
+					completed: None,
+				},
+			);
+		}
+
 		_ => {}
 	};
 

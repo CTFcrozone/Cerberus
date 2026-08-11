@@ -2,7 +2,7 @@ use std::collections::{HashMap, VecDeque};
 use std::sync::Arc;
 
 use indexmap::IndexMap;
-use lib_rules::{CorrelationEvent, EvaluatedEvent, Severity};
+use lib_rules::{CorrelationEvent, EvaluatedEvent, ResolvedAction, Severity};
 use ratatui::layout::Rect;
 
 use crate::Result;
@@ -388,9 +388,9 @@ impl Tab {
 pub struct ResponseItem {
 	pub id: u64,
 	pub rule_id: Arc<str>,
-	pub summary: Arc<str>,
 	pub status: ResponseStatus,
 	pub created: std::time::Instant,
+	pub actions: Vec<ResolvedAction>,
 	pub completed: Option<std::time::Instant>,
 }
 

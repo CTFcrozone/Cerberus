@@ -1,3 +1,6 @@
+use std::sync::Arc;
+
+use lib_rules::ResolvedAction;
 use ratatui::{
 	buffer::Buffer,
 	layout::{Constraint, Direction, Layout, Rect},
@@ -158,6 +161,23 @@ fn render_response_queue(area: Rect, buf: &mut Buffer, state: &AppState) {
 				}
 			};
 
+			let summary = if item.actions.is_empty() {
+				"no_actions".to_string()
+			} else {
+				item.actions
+					.iter()
+					.map(|a| match a {
+						ResolvedAction::KillProcess { pid } => format!("kill_process {pid}"),
+						ResolvedAction::BlockIp { ip } => format!("block_ip {ip}"),
+						ResolvedAction::DenyExec { path_key } => {
+							let path = arc_from_bytes(path_key);
+							format!("deny_exec {}", path)
+						}
+					})
+					.collect::<Vec<_>>()
+					.join(" -> ")
+			};
+
 			Line::from(vec![
 				Span::styled(
 					format!("[{}]", tag),
@@ -168,7 +188,7 @@ fn render_response_queue(area: Rect, buf: &mut Buffer, state: &AppState) {
 				Span::raw("  "),
 				Span::styled(item.rule_id.as_ref(), Style::default().fg(Color::Indexed(250))),
 				Span::raw("  "),
-				Span::styled(item.summary.as_ref(), Style::default().fg(Color::White)),
+				Span::styled(summary, Style::default().fg(Color::White)),
 			])
 		})
 		.collect();
@@ -180,5 +200,15 @@ fn render_response_queue(area: Rect, buf: &mut Buffer, state: &AppState) {
 			.render(area, buf);
 	} else {
 		Paragraph::new(items).block(block).render(area, buf);
+	}
+}
+
+#[inline]
+fn arc_from_bytes(bytes: &[u8]) -> Arc<str> {
+	let len = bytes.iter().position(|&b| b == 0).unwrap_or(bytes.len());
+
+	match std::str::from_utf8(&bytes[..len]) {
+		Ok(s) => Arc::from(s),
+		Err(_) => Arc::from(String::from_utf8_lossy(&bytes[..len]).into_owned()),
 	}
 }
