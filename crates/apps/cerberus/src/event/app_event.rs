@@ -3,6 +3,7 @@ use std::sync::Arc;
 use derive_more::From;
 use lib_common::event::CerberusEvent;
 use lib_rules::{EngineEvent, ResolvedAction};
+use time::OffsetDateTime;
 
 #[derive(From, Clone)]
 pub enum AppEvent {
@@ -24,9 +25,9 @@ pub enum AppEvent {
 		hook: Arc<str>,
 	},
 	ResponseExecuted {
-		id: u64,
 		rule_id: Arc<str>,
-		actions: Vec<ResolvedAction>,
+		actions: Arc<[ResolvedAction]>,
+		time: OffsetDateTime,
 		success: bool,
 	},
 	HookFailed {

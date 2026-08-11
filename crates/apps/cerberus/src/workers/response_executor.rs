@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use crate::error::Result;
 use crate::event::AppEvent;
 use aya::maps::HashMap as AyaHashMap;
@@ -8,6 +10,7 @@ use lib_event::unbound::Tx;
 use lib_rules::ResolvedAction;
 use lib_rules::ResponseRequest;
 use lib_rules::resolve_action;
+use time::OffsetDateTime;
 
 pub struct ResponseExecutor {
 	req_rx: Rx<ResponseRequest>,
@@ -32,26 +35,26 @@ impl ResponseExecutor {
 	}
 	pub async fn run(mut self) -> Result<()> {
 		while let Ok(request) = self.req_rx.recv().await {
-			let actions = match Self::resolve_actions(&request) {
-				Ok(actions) => actions,
-				Err(_) => {
-					let _ = self.app_tx.send(AppEvent::ResponseExecuted {
-						id: request.id,
-						rule_id: request.rule_id,
-						actions: Vec::new(),
-						success: false,
-					});
-					continue;
+			let resolved: Result<Vec<ResolvedAction>> = request
+				.response_chain
+				.actions
+				.iter()
+				.map(|a| resolve_action(a, &request.fields).map_err(Into::into))
+				.collect();
+
+			let (actions, success) = match resolved {
+				Ok(actions) => {
+					let ok = self.execute_actions(&actions).is_ok();
+					(Arc::from(actions), ok)
 				}
+				Err(_) => (Arc::from([]), false),
 			};
 
-			let result = self.execute_actions(&actions);
-
 			let _ = self.app_tx.send(AppEvent::ResponseExecuted {
-				id: request.id,
 				rule_id: request.rule_id,
 				actions,
-				success: result.is_ok(),
+				time: OffsetDateTime::now_local().unwrap_or_else(|_| OffsetDateTime::now_utc()),
+				success,
 			});
 		}
 
@@ -60,14 +63,6 @@ impl ResponseExecutor {
 
 	fn execute_actions(&mut self, actions: &[ResolvedAction]) -> Result<()> {
 		actions.iter().try_for_each(|action| self.execute_action(action))
-	}
-
-	fn resolve_actions(req: &ResponseRequest) -> Result<Vec<ResolvedAction>> {
-		req.response_chain
-			.actions
-			.iter()
-			.map(|action| resolve_action(action, &req.fields).map_err(crate::error::Error::from))
-			.collect()
 	}
 
 	fn execute_action(&mut self, action: &ResolvedAction) -> Result<()> {
@@ -85,25 +80,6 @@ impl ResponseExecutor {
 			}
 		}
 
-		Ok(())
-	}
-
-	fn handle_request(&mut self, req: &ResponseRequest) -> Result<()> {
-		for action in &req.response_chain.actions {
-			let action = resolve_action(action, &req.fields)?;
-			match action {
-				ResolvedAction::BlockIp { ip } => {
-					self.ip_blocklist.insert(ip.to_bits(), 1, 0)?;
-				}
-
-				ResolvedAction::KillProcess { pid } => {
-					Self::kill_process(pid)?;
-				}
-				ResolvedAction::DenyExec { path_key } => {
-					self.lsm_exec_deny.insert(path_key, 1, 0)?;
-				}
-			}
-		}
 		Ok(())
 	}
 

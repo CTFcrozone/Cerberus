@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use lib_rules::ResolvedAction;
 use ratatui::{
 	buffer::Buffer,
@@ -20,6 +18,9 @@ impl SummaryView {
 	const HOOK_SCROLL_IDEN: ScrollIden = ScrollIden::LoadedHookScroll;
 }
 
+const TIME_FORMAT: &[time::format_description::FormatItem<'static>] =
+	time::macros::format_description!("[hour]:[minute]:[second]");
+
 impl StatefulWidget for SummaryView {
 	type State = AppState;
 	fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
@@ -28,9 +29,9 @@ impl StatefulWidget for SummaryView {
 		let [top_row, middle_row, bottom_row] = Layout::default()
 			.direction(Direction::Vertical)
 			.constraints([
-				Constraint::Percentage(55),
-				Constraint::Percentage(30),
-				Constraint::Percentage(15),
+				Constraint::Percentage(50),
+				Constraint::Percentage(25),
+				Constraint::Percentage(25),
 			])
 			.areas(area);
 
@@ -51,6 +52,7 @@ impl StatefulWidget for SummaryView {
 
 		render_last_event_meta(last_event_area, buf, state);
 		render_loaded_hooks(hooks_area, buf, state, Block::bordered().title("Loaded Hooks"));
+		render_response_queue(middle_row, buf, state);
 	}
 }
 
@@ -150,16 +152,7 @@ fn render_response_queue(area: Rect, buf: &mut Buffer, state: &AppState) {
 				ResponseStatus::Failed => ("ERR", Color::Red),
 			};
 
-			let time_str = match item.completed {
-				Some(completed) => {
-					let dur = completed.duration_since(item.created);
-					format!("{:>5.1}s", dur.as_secs_f32())
-				}
-				None => {
-					let dur = item.created.elapsed();
-					format!("{:>5.1}s", dur.as_secs_f32())
-				}
-			};
+			let timestamp = item.completed.format(TIME_FORMAT).unwrap_or_else(|_| "--:--:--".into());
 
 			let summary = if item.actions.is_empty() {
 				"no_actions".to_string()
@@ -170,8 +163,8 @@ fn render_response_queue(area: Rect, buf: &mut Buffer, state: &AppState) {
 						ResolvedAction::KillProcess { pid } => format!("kill_process {pid}"),
 						ResolvedAction::BlockIp { ip } => format!("block_ip {ip}"),
 						ResolvedAction::DenyExec { path_key } => {
-							let path = arc_from_bytes(path_key);
-							format!("deny_exec {}", path)
+							let path = String::from_utf8_lossy(path_key);
+							format!("deny_exec {}", path.trim_end_matches('\0'))
 						}
 					})
 					.collect::<Vec<_>>()
@@ -184,7 +177,7 @@ fn render_response_queue(area: Rect, buf: &mut Buffer, state: &AppState) {
 					Style::default().fg(tag_color).add_modifier(Modifier::BOLD),
 				),
 				Span::raw(" "),
-				Span::styled(time_str, Style::default().fg(Color::DarkGray)),
+				Span::styled(timestamp, Style::default().fg(Color::DarkGray)),
 				Span::raw("  "),
 				Span::styled(item.rule_id.as_ref(), Style::default().fg(Color::Indexed(250))),
 				Span::raw("  "),
@@ -200,15 +193,5 @@ fn render_response_queue(area: Rect, buf: &mut Buffer, state: &AppState) {
 			.render(area, buf);
 	} else {
 		Paragraph::new(items).block(block).render(area, buf);
-	}
-}
-
-#[inline]
-fn arc_from_bytes(bytes: &[u8]) -> Arc<str> {
-	let len = bytes.iter().position(|&b| b == 0).unwrap_or(bytes.len());
-
-	match std::str::from_utf8(&bytes[..len]) {
-		Ok(s) => Arc::from(s),
-		Err(_) => Arc::from(String::from_utf8_lossy(&bytes[..len]).into_owned()),
 	}
 }
