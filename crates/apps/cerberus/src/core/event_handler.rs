@@ -119,20 +119,15 @@ fn handle_cerberus_eval_event(event: &EvaluatedEvent, app_state: &mut AppState) 
 	if let Some(entry) = app_state.cerberus_evts_matched.get_mut(&event.rule_id) {
 		entry.count += 1;
 		entry.event.event_meta = event.event_meta.clone();
-		return;
+	} else {
+		app_state.cerberus_evts_matched.insert(
+			Arc::clone(&event.rule_id),
+			EvaluatedEntry {
+				event: event.clone(),
+				count: 1,
+			},
+		);
 	}
-
-	if app_state.cerberus_evts_matched.len() >= MAX_EVENTS {
-		if let Some((_, _)) = app_state.cerberus_evts_matched.shift_remove_index(0) {}
-	}
-
-	app_state.cerberus_evts_matched.insert(
-		Arc::clone(&event.rule_id),
-		EvaluatedEntry {
-			event: event.clone(),
-			count: 1,
-		},
-	);
 }
 
 async fn _handle_term_event(

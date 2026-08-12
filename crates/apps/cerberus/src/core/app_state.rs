@@ -23,7 +23,7 @@ pub struct AppState {
 	pub(in crate::core) cerberus_evts_general: VecDeque<CerberusEvent>,
 	// pub(in crate::core) cerberus_evts_correlated: VecDeque<CorrelationEvent>,
 	pub(in crate::core) cerberus_evts_network: VecDeque<CerberusEvent>,
-	pub(in crate::core) cerberus_evts_matched: IndexMap<Arc<str>, EvaluatedEntry>,
+	pub(in crate::core) cerberus_evts_matched: HashMap<Arc<str>, EvaluatedEntry>,
 	pub(in crate::core) response_evts: VecDeque<ResponseItem>,
 	pub(in crate::core) severity_counts: [u64; Severity::COUNT],
 	pub correlated_groups: HashMap<(Arc<str>, Arc<str>), CorrelationGroup>,
@@ -61,7 +61,7 @@ impl AppState {
 			cerberus_evts_network: VecDeque::with_capacity(250),
 			response_evts: VecDeque::with_capacity(250),
 
-			cerberus_evts_matched: IndexMap::new(),
+			cerberus_evts_matched: HashMap::new(),
 			severity_counts: [0; Severity::COUNT],
 			current_view: View::Main,
 			tab: Tab::General,
