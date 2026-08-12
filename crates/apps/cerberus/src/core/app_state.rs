@@ -1,8 +1,6 @@
 use std::collections::{HashMap, VecDeque};
 use std::sync::Arc;
-use std::time::SystemTime;
 
-use indexmap::IndexMap;
 use lib_rules::{CorrelationEvent, EvaluatedEvent, ResolvedAction, Severity};
 use ratatui::layout::Rect;
 use time::OffsetDateTime;
