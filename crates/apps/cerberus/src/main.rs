@@ -164,7 +164,7 @@ async fn main() -> Result<()> {
 			map: "LSM_EXEC_DENY".into(),
 		})?)?;
 
-	let response_worker = ResponseExecutor::start(response_rx, blocklist, lsm_exec_deny)?;
+	let response_worker = ResponseExecutor::start(response_rx, blocklist, lsm_exec_deny, app_tx.clone())?;
 	let ringbuf_worker = RingBufWorker::start(ringbuf_fd, ringbuf_tx.clone())?;
 	let hook_worker = HookWorker::start(ebpf, app_tx.clone(), hook_rx, registry)?;
 

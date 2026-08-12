@@ -1,3 +1,4 @@
+use lib_rules::ResolvedAction;
 use ratatui::{
 	buffer::Buffer,
 	layout::{Constraint, Direction, Layout, Rect},
@@ -7,7 +8,7 @@ use ratatui::{
 };
 
 use crate::{
-	core::{AppState, ScrollIden},
+	core::{AppState, ResponseStatus, ScrollIden},
 	hook_registry::HookState,
 };
 
@@ -17,14 +18,21 @@ impl SummaryView {
 	const HOOK_SCROLL_IDEN: ScrollIden = ScrollIden::LoadedHookScroll;
 }
 
+const TIME_FORMAT: &[time::format_description::FormatItem<'static>] =
+	time::macros::format_description!("[hour]:[minute]:[second]");
+
 impl StatefulWidget for SummaryView {
 	type State = AppState;
 	fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
 		const SCROLL_IDEN: ScrollIden = SummaryView::HOOK_SCROLL_IDEN;
 
-		let [top_row, bottom_row] = Layout::default()
+		let [top_row, middle_row, bottom_row] = Layout::default()
 			.direction(Direction::Vertical)
-			.constraints([Constraint::Percentage(70), Constraint::Percentage(30)])
+			.constraints([
+				Constraint::Percentage(50),
+				Constraint::Percentage(25),
+				Constraint::Percentage(25),
+			])
 			.areas(area);
 
 		let [rules_area, chart1_area] = Layout::default()
@@ -44,6 +52,7 @@ impl StatefulWidget for SummaryView {
 
 		render_last_event_meta(last_event_area, buf, state);
 		render_loaded_hooks(hooks_area, buf, state, Block::bordered().title("Loaded Hooks"));
+		render_response_queue(middle_row, buf, state);
 	}
 }
 
@@ -123,4 +132,66 @@ fn render_severity_chart(area: Rect, buf: &mut Buffer, state: &AppState) {
 		.label_style(Style::default().fg(Color::Gray));
 
 	chart.render(area, buf);
+}
+
+fn render_response_queue(area: Rect, buf: &mut Buffer, state: &AppState) {
+	let block = Block::bordered().title("Response Queue");
+
+	let max_items = area.height.saturating_sub(2) as usize;
+	if max_items == 0 {
+		block.render(area, buf);
+		return;
+	}
+
+	let items: Vec<Line> = state
+		.response_evts()
+		.take(max_items)
+		.map(|item| {
+			let (tag, tag_color) = match item.status {
+				ResponseStatus::Done => ("OK", Color::Green),
+				ResponseStatus::Failed => ("ERR", Color::Red),
+			};
+
+			let timestamp = item.completed.format(TIME_FORMAT).unwrap_or_else(|_| "--:--:--".into());
+
+			let summary = if item.actions.is_empty() {
+				"no_actions".to_string()
+			} else {
+				item.actions
+					.iter()
+					.map(|a| match a {
+						ResolvedAction::KillProcess { pid } => format!("kill_process {pid}"),
+						ResolvedAction::BlockIp { ip } => format!("block_ip {ip}"),
+						ResolvedAction::DenyExec { path_key } => {
+							let path = String::from_utf8_lossy(path_key);
+							format!("deny_exec {}", path.trim_end_matches('\0'))
+						}
+					})
+					.collect::<Vec<_>>()
+					.join(" -> ")
+			};
+
+			Line::from(vec![
+				Span::styled(
+					format!("[{}]", tag),
+					Style::default().fg(tag_color).add_modifier(Modifier::BOLD),
+				),
+				Span::raw(" "),
+				Span::styled(timestamp, Style::default().fg(Color::DarkGray)),
+				Span::raw("  "),
+				Span::styled(item.rule_id.as_ref(), Style::default().fg(Color::Indexed(250))),
+				Span::raw("  "),
+				Span::styled(summary, Style::default().fg(Color::White)),
+			])
+		})
+		.collect();
+
+	if items.is_empty() {
+		Paragraph::new("No responses")
+			.block(block)
+			.style(Style::default().fg(Color::DarkGray))
+			.render(area, buf);
+	} else {
+		Paragraph::new(items).block(block).render(area, buf);
+	}
 }

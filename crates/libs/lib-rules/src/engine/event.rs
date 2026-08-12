@@ -45,6 +45,7 @@ pub enum CorrelationEvent {
 
 #[derive(Debug, Clone)]
 pub struct ResponseRequest {
+	pub id: u64,
 	pub rule_id: Arc<str>,
 	pub response_chain: CompiledResponseChain,
 	pub event_meta: EventMeta,

@@ -2,6 +2,7 @@ use std::{collections::VecDeque, sync::Arc};
 
 use super::AppState;
 use crate::core::View;
+use crate::core::app_state::{ResponseItem, ResponseStatus};
 use crate::event::AppEvent;
 use crate::hook_registry::HookState;
 use crate::hook_registry::event::HookCommand;
@@ -23,6 +24,7 @@ fn handle_engine_event(event: &EngineEvent, app_state: &mut AppState) {
 		EngineEvent::Correlation(evt) => {
 			handle_correlation_event(evt, app_state);
 		}
+
 		_ => {}
 	}
 }
@@ -63,6 +65,27 @@ pub async fn _handle_app_event(
 			app_state.loaded_rules = rules.clone();
 		}
 
+		AppEvent::ResponseExecuted {
+			rule_id,
+			actions,
+			time,
+			success,
+		} => {
+			push_bounded(
+				&mut app_state.response_evts,
+				&ResponseItem {
+					rule_id: Arc::clone(rule_id),
+					actions: Arc::clone(actions),
+					status: if *success {
+						ResponseStatus::Done
+					} else {
+						ResponseStatus::Failed
+					},
+					completed: *time,
+				},
+			);
+		}
+
 		_ => {}
 	};
 
@@ -96,20 +119,15 @@ fn handle_cerberus_eval_event(event: &EvaluatedEvent, app_state: &mut AppState) 
 	if let Some(entry) = app_state.cerberus_evts_matched.get_mut(&event.rule_id) {
 		entry.count += 1;
 		entry.event.event_meta = event.event_meta.clone();
-		return;
+	} else {
+		app_state.cerberus_evts_matched.insert(
+			Arc::clone(&event.rule_id),
+			EvaluatedEntry {
+				event: event.clone(),
+				count: 1,
+			},
+		);
 	}
-
-	if app_state.cerberus_evts_matched.len() >= MAX_EVENTS {
-		if let Some((_, _)) = app_state.cerberus_evts_matched.shift_remove_index(0) {}
-	}
-
-	app_state.cerberus_evts_matched.insert(
-		Arc::clone(&event.rule_id),
-		EvaluatedEntry {
-			event: event.clone(),
-			count: 1,
-		},
-	);
 }
 
 async fn _handle_term_event(

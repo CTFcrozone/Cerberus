@@ -23,7 +23,7 @@ pub struct RuleEngineWorker {
 	ringbuf_rx: Rx<CerberusEvent>,
 	rule_engine: Arc<RuleEngine>,
 	response_tx: Tx<ResponseRequest>,
-
+	response_id: AtomicU64,
 	limiter: DefaultDirectRateLimiter,
 	dropped: AtomicU64,
 }
@@ -46,13 +46,18 @@ impl RuleEngineWorker {
 			rule_engine,
 			limiter,
 			response_tx,
+			response_id: AtomicU64::new(0),
 			dropped: AtomicU64::new(0),
 		})
 	}
 
 	pub async fn run(mut self, logging: bool) -> Result<()> {
 		while let Ok(evt) = self.ringbuf_rx.recv().await {
-			for alert in self.rule_engine.process_event(&evt) {
+			for mut alert in self.rule_engine.process_event(&evt) {
+				if let EngineEvent::Response(ref mut req) = alert {
+					req.id = self.response_id.fetch_add(1, Ordering::Relaxed);
+				}
+
 				if logging {
 					log_engine_event(&alert);
 				}
