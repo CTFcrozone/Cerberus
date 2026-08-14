@@ -46,8 +46,8 @@ impl RuleWatchWorker {
 			}
 			let rules: Arc<[Arc<str>]> = self
 				.rule_engine
-				.ruleset
-				.load()
+				.snapshot()
+				.ruleset()
 				.rules()
 				.iter()
 				.map(|r| Arc::clone(&r.inner.id))

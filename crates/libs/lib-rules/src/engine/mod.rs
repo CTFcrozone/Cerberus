@@ -5,6 +5,7 @@ mod evaluator;
 mod event;
 mod identity;
 mod rule_index;
+mod snapshot;
 
 use ctx::*;
 use evaluator::*;

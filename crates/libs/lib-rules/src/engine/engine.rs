@@ -7,6 +7,7 @@ use strum::EnumCount;
 
 use crate::engine::correlator::ShardedCorrelator;
 use crate::engine::identity::ShardKey;
+use crate::engine::snapshot::RuleSnapshot;
 use crate::engine::{EngineEvent, EvalCtx, EvaluatedEvent, Evaluator, EventKind, RuleIndex};
 use crate::error::Result;
 use crate::rule::compiled::rule::CompiledRule;
@@ -14,8 +15,7 @@ use crate::rule::compiled::ruleset::CompiledRuleSet;
 use crate::{CorrelationEvent, Error, ResponseRequest, RuleSet, Trigger};
 
 pub struct RuleEngine {
-	pub ruleset: ArcSwap<CompiledRuleSet>,
-	pub index: ArcSwap<RuleIndex>,
+	snapshot: ArcSwap<RuleSnapshot>,
 	correlator: ShardedCorrelator,
 }
 
@@ -28,53 +28,49 @@ impl RuleEngine {
 		}
 
 		let ruleset = CompiledRuleSet::compile(ruleset)?;
-		let index = RuleIndex::build(&ruleset);
+		let snapshot = RuleSnapshot::from_ruleset(ruleset);
 
 		Ok(Self {
-			ruleset: ArcSwap::from_pointee(ruleset),
+			snapshot: ArcSwap::from_pointee(snapshot),
 			correlator: ShardedCorrelator::new(),
-			index: ArcSwap::from_pointee(index),
 		})
 	}
 
 	pub async fn reload_ruleset_async(&self, dir: impl AsRef<Path>) -> Result<()> {
 		let dir = dir.as_ref().to_path_buf();
 
-		let (ruleset, index) = tokio::task::spawn_blocking(move || -> Result<_> {
+		let snapshot = tokio::task::spawn_blocking(move || -> Result<_> {
 			let raw = RuleSet::load_from_dir(&dir)?;
-			let compiled = CompiledRuleSet::compile(raw)?;
-			let index = RuleIndex::build(&compiled);
-			Ok((compiled, index))
+			let ruleset = CompiledRuleSet::compile(raw)?;
+			let snapshot = RuleSnapshot::from_ruleset(ruleset);
+
+			Ok(snapshot)
 		})
 		.await
 		.map_err(|e| Error::Custom(format!("reload task panicked: {e}")))??;
 
-		self.ruleset.store(Arc::new(ruleset));
-		self.index.store(Arc::new(index));
+		self.snapshot.store(Arc::new(snapshot));
 
 		Ok(())
 	}
 
 	pub fn reload_ruleset(&self, dir: impl AsRef<Path>) -> Result<()> {
 		let ruleset = RuleSet::load_from_dir(dir)?;
-		let ruleset = Arc::new(CompiledRuleSet::compile(ruleset)?);
-		let index = Arc::new(RuleIndex::build(&ruleset));
+		let ruleset = CompiledRuleSet::compile(ruleset)?;
+		let snapshot = Arc::new(RuleSnapshot::from_ruleset(ruleset));
 
-		self.ruleset.store(ruleset);
-		self.index.store(index);
+		self.snapshot.store(snapshot);
 
 		Ok(())
 	}
 
 	pub fn new_from_ruleset(ruleset: RuleSet) -> Result<Self> {
 		let ruleset = CompiledRuleSet::compile(ruleset)?;
-		let index = RuleIndex::build(&ruleset);
+		let snapshot = RuleSnapshot::from_ruleset(ruleset);
 
 		Ok(Self {
-			ruleset: ArcSwap::from_pointee(ruleset),
 			correlator: ShardedCorrelator::new(),
-
-			index: ArcSwap::from_pointee(index),
+			snapshot: ArcSwap::from_pointee(snapshot),
 		})
 	}
 
@@ -87,8 +83,8 @@ impl RuleEngine {
 		}
 	}
 
-	pub fn rule_count(&self) -> usize {
-		self.ruleset.load().rule_count()
+	pub fn snapshot(&self) -> Arc<RuleSnapshot> {
+		self.snapshot.load_full()
 	}
 
 	fn advance_sequences(
@@ -150,10 +146,11 @@ impl RuleEngine {
 
 	pub fn process_event(&self, event: &CerberusEvent) -> Vec<EngineEvent> {
 		let ctx = Self::event_to_ctx(event);
-		let ruleset = self.ruleset.load();
+		let snapshot = self.snapshot.load();
+		let ruleset = snapshot.ruleset();
+		let index = snapshot.index();
 
 		let mut out = Vec::<EngineEvent>::new();
-		let index = self.index.load();
 		let now = Instant::now();
 		// let mut corr = self.correlator.lock();
 		let evt_kind = EventKind::from(event);
@@ -405,8 +402,9 @@ mod tests {
 			lib_event_schema::FieldValue::String("/tmp/test.txt".into()),
 		);
 
-		let ruleset = engine.ruleset.load();
-		let matched_rule = ruleset
+		let snapshot = engine.snapshot.load();
+		let matched_rule = snapshot
+			.ruleset()
 			.rules()
 			.iter()
 			.find(|r| r.inner.id == "test-rule".into())
