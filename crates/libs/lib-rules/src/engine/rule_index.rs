@@ -250,6 +250,7 @@ mod tests {
 
 	#[test]
 	fn sequence_listener_is_deduplicated_for_repeated_steps() -> Result<()> {
+		// -- Setup & Fixtures
 		let rule = CompiledRule {
 			inner: CompiledRuleInner {
 				id: "brute-force".into(),
@@ -262,13 +263,14 @@ mod tests {
 			hash: [0u8; 32],
 			hash_hex: Arc::from("0".repeat(64)),
 		};
-
 		let ruleset = CompiledRuleSet::new(vec![rule])?;
 
+		// -- Exec
 		let index = RuleIndex::build(&ruleset);
 
 		let roots = index.seq_listeners.get("failed-login").expect("missing failed-login listener");
 
+		// -- Check
 		assert_eq!(roots.len(), 1);
 		assert_eq!(roots[0], "brute-force".into());
 
