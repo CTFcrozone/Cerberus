@@ -10,7 +10,7 @@ use crate::log_line::utils::{
 	attach_type_to_string, family_to_string, flags_to_string, inode_mutation_to_string, inode_op_to_string,
 	ip_to_string, module_op_to_string, prog_type_to_string, ptrace_stage_to_string, socket_op_to_string,
 };
-
+#[allow(unused)]
 pub fn log_cerberus_event(evt: &CerberusEvent) {
 	match evt {
 		CerberusEvent::Generic(e) => {

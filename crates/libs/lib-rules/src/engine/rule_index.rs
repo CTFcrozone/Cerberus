@@ -5,7 +5,7 @@ use lib_event_schema::Field;
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 
-use crate::rule::compiled::{response::CompiledResponseChain, ruleset::CompiledRuleSet};
+use crate::rule::compiled::ruleset::CompiledRuleSet;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, EnumIter)]
 pub enum EventKind {
@@ -155,10 +155,13 @@ fn field_in(kind: EventKind, field: Field) -> bool {
 }
 
 pub struct RuleIndex {
-	// evt kind -> root rule ids
+	// Event kind -> rule IDs that may match that event kind.
 	pub by_evt_kind: HashMap<EventKind, Vec<Arc<str>>>,
-	// step rule id -> root rule ids that have a sequence with this rule from the step
+
+	// Rules that cannot be narrowed to a specific event kind.
 	pub universal_rules: Vec<Arc<str>>,
+
+	// Step rule ID -> root rule IDs containing that step.
 	pub seq_listeners: HashMap<Arc<str>, Vec<Arc<str>>>,
 }
 
@@ -204,3 +207,81 @@ impl RuleIndex {
 		}
 	}
 }
+
+// region:    --- Tests
+
+#[cfg(test)]
+mod tests {
+	type Result<T> = core::result::Result<T, Box<dyn std::error::Error>>; // For tests.
+
+	use std::time::Duration;
+
+	use crate::rule::{
+		SequenceKind,
+		compiled::{
+			rule::{CompiledRule, CompiledRuleInner},
+			sequence::{CompiledSequence, CompiledStep},
+		},
+	};
+
+	use super::*;
+
+	fn mk_seq() -> CompiledSequence {
+		CompiledSequence {
+			id: "test".into(),
+			kind: SequenceKind::Rule,
+			steps: vec![
+				CompiledStep {
+					rule_id: "failed-login".into(),
+					within: Duration::from_secs(10),
+				},
+				CompiledStep {
+					rule_id: "failed-login".into(),
+					within: Duration::from_secs(15),
+				},
+				CompiledStep {
+					rule_id: "success-login".into(),
+					within: Duration::from_secs(15),
+				},
+			],
+			scope: None,
+		}
+	}
+
+	#[test]
+	fn sequence_listener_is_deduplicated_for_repeated_steps() -> Result<()> {
+		let rule = CompiledRule {
+			inner: CompiledRuleInner {
+				id: "brute-force".into(),
+				description: "Detect brute force".into(),
+				severity: crate::rule::Severity::Medium,
+				conditions: vec![],
+				sequence: Some(mk_seq()),
+				response_chain: None,
+			},
+			hash: [0u8; 32],
+			hash_hex: Arc::from("0".repeat(64)),
+		};
+
+		let ruleset = CompiledRuleSet::new(vec![rule])?;
+
+		let index = RuleIndex::build(&ruleset);
+
+		let roots = index.seq_listeners.get("failed-login").expect("missing failed-login listener");
+
+		assert_eq!(roots.len(), 1);
+		assert_eq!(roots[0], "brute-force".into());
+
+		let roots = index
+			.seq_listeners
+			.get("success-login")
+			.expect("missing success-login listener");
+
+		assert_eq!(roots.len(), 1);
+		assert_eq!(roots[0], "brute-force".into());
+
+		Ok(())
+	}
+}
+
+// endregion: --- Tests
