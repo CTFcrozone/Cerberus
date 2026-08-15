@@ -38,6 +38,36 @@ impl From<&CerberusEvent> for EventKind {
 	}
 }
 
+fn characteristic_fields(kind: EventKind) -> &'static [Field] {
+	match kind {
+		EventKind::Generic => &[],
+		EventKind::InetSock => &[
+			Field::NetworkProtocol,
+			Field::NetworkSport,
+			Field::NetworkDport,
+			Field::NetworkSaddr,
+			Field::NetworkDaddr,
+			Field::SocketOldState,
+			Field::SocketNewState,
+		],
+		EventKind::Socket => &[Field::SocketPort, Field::SocketFamily, Field::SocketOp],
+		EventKind::Bprm => &[Field::ProcessFilepath],
+		EventKind::Module => &[Field::ModuleName, Field::ModuleOp],
+		EventKind::Inode => &[Field::InodeFilename, Field::InodeOp],
+		EventKind::InodeMutate => &[Field::InodeNewFilename, Field::InodeOldFilename, Field::InodeMutationType],
+		EventKind::PtraceAccessCheck => &[
+			Field::PtraceMode,
+			Field::PtraceStage,
+			Field::ProcessTargetPid,
+			Field::ProcessTargetTgid,
+			Field::ProcessTargetUid,
+			Field::ProcessTargetComm,
+		],
+		EventKind::BpfProgLoad => &[Field::BpfProgType, Field::BpfProgAttachType, Field::BpfProgFlags],
+		EventKind::BpfMap => &[Field::BpfMapName, Field::BpfMapType, Field::BpfMapId],
+	}
+}
+
 fn field_in(kind: EventKind, field: Field) -> bool {
 	match kind {
 		EventKind::Generic => matches!(
@@ -128,25 +158,31 @@ pub struct RuleIndex {
 	// evt kind -> root rule ids
 	pub by_evt_kind: HashMap<EventKind, Vec<Arc<str>>>,
 	// step rule id -> root rule ids that have a sequence with this rule from the step
+	pub universal_rules: Vec<Arc<str>>,
 	pub seq_listeners: HashMap<Arc<str>, Vec<Arc<str>>>,
-	pub rule_response_chains: HashMap<Arc<str>, CompiledResponseChain>,
 }
 
 impl RuleIndex {
 	pub fn build(ruleset: &CompiledRuleSet) -> Self {
 		let mut by_evt_kind: HashMap<EventKind, Vec<Arc<str>>> = HashMap::new();
 		let mut seq_listeners: HashMap<Arc<str>, Vec<Arc<str>>> = HashMap::new();
-		let mut rule_response_chains: HashMap<Arc<str>, CompiledResponseChain> = HashMap::new();
-
+		let mut universal_rules = Vec::new();
 		for rule in ruleset.rules() {
 			let rule_id = rule.inner.id.clone();
-
+			let rule_fields: Vec<Field> = rule.inner.conditions.iter().map(|c| c.field).collect();
+			let mut placed = false;
 			for kind in EventKind::iter() {
-				let matches = rule.inner.conditions.iter().all(|c| field_in(kind, c.field));
+				let chars = characteristic_fields(kind);
+				let has_char = chars.iter().any(|cf| rule_fields.contains(cf));
+				let all_available = rule_fields.iter().all(|f| field_in(kind, *f));
 
-				if matches {
+				if has_char && all_available {
 					by_evt_kind.entry(kind).or_insert_with(Vec::new).push(rule_id.clone());
+					placed = true;
 				}
+			}
+			if !placed {
+				universal_rules.push(rule_id.clone());
 			}
 
 			if let Some(seq) = &rule.inner.sequence {
@@ -154,16 +190,17 @@ impl RuleIndex {
 					seq_listeners.entry(step.rule_id.clone()).or_default().push(rule_id.clone());
 				}
 			}
+		}
 
-			if let Some(chain) = &rule.inner.response_chain {
-				rule_response_chains.insert(rule_id, chain.clone());
-			}
+		for roots in seq_listeners.values_mut() {
+			roots.sort_unstable();
+			roots.dedup();
 		}
 
 		Self {
 			by_evt_kind,
 			seq_listeners,
-			rule_response_chains,
+			universal_rules,
 		}
 	}
 }

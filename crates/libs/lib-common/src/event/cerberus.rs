@@ -29,8 +29,6 @@ pub enum CerberusEvent {
 	PtraceAccessCheck(PtraceAccessCheckEvent),
 }
 
-// TODO: add unified EventHeader struct
-
 pub trait Event {
 	fn header(&self) -> &EventHeader;
 	fn header_mut(&mut self) -> &mut EventHeader;

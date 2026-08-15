@@ -22,6 +22,16 @@ pub enum CompiledAction {
 	DenyExec { path: CompiledActionValue },
 }
 
+impl CompiledAction {
+	pub fn kind(&self) -> &'static str {
+		match self {
+			CompiledAction::BlockIp { .. } => "BlockIp",
+			CompiledAction::KillProcess { .. } => "KillProcess",
+			CompiledAction::DenyExec { .. } => "DenyExecution",
+		}
+	}
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum ResolvedAction {
 	KillProcess { pid: u32 },

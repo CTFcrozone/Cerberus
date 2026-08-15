@@ -4,31 +4,59 @@ use lib_common::event::{CerberusEvent, Event};
 use lib_container::container_manager::ContainerManager;
 
 use lib_event::unbound::{Rx, Tx};
-use tracing::debug;
+use tokio_util::sync::CancellationToken;
 
 pub struct ContainerResolver {
-	pub tx: Tx<CerberusEvent>,
-	pub rx: Rx<CerberusEvent>,
+	tx: Tx<CerberusEvent>,
+	rx: Rx<CerberusEvent>,
 	container_mgr: ContainerManager,
+	token: CancellationToken,
 }
 
 impl ContainerResolver {
-	pub fn start(tx: Tx<CerberusEvent>, rx: Rx<CerberusEvent>, container_mgr: ContainerManager) -> Result<Self> {
-		Ok(ContainerResolver { tx, rx, container_mgr })
+	pub fn start(
+		tx: Tx<CerberusEvent>,
+		rx: Rx<CerberusEvent>,
+		container_mgr: ContainerManager,
+		token: CancellationToken,
+	) -> Result<Self> {
+		Ok(ContainerResolver {
+			tx,
+			rx,
+			container_mgr,
+			token,
+		})
 	}
 
 	pub async fn run(mut self) -> Result<()> {
-		while let Ok(mut evt) = self.rx.recv().await {
-			let meta = evt.header_mut();
+		loop {
+			tokio::select! {
+				biased;
 
-			if let Some(info) = self.container_mgr.resolve(meta.cgroup_id).await {
-				debug!("{info:?}");
-				meta.container = Some(info);
+				_ = self.token.cancelled() => {
+					tracing::info!("[ContainerResolver]: shutting down");
+					break;
+				}
+
+				res = self.rx.recv() => {
+					match res {
+						Ok(mut evt) => {
+							let meta = evt.header_mut();
+							if let Some(info) = self.container_mgr.resolve(meta.cgroup_id).await {
+								meta.container = Some(info);
+							}
+							if let Err(e) = self.tx.send(evt) {
+								tracing::error!("ContainerResolver send failed: {e}");
+							}
+						}
+						Err(_) => {
+							tracing::info!("[ContainerResolver]: channel closed");
+							break;
+						}
+					}
+				}
 			}
-
-			self.tx.send(evt)?;
 		}
-
 		Ok(())
 	}
 }

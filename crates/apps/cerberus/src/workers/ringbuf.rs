@@ -15,40 +15,57 @@ use lib_ebpf_common::{
 use lib_event::unbound::Tx;
 use tokio::io::unix::AsyncFd;
 
+use tokio_util::sync::CancellationToken;
 use zerocopy::FromBytes;
 
 pub struct RingBufWorker {
-	pub ringbuf_fd: AsyncFd<RingBuf<MapData>>,
-	pub tx: Tx<CerberusEvent>,
+	ringbuf_fd: AsyncFd<RingBuf<MapData>>,
+	tx: Tx<CerberusEvent>,
+	token: CancellationToken,
 }
 
 impl RingBufWorker {
-	pub fn start(ringbuf_fd: AsyncFd<RingBuf<MapData>>, tx: Tx<CerberusEvent>) -> Result<Self> {
-		Ok(RingBufWorker { ringbuf_fd, tx })
+	pub fn start(
+		ringbuf_fd: AsyncFd<RingBuf<MapData>>,
+		tx: Tx<CerberusEvent>,
+		token: CancellationToken,
+	) -> Result<Self> {
+		Ok(RingBufWorker { ringbuf_fd, tx, token })
 	}
 
 	pub async fn run(mut self) -> Result<()> {
 		loop {
-			let mut guard = match self.ringbuf_fd.readable_mut().await {
-				Ok(g) => g,
-				Err(_) => break,
-			};
-
-			let ring_buf = guard.get_inner_mut();
-
-			while let Some(item) = ring_buf.next() {
-				let data = item.as_ref();
-
-				match parse_event_from_bytes(data) {
-					Ok(evt) => {
-						let cerberus_evt = parse_cerberus_event(evt)?;
-						self.tx.send(cerberus_evt)?;
-					}
-					Err(_) => continue,
-				}
+			tokio::select! {
+			  biased;
+			  _ = self.token.cancelled() => {
+				  tracing::info!("[RingBufWorker]: shutting down");
+				  break;
+			  }
+			  res = self.ringbuf_fd.readable_mut() => {
+				  match res {
+					  Ok(mut guard) => {
+						  let ring_buf = guard.get_inner_mut();
+						  while let Some(item) = ring_buf.next() {
+							  let data = item.as_ref();
+							  match parse_event_from_bytes(data) {
+								  Ok(evt) => {
+									  let cerberus_evt = parse_cerberus_event(evt)?;
+									  if let Err(e) = self.tx.send(cerberus_evt) {
+										  tracing::error!("RingBufWorker send failed: {e}");
+									  }
+								  }
+								  Err(_) => continue,
+							  }
+						  }
+						  guard.clear_ready();
+					  }
+					  Err(e) => {
+						  tracing::error!("RingBufWorker fd error: {e}");
+						  break;
+						}
+				  }
+			  }
 			}
-
-			guard.clear_ready();
 		}
 		Ok(())
 	}

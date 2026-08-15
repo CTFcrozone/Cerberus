@@ -163,24 +163,33 @@ async fn main() -> Result<()> {
 		aya::maps::HashMap::try_from(ebpf.take_map("LSM_EXEC_DENY").ok_or(Error::EbpfMapNotFound {
 			map: "LSM_EXEC_DENY".into(),
 		})?)?;
-
-	let response_worker = ResponseExecutor::start(response_rx, blocklist, lsm_exec_deny, app_tx.clone())?;
-	let ringbuf_worker = RingBufWorker::start(ringbuf_fd, ringbuf_tx.clone())?;
-	let hook_worker = HookWorker::start(ebpf, app_tx.clone(), hook_rx, registry)?;
+	let token = supervisor.token();
+	let response_worker =
+		ResponseExecutor::start(response_rx, blocklist, lsm_exec_deny, app_tx.clone(), token.clone())?;
+	let ringbuf_worker = RingBufWorker::start(ringbuf_fd, ringbuf_tx.clone(), token.clone())?;
+	let hook_worker = HookWorker::start(ebpf, app_tx.clone(), hook_rx, registry, token.clone())?;
 
 	let rule_input_rx = if args.container_resolver {
 		let k8s_client = k8s_connect().await?;
 		let container_mgr = ContainerManager::new(k8s_client)?;
 		let (container_resolver_tx, container_resolver_rx) =
 			new_channel_unbounded_async::<CerberusEvent>("container_resolver");
-		let container_resolver_worker = ContainerResolver::start(container_resolver_tx, ringbuf_rx, container_mgr)?;
+		let container_resolver_worker =
+			ContainerResolver::start(container_resolver_tx, ringbuf_rx, container_mgr, token.clone())?;
 		supervisor.spawn(container_resolver_worker.run());
 		container_resolver_rx
 	} else {
 		ringbuf_rx
 	};
-	let rule_worker = RuleEngineWorker::start(rule_engine.clone(), app_tx.clone(), response_tx, rule_input_rx)?;
-	let rule_watch_worker = RuleWatchWorker::start(app_tx.clone(), rule_engine.clone(), rule_dir.clone())?;
+	let rule_worker = RuleEngineWorker::start(
+		rule_engine.clone(),
+		app_tx.clone(),
+		response_tx,
+		rule_input_rx,
+		token.clone(),
+	)?;
+	let rule_watch_worker =
+		RuleWatchWorker::start(app_tx.clone(), rule_engine.clone(), rule_dir.clone(), token.clone())?;
 	supervisor.spawn(ringbuf_worker.run());
 	supervisor.spawn(hook_worker.run());
 	supervisor.spawn(rule_worker.run(logging_enabled));

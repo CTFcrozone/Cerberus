@@ -17,6 +17,7 @@ use lib_common::event::CerberusEvent;
 
 use lib_event::unbound::{Rx, Tx};
 use lib_rules::{EngineEvent, ResponseRequest, RuleEngine};
+use tokio_util::sync::CancellationToken;
 
 pub struct RuleEngineWorker {
 	tx: Tx<AppEvent>,
@@ -26,6 +27,7 @@ pub struct RuleEngineWorker {
 	response_id: AtomicU64,
 	limiter: DefaultDirectRateLimiter,
 	dropped: AtomicU64,
+	token: CancellationToken,
 }
 
 impl RuleEngineWorker {
@@ -34,6 +36,7 @@ impl RuleEngineWorker {
 		tx: Tx<AppEvent>,
 		response_tx: Tx<ResponseRequest>,
 		ringbuf_rx: Rx<CerberusEvent>,
+		token: CancellationToken,
 	) -> Result<Self> {
 		let rate = NonZeroU32::new(10).ok_or(Error::InvalidRate)?;
 		let burst = NonZeroU32::new(50).ok_or(Error::InvalidRate)?;
@@ -48,43 +51,65 @@ impl RuleEngineWorker {
 			response_tx,
 			response_id: AtomicU64::new(0),
 			dropped: AtomicU64::new(0),
+			token,
 		})
 	}
 
 	pub async fn run(mut self, logging: bool) -> Result<()> {
-		while let Ok(evt) = self.ringbuf_rx.recv().await {
-			for mut alert in self.rule_engine.process_event(&evt) {
-				if let EngineEvent::Response(ref mut req) = alert {
-					req.id = self.response_id.fetch_add(1, Ordering::Relaxed);
+		loop {
+			tokio::select! {
+				biased;
+
+				_ = self.token.cancelled() => {
+					tracing::info!("[RuleEngineWorker]: shutting down");
+					break;
 				}
 
-				if logging {
-					log_engine_event(&alert);
-				}
-				if let Err(e) = self.tx.send(AppEvent::Engine(alert.clone())) {
-					tracing::error!(
-						error.message = %e,
-						error.type = "app_event_send_failed",
-						"Failed to send engine event to app"
-					);
-				}
-				if let EngineEvent::Response(req) = alert {
-					if let Err(e) = self.response_tx.send(req) {
-						tracing::error!(
-							error.message = %e,
-							error.type = "executor_send_failed",
-							"Failed to send response request to executor"
-						);
+				res = self.ringbuf_rx.recv() => {
+					match res {
+						Ok(evt) => {
+							for mut alert in self.rule_engine.process_event(&evt) {
+								if let EngineEvent::Response(ref mut req) = alert {
+									req.id = self.response_id.fetch_add(1, Ordering::Relaxed);
+								}
+
+								if logging {
+									log_engine_event(&alert);
+								}
+								if let Err(e) = self.tx.send(AppEvent::Engine(alert.clone())) {
+									tracing::error!(
+										error.message = %e,
+										error.type = "app_event_send_failed",
+										"Failed to send engine event to app"
+									);
+								}
+								if let EngineEvent::Response(req) = alert {
+									if let Err(e) = self.response_tx.send(req) {
+										tracing::error!(
+											error.message = %e,
+											error.type = "executor_send_failed",
+											"Failed to send response request to executor"
+										);
+									}
+								}
+							}
+
+							if self.limiter.check().is_err() {
+								self.dropped.fetch_add(1, Ordering::Relaxed);
+								continue;
+							}
+
+							if let Err(e) = self.tx.send(AppEvent::Cerberus(evt)) {
+								tracing::error!("Failed to send Cerberus event: {e}");
+							}
+						}
+						Err(_) => {
+							tracing::info!("[RuleEngineWorker]: input channel closed");
+							break;
+						}
 					}
 				}
 			}
-
-			if self.limiter.check().is_err() {
-				self.dropped.fetch_add(1, Ordering::Relaxed);
-				continue;
-			}
-
-			self.tx.send(AppEvent::Cerberus(evt))?;
 		}
 		Ok(())
 	}

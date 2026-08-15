@@ -7,45 +7,80 @@ use crate::{
 use aya::Ebpf;
 
 use lib_event::unbound::{Rx, Tx};
+use tokio_util::sync::CancellationToken;
 
 pub struct HookWorker {
-	pub tx: Tx<AppEvent>,
-	pub rx: Rx<HookCommand>,
+	tx: Tx<AppEvent>,
+	rx: Rx<HookCommand>,
 	registry: HookRegistry,
 	ebpf: Ebpf,
+	token: CancellationToken,
 }
 
 impl HookWorker {
-	pub fn start(ebpf: Ebpf, tx: Tx<AppEvent>, rx: Rx<HookCommand>, registry: HookRegistry) -> Result<Self> {
-		Ok(HookWorker { ebpf, tx, rx, registry })
+	pub fn start(
+		ebpf: Ebpf,
+		tx: Tx<AppEvent>,
+		rx: Rx<HookCommand>,
+		registry: HookRegistry,
+		token: CancellationToken,
+	) -> Result<Self> {
+		Ok(HookWorker {
+			ebpf,
+			tx,
+			rx,
+			registry,
+			token,
+		})
 	}
 
 	pub async fn run(mut self) -> Result<()> {
-		while let Ok(evt) = self.rx.recv().await {
-			match evt {
-				HookCommand::Enable(hook) => match self.registry.enable(&hook, &mut self.ebpf) {
-					Ok(_) => {
-						let _ = self.tx.send(AppEvent::HookEnabled { hook });
+		loop {
+			tokio::select! {
+				biased;
+
+				_ = self.token.cancelled() => {
+					tracing::info!("[HookWorker]: shutting down");
+					break;
+				}
+
+				res = self.rx.recv() => {
+					match res {
+						Ok(evt) => {
+							match evt {
+								HookCommand::Enable(hook) => match self.registry.enable(&hook, &mut self.ebpf) {
+									Ok(_) => {
+										if let Err(e) = self.tx.send(AppEvent::HookEnabled { hook }) {
+											tracing::error!("HookWorker send failed: {e}");
+										}
+									}
+									Err(e) => {
+										if let Err(e) = self.tx.send(AppEvent::HookFailed {	hook, error: e.to_string() }) {
+											tracing::error!("HookWorker send failed: {e}");
+										}
+									}
+								},
+								HookCommand::Disable(hook) => match self.registry.disable(&hook, &mut self.ebpf) {
+									Ok(_) => {
+										if let Err(e) = self.tx.send(AppEvent::HookDisabled { hook }) {
+											tracing::error!("HookWorker send failed: {e}");
+										}
+									}
+									Err(e) => {
+										if let Err(e) = self.tx.send(AppEvent::HookFailed {	hook,	error: e.to_string(),}) {
+											tracing::error!("HookWorker send failed: {e}");
+										}
+									}
+								},
+							};
+						}
+						Err(_) => {
+							tracing::info!("[HookWorker]: channel closed");
+							break;
+						}
 					}
-					Err(e) => {
-						let _ = self.tx.send(AppEvent::HookFailed {
-							hook,
-							error: e.to_string(),
-						});
-					}
-				},
-				HookCommand::Disable(hook) => match self.registry.disable(&hook, &mut self.ebpf) {
-					Ok(_) => {
-						let _ = self.tx.send(AppEvent::HookDisabled { hook });
-					}
-					Err(e) => {
-						let _ = self.tx.send(AppEvent::HookFailed {
-							hook,
-							error: e.to_string(),
-						});
-					}
-				},
-			};
+				}
+			}
 		}
 		Ok(())
 	}

@@ -124,7 +124,7 @@ impl RuleEngine {
 					..
 				} = &m
 				{
-					if let Some(chain) = index.rule_response_chains.get(root_rule_id) {
+					if let Some(chain) = &root_rule.inner.response_chain {
 						if matches!(chain.trigger, Trigger::SequenceFinished) {
 							out.push(
 								ResponseRequest {
@@ -157,39 +157,44 @@ impl RuleEngine {
 		let header = event.header();
 		let meta = Self::event_meta(event);
 		let shard_key = ShardKey::from(header);
+		let specific = index.by_evt_kind.get(&evt_kind).map(|v| v.as_slice()).unwrap_or(&[]);
+		let universal = index.universal_rules.as_slice();
+
+		if specific.is_empty() && universal.is_empty() {
+			return out;
+		}
+
 		let fields = Arc::new(ctx.fields().clone());
-		if let Some(candidates) = index.by_evt_kind.get(&evt_kind) {
-			for rule_id in candidates {
-				let Some(rule) = ruleset.find_rule_by_id(rule_id) else {
-					continue;
-				};
+		for rule_id in specific.iter().chain(universal.iter()) {
+			let Some(rule) = ruleset.find_rule_by_id(rule_id) else {
+				continue;
+			};
 
-				if !Evaluator::rule_matches_compiled(&rule.inner, &ctx) {
-					continue;
-				}
-
-				out.push(Self::rule_to_eval_event(rule, meta.clone()).into());
-
-				if let Some(chain) = &rule.inner.response_chain {
-					if matches!(chain.trigger, Trigger::RuleMatch) {
-						out.push(
-							ResponseRequest {
-								id: 0,
-								rule_id: rule_id.clone(),
-								response_chain: chain.clone(),
-								event_meta: meta.clone(),
-								fields: Arc::clone(&fields),
-							}
-							.into(),
-						);
-					}
-				}
-
-				if let Some(seq) = &rule.inner.sequence {
-					self.correlator.on_root_match(&shard_key, &rule.inner.id, seq, now);
-				}
-				self.advance_sequences(&shard_key, rule, now, &ruleset, &index, &mut out, &meta, &fields);
+			if !Evaluator::rule_matches_compiled(&rule.inner, &ctx) {
+				continue;
 			}
+
+			out.push(Self::rule_to_eval_event(rule, meta.clone()).into());
+
+			if let Some(chain) = &rule.inner.response_chain {
+				if matches!(chain.trigger, Trigger::RuleMatch) {
+					out.push(
+						ResponseRequest {
+							id: 0,
+							rule_id: rule_id.clone(),
+							response_chain: chain.clone(),
+							event_meta: meta.clone(),
+							fields: Arc::clone(&fields),
+						}
+						.into(),
+					);
+				}
+			}
+
+			if let Some(seq) = &rule.inner.sequence {
+				self.correlator.on_root_match(&shard_key, &rule.inner.id, seq, now);
+			}
+			self.advance_sequences(&shard_key, rule, now, ruleset, index, &mut out, &meta, &fields);
 		}
 
 		out
@@ -255,7 +260,7 @@ mod tests {
 		assert!(!res.is_empty());
 
 		let matched = expect_matched(&res[0]);
-		let header = event.header(); // via Event trait
+		let header = event.header();
 		assert_eq!(matched.rule_id, "pid-exists".into());
 		assert_eq!(matched.severity, Severity::Low);
 		assert_eq!(matched.event_meta.pid, header.pid);

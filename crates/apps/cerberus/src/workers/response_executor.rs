@@ -11,12 +11,14 @@ use lib_rules::ResolvedAction;
 use lib_rules::ResponseRequest;
 use lib_rules::resolve_action;
 use time::OffsetDateTime;
+use tokio_util::sync::CancellationToken;
 
 pub struct ResponseExecutor {
 	req_rx: Rx<ResponseRequest>,
 	ip_blocklist: AyaHashMap<MapData, u32, u32>,
 	lsm_exec_deny: AyaHashMap<MapData, [u8; 128], u8>,
 	app_tx: Tx<AppEvent>,
+	token: CancellationToken,
 }
 
 impl ResponseExecutor {
@@ -25,37 +27,64 @@ impl ResponseExecutor {
 		ip_blocklist: AyaHashMap<MapData, u32, u32>,
 		lsm_exec_deny: AyaHashMap<MapData, [u8; 128], u8>,
 		app_tx: Tx<AppEvent>,
+		token: CancellationToken,
 	) -> Result<Self> {
 		Ok(Self {
 			req_rx,
 			app_tx,
 			ip_blocklist,
 			lsm_exec_deny,
+			token,
 		})
 	}
 	pub async fn run(mut self) -> Result<()> {
-		while let Ok(request) = self.req_rx.recv().await {
-			let resolved: Result<Vec<ResolvedAction>> = request
-				.response_chain
-				.actions
-				.iter()
-				.map(|a| resolve_action(a, &request.fields).map_err(Into::into))
-				.collect();
+		loop {
+			tokio::select! {
+				biased;
 
-			let (actions, success) = match resolved {
-				Ok(actions) => {
-					let ok = self.execute_actions(&actions).is_ok();
-					(Arc::from(actions), ok)
+				_ = self.token.cancelled() => {
+					tracing::info!("[ResponseExecutor]: shutting down");
+					break;
 				}
-				Err(_) => (Arc::from([]), false),
-			};
 
-			let _ = self.app_tx.send(AppEvent::ResponseExecuted {
-				rule_id: request.rule_id,
-				actions,
-				time: OffsetDateTime::now_local().unwrap_or_else(|_| OffsetDateTime::now_utc()),
-				success,
-			});
+				res = self.req_rx.recv() => {
+					match res {
+						Ok(request) => {
+							let resolved: Result<Vec<ResolvedAction>> = request
+								.response_chain
+								.actions
+								.iter()
+								.map(|a| resolve_action(a, &request.fields).map_err(Into::into))
+								.collect();
+
+							let (actions, success) = match resolved {
+								Ok(actions) => {
+									let ok = self.execute_actions(&actions).is_ok();
+									(Arc::from(actions), ok)
+								}
+								Err(e) => {
+									tracing::error!(error = %e, "Failed to resolve response actions");
+									(Arc::from([]), false)
+								}
+							};
+
+							if let Err(e) = self.app_tx.send(AppEvent::ResponseExecuted {
+								rule_id: request.rule_id,
+								actions,
+								time: OffsetDateTime::now_local()
+									.unwrap_or_else(|_| OffsetDateTime::now_utc()),
+								success,
+							}) {
+								tracing::error!("ResponseExecutor send failed: {e}");
+							}
+						}
+						Err(_) => {
+							tracing::info!("[ResponseExecutor]: request channel closed");
+							break;
+						}
+					}
+				}
+			}
 		}
 
 		Ok(())
