@@ -207,6 +207,8 @@ mod tests {
 
 			sequence: None,
 			response_chain: None,
+			field_mask: 0,
+			required_mask: 0,
 		};
 
 		let ctx_ok = ctx(&[
@@ -226,6 +228,8 @@ mod tests {
 
 			sequence: None,
 			response_chain: None,
+			field_mask: 0,
+			required_mask: 0,
 		};
 
 		let ctx_fail = ctx(&[

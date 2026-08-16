@@ -364,7 +364,7 @@ mod tests {
 		Ok(())
 	}
 
-	// region:    --- P11 regressions
+	// region:    --- regressions
 
 	#[test]
 	fn expired_instances_are_swept_on_root_match() -> Result<()> {

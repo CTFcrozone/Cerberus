@@ -266,6 +266,8 @@ mod tests {
 				conditions: vec![],
 				sequence,
 				response_chain: None,
+				field_mask: 0,
+				required_mask: 0,
 			},
 			hash: [0u8; 32],
 			hash_hex: Arc::from("0".repeat(64)),
