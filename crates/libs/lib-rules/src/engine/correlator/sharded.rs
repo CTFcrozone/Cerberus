@@ -1,38 +1,43 @@
 use std::{sync::Arc, time::Instant};
 
-use dashmap::{DashMap, mapref::one::RefMut};
+use dashmap::mapref::one::RefMut;
 use lib_common::event::EventMeta;
 
 use crate::{
 	engine::{CorrelationEvent, correlator::Correlator, identity::ShardKey},
+	hash_utils::{FastDashMap, new_fast_dashmap},
 	rule::compiled::sequence::CompiledSequence,
 };
 
 pub struct ShardedCorrelator {
-	shards: DashMap<ShardKey, Correlator>,
+	shards: FastDashMap<ShardKey, Correlator>,
 }
 
 impl ShardedCorrelator {
 	pub fn new() -> Self {
-		Self { shards: DashMap::new() }
+		Self {
+			shards: new_fast_dashmap(),
+		}
 	}
 
 	#[allow(unused)]
 	pub fn shard_count(&self) -> usize {
 		self.shards.len()
 	}
-
+	#[inline]
 	fn get_or_create(&self, shard_key: &ShardKey) -> RefMut<'_, ShardKey, Correlator> {
 		use dashmap::mapref::entry::Entry;
-		match self.shards.entry(shard_key.clone()) {
+		match self.shards.entry(*shard_key) {
 			Entry::Occupied(o) => o.into_ref(),
 			Entry::Vacant(v) => v.insert(Correlator::new()),
 		}
 	}
 
 	pub fn on_root_match(&self, shard_key: &ShardKey, root_rule_id: &Arc<str>, seq: &CompiledSequence, now: Instant) {
-		let mut correlator = self.get_or_create(shard_key);
-		correlator.on_root_match(root_rule_id, seq, now);
+		if seq.steps.is_empty() {
+			return;
+		}
+		self.get_or_create(shard_key).on_root_match(root_rule_id, seq, now);
 	}
 
 	pub fn on_rule_match(
@@ -44,8 +49,16 @@ impl ShardedCorrelator {
 		now: Instant,
 		event_meta: &EventMeta,
 	) -> Vec<CorrelationEvent> {
-		let mut correlator = self.get_or_create(shard_key);
-		correlator.on_rule_match(matched_rule_id, seq, root_rule_id, now, event_meta)
+		let Some(mut correlator) = self.shards.get_mut(shard_key) else {
+			return Vec::new();
+		};
+		let out = correlator.on_rule_match(matched_rule_id, seq, root_rule_id, now, event_meta);
+		let drained = correlator.is_empty();
+		drop(correlator);
+		if drained {
+			self.shards.remove_if(shard_key, |_, c| c.is_empty());
+		}
+		out
 	}
 }
 

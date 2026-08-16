@@ -1,8 +1,12 @@
 use std::str::FromStr;
 
+use strum::EnumCount;
 use strum_macros::EnumCount;
 
 use crate::Error;
+
+const _: () = assert!(Field::COUNT <= 64, "Field no longer fits in a u64 mask");
+
 #[repr(u8)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, EnumCount)]
 pub enum Field {
@@ -127,6 +131,11 @@ impl Field {
 	pub const fn index(self) -> usize {
 		self as usize
 	}
+	#[inline]
+	pub const fn mask(self) -> u64 {
+		1u64 << (self as u64)
+	}
+
 	pub const fn as_str(&self) -> &'static str {
 		match self {
 			Field::ProcessPid => "process.pid",

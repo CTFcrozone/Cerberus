@@ -22,7 +22,7 @@ pub struct CompiledRuleInner {
 	pub severity: Severity,
 	pub conditions: Vec<CompiledCondition>,
 	pub sequence: Option<CompiledSequence>,
-	pub response_chain: Option<CompiledResponseChain>,
+	pub response_chain: Option<Arc<CompiledResponseChain>>,
 }
 
 pub fn compile_rule(raw: Rule, hash: [u8; 32], hash_hex: Arc<str>) -> Result<CompiledRule> {
@@ -33,9 +33,13 @@ pub fn compile_rule(raw: Rule, hash: [u8; 32], hash_hex: Arc<str>) -> Result<Com
 		.map(compile_condition)
 		.collect::<Result<Vec<_>>>()?;
 
+	if conditions.is_empty() {
+		return Err(Error::RuleWithoutConditions { rule_id: raw.inner.id });
+	}
+
 	let sequence = raw.inner.sequence.map(compile_sequence).transpose()?;
 
-	let response_chain = raw.inner.response_chain.map(compile_response_chain).transpose()?;
+	let response_chain = raw.inner.response_chain.map(compile_response_chain).transpose()?.map(Arc::new);
 
 	if let Some(chain) = &response_chain {
 		if matches!(chain.trigger, Trigger::SequenceFinished) && sequence.is_none() {
@@ -56,3 +60,39 @@ pub fn compile_rule(raw: Rule, hash: [u8; 32], hash_hex: Arc<str>) -> Result<Com
 		},
 	})
 }
+
+// region:    --- Tests
+
+#[cfg(test)]
+mod tests {
+	type Result<T> = core::result::Result<T, Box<dyn std::error::Error>>; // For tests.
+
+	use super::*;
+	use crate::rule::{Condition, RuleInner};
+
+	fn raw_rule(id: &str, conditions: Vec<Condition>) -> Rule {
+		Rule {
+			inner: RuleInner {
+				id: id.to_string(),
+				description: "test".to_string(),
+				severity: Severity::Low,
+				conditions,
+				sequence: None,
+				response_chain: None,
+			},
+			hash: [0u8; 32],
+			hash_hex: Arc::from("0".repeat(64)),
+		}
+	}
+
+	#[test]
+	fn empty_conditions_are_rejected() {
+		let raw = raw_rule("matches-everything", vec![]);
+
+		let err = compile_rule(raw, [0u8; 32], Arc::from("0".repeat(64)));
+
+		assert!(matches!(err, Err(Error::RuleWithoutConditions { .. })));
+	}
+}
+
+// endregion: --- Tests

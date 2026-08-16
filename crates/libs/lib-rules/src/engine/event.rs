@@ -29,14 +29,14 @@ pub enum CorrelationEvent {
 	Step {
 		root_rule_id: Arc<str>,
 		seq_id: Arc<str>,
-		seq_instance_id: Arc<str>,
+		seq_instance_id: u64,
 		step_idx: usize,
 		matched_rule_id: Arc<str>,
 	},
 	Completed {
 		root_rule_id: Arc<str>,
 		seq_id: Arc<str>,
-		seq_instance_id: Arc<str>,
+		seq_instance_id: u64,
 		path: Vec<Arc<str>>,
 		steps: usize,
 		event_meta: EventMeta,
@@ -47,7 +47,7 @@ pub enum CorrelationEvent {
 pub struct ResponseRequest {
 	pub id: u64,
 	pub rule_id: Arc<str>,
-	pub response_chain: CompiledResponseChain,
+	pub response_chain: Arc<CompiledResponseChain>,
 	pub event_meta: EventMeta,
 	pub fields: Arc<[Option<FieldValue>; Field::COUNT]>,
 }

@@ -55,6 +55,38 @@ impl RuleEngineWorker {
 		})
 	}
 
+	fn dispatch(&self, alert: EngineEvent) {
+		match alert {
+			EngineEvent::Response(req) => {
+				if let Err(e) = self.tx.send(AppEvent::Engine(EngineEvent::Response(req.clone()))) {
+					tracing::error!(
+						error.message = %e,
+						error.type = "app_event_send_failed",
+						"Failed to send engine event to app"
+					);
+				}
+
+				if let Err(e) = self.response_tx.send(req) {
+					tracing::error!(
+						error.message = %e,
+						error.type = "executor_send_failed",
+						"Failed to send response request to executor"
+					);
+				}
+			}
+
+			other => {
+				if let Err(e) = self.tx.send(AppEvent::Engine(other)) {
+					tracing::error!(
+						error.message = %e,
+						error.type = "app_event_send_failed",
+						"Failed to send engine event to app"
+					);
+				}
+			}
+		}
+	}
+
 	pub async fn run(mut self, logging: bool) -> Result<()> {
 		loop {
 			tokio::select! {
@@ -69,29 +101,15 @@ impl RuleEngineWorker {
 					match res {
 						Ok(evt) => {
 							for mut alert in self.rule_engine.process_event(&evt) {
-								if let EngineEvent::Response(ref mut req) = alert {
+								if let EngineEvent::Response(req) = &mut alert {
 									req.id = self.response_id.fetch_add(1, Ordering::Relaxed);
 								}
 
 								if logging {
 									log_engine_event(&alert);
 								}
-								if let Err(e) = self.tx.send(AppEvent::Engine(alert.clone())) {
-									tracing::error!(
-										error.message = %e,
-										error.type = "app_event_send_failed",
-										"Failed to send engine event to app"
-									);
-								}
-								if let EngineEvent::Response(req) = alert {
-									if let Err(e) = self.response_tx.send(req) {
-										tracing::error!(
-											error.message = %e,
-											error.type = "executor_send_failed",
-											"Failed to send response request to executor"
-										);
-									}
-								}
+
+								self.dispatch(alert);
 							}
 
 							if self.limiter.check().is_err() {

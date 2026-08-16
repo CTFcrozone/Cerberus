@@ -39,6 +39,30 @@ impl RuleSet {
 				}
 			}
 		}
+
+		for rule in rules.iter() {
+			let Some(seq) = &rule.inner.sequence else { continue };
+
+			if seq.steps.is_empty() {
+				return Err(Error::SequenceWithoutSteps {
+					rule_id: rule.inner.id.to_string(),
+					sequence_id: seq.id.to_string(),
+				});
+			}
+
+			for (step_idx, step) in seq.steps.iter().enumerate() {
+				let step_rule_id: Arc<str> = step.rule_id.as_str().into();
+
+				if !by_id.contains_key(&step_rule_id) {
+					return Err(Error::UnknownSequenceStepRule {
+						rule_id: rule.inner.id.to_string(),
+						sequence_id: seq.id.to_string(),
+						step_idx,
+						step_rule_id: step.rule_id.to_string(),
+					});
+				}
+			}
+		}
 		Ok(RuleSet { rules, by_id })
 	}
 
@@ -112,7 +136,7 @@ mod tests {
 	fn load_ruleset_from_dir() -> Result<()> {
 		// -- Setup & Fixtures
 		let fx_rule_dir = "rules/";
-		let fx_rule_count = 3;
+		let fx_rule_count = 4;
 		// -- Exec
 		let ruleset = RuleSet::load_from_dir(fx_rule_dir)?;
 		// -- Check

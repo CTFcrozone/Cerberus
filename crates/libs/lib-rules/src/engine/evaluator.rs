@@ -56,17 +56,12 @@ impl Evaluator {
 
 	fn numeric_cmp_compiled<F>(left: Option<&FieldValue>, right: &FieldValue, cmp: F) -> bool
 	where
-		F: Fn(f64, f64) -> bool,
+		F: Fn(i64, i64) -> bool,
 	{
-		let Some(FieldValue::Int(a)) = left else {
-			return false;
-		};
-
-		let Some(FieldValue::Int(b)) = Some(right) else {
-			return false;
-		};
-
-		cmp(*a as f64, *b as f64)
+		match (left, right) {
+			(Some(FieldValue::Int(a)), FieldValue::Int(b)) => cmp(*a, *b),
+			_ => false,
+		}
 	}
 
 	fn equals_compiled(left: &FieldValue, right: &FieldValue) -> bool {

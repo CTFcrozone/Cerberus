@@ -14,6 +14,8 @@ use crate::rule::compiled::rule::CompiledRule;
 use crate::rule::compiled::ruleset::CompiledRuleSet;
 use crate::{CorrelationEvent, Error, ResponseRequest, RuleSet, Trigger};
 
+type LazyFields = Option<Arc<[Option<FieldValue>; Field::COUNT]>>;
+
 pub struct RuleEngine {
 	snapshot: ArcSwap<RuleSnapshot>,
 	correlator: ShardedCorrelator,
@@ -74,6 +76,11 @@ impl RuleEngine {
 		})
 	}
 
+	#[inline]
+	fn fields_for_response(lazy: &mut LazyFields, ctx: &EvalCtx) -> Arc<[Option<FieldValue>; Field::COUNT]> {
+		Arc::clone(lazy.get_or_insert_with(|| Arc::new(ctx.fields().clone())))
+	}
+
 	fn event_meta<E: Event>(event: &E) -> EventMeta {
 		let header = event.header();
 		EventMeta {
@@ -96,7 +103,8 @@ impl RuleEngine {
 		index: &RuleIndex,
 		out: &mut Vec<EngineEvent>,
 		meta: &EventMeta,
-		fields: &Arc<[Option<FieldValue>; Field::COUNT]>,
+		ctx: &EvalCtx,
+		fields: &mut LazyFields,
 	) {
 		let key = matched_rule.inner.id.as_ref();
 
@@ -132,7 +140,7 @@ impl RuleEngine {
 									rule_id: root_rule_id.clone(),
 									response_chain: chain.clone(),
 									event_meta: event_meta.clone(),
-									fields: Arc::clone(fields),
+									fields: Self::fields_for_response(fields, ctx),
 								}
 								.into(),
 							);
@@ -164,7 +172,7 @@ impl RuleEngine {
 			return out;
 		}
 
-		let fields = Arc::new(ctx.fields().clone());
+		let mut fields: LazyFields = None;
 		for rule_id in specific.iter().chain(universal.iter()) {
 			let Some(rule) = ruleset.find_rule_by_id(rule_id) else {
 				continue;
@@ -184,7 +192,7 @@ impl RuleEngine {
 							rule_id: rule_id.clone(),
 							response_chain: chain.clone(),
 							event_meta: meta.clone(),
-							fields: Arc::clone(&fields),
+							fields: Self::fields_for_response(&mut fields, &ctx),
 						}
 						.into(),
 					);
@@ -194,7 +202,17 @@ impl RuleEngine {
 			if let Some(seq) = &rule.inner.sequence {
 				self.correlator.on_root_match(&shard_key, &rule.inner.id, seq, now);
 			}
-			self.advance_sequences(&shard_key, rule, now, ruleset, index, &mut out, &meta, &fields);
+			self.advance_sequences(
+				&shard_key,
+				rule,
+				now,
+				ruleset,
+				index,
+				&mut out,
+				&meta,
+				&ctx,
+				&mut fields,
+			);
 		}
 
 		out

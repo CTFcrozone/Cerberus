@@ -52,6 +52,23 @@ pub enum Error {
 	#[display("Encountered a sequence_finished trigger outside of a sequence in rule '{rule_id}'")]
 	SequenceFinishedTriggerWithoutSequence { rule_id: String },
 
+	#[display(
+		"Rule '{rule_id}' has no conditions, so it would match every event. \
+		 Give it at least one condition; if it exists only to host a sequence, \
+		 model that explicitly rather than matching everything."
+	)]
+	RuleWithoutConditions { rule_id: String },
+
+	#[display("Rule '{rule_id}' declares sequence '{sequence_id}' with no steps, so it can never fire")]
+	SequenceWithoutSteps { rule_id: String, sequence_id: String },
+	#[display("Rule '{rule_id}': sequence '{sequence_id}' step {step_idx} references unknown rule '{step_rule_id}'")]
+	UnknownSequenceStepRule {
+		rule_id: String,
+		sequence_id: String,
+		step_idx: usize,
+		step_rule_id: String,
+	},
+
 	#[display("Invalid value '{value}' for field '{field}'")]
 	InvalidFieldValue { field: String, value: String },
 

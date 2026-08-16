@@ -1,19 +1,20 @@
-use std::{collections::HashMap, sync::Arc, time::Instant, usize};
+use std::{sync::Arc, time::Instant, usize};
 
 use lib_common::event::EventMeta;
-use uuid::Uuid;
 
-use crate::{engine::CorrelationEvent, rule::compiled::sequence::CompiledSequence};
+use crate::{
+	engine::CorrelationEvent,
+	hash_utils::{FastMap, new_fast_map},
+	rule::compiled::sequence::CompiledSequence,
+};
 
-//todo: 	// for pid scoping
-// active: HashMap<Arc<str>, HashMap<Option<u32>, HashMap<Arc<str>, Vec<SequenceProgress>>>>,
 pub struct Correlator {
-	// root rule_id -> progress sequence
-	// active: HashMap<Arc<str>, Vec<SequenceProgress>>,
-
 	// root_rule_id -> <seq_instance_id, progress>
-	active: HashMap<Arc<str>, HashMap<Arc<str>, SequenceProgress>>,
+	active: FastMap<Arc<str>, FastMap<u64, SequenceProgress>>,
+	next_instance_id: u64,
 }
+
+const MAX_INSTANCES_PER_ROOT: usize = 256;
 
 #[allow(dead_code)]
 #[derive(Debug, Clone)]
@@ -34,7 +35,10 @@ pub struct SequenceProgress {
 
 impl Correlator {
 	pub fn new() -> Self {
-		Self { active: HashMap::new() }
+		Self {
+			active: new_fast_map(),
+			next_instance_id: 0,
+		}
 	}
 
 	pub fn on_root_match(&mut self, root_rule_id: &Arc<str>, seq: &CompiledSequence, now: Instant) {
@@ -42,11 +46,21 @@ impl Correlator {
 			return;
 		}
 
-		let root = self.active.entry(root_rule_id.clone()).or_insert_with(HashMap::new);
-		let instance_id: Arc<str> = Uuid::new_v4().to_string().into();
+		let root = self.active.entry(root_rule_id.clone()).or_insert_with(new_fast_map);
+
+		root.retain(|_, p| now <= p.expiry);
+
+		if root.len() >= MAX_INSTANCES_PER_ROOT {
+			if let Some(oldest) = root.keys().copied().min() {
+				root.remove(&oldest);
+			}
+		}
+
+		self.next_instance_id += 1;
+		let instance_id = self.next_instance_id;
 
 		root.insert(
-			instance_id.clone(),
+			instance_id,
 			SequenceProgress {
 				seq_id: seq.id.clone(),
 				path: Vec::new(),
@@ -55,6 +69,10 @@ impl Correlator {
 				expiry: now + seq.steps[0].within,
 			},
 		);
+
+		// if root.is_empty() {
+		// 	self.active.remove(root_rule_id);
+		// }
 	}
 
 	pub fn on_rule_match(
@@ -97,7 +115,7 @@ impl Correlator {
 			out.push(CorrelationEvent::Step {
 				root_rule_id: root_rule_id.clone(),
 				seq_id: seq_id.clone(),
-				seq_instance_id: instance_id.clone(),
+				seq_instance_id: *instance_id,
 				step_idx: prev_idx,
 				matched_rule_id: matched_rule_id.clone(),
 			});
@@ -111,8 +129,8 @@ impl Correlator {
 					out.push(CorrelationEvent::Completed {
 						root_rule_id: root_rule_id.clone(),
 						seq_id,
-						seq_instance_id: instance_id.clone(),
-						path: prog.path.clone(),
+						seq_instance_id: *instance_id,
+						path: core::mem::take(&mut prog.path),
 						steps: seq.steps.len(),
 						event_meta: event_meta.clone(),
 					});
@@ -127,6 +145,16 @@ impl Correlator {
 		}
 
 		out
+	}
+
+	#[allow(dead_code)]
+	pub fn instance_count(&self) -> usize {
+		self.active.values().map(|r| r.len()).sum()
+	}
+
+	#[inline]
+	pub fn is_empty(&self) -> bool {
+		self.active.is_empty()
 	}
 }
 
@@ -332,6 +360,65 @@ mod tests {
 		corr.on_root_match(&Arc::<str>::from("tmp-exec"), &seq, t0);
 
 		assert!(corr.active.is_empty());
+
+		Ok(())
+	}
+
+	// region:    --- P11 regressions
+
+	#[test]
+	fn expired_instances_are_swept_on_root_match() -> Result<()> {
+		// -- Setup & Fixtures
+		let mut corr = Correlator::new();
+		let seq = mk_seq();
+		let t0 = Instant::now();
+		let root = Arc::<str>::from("noisy-root");
+
+		// -- Exec: a root that fires repeatedly, with step rules that never fire.
+		// Every match is past the previous instance's 10s window.
+		for i in 0..50 {
+			corr.on_root_match(&root, &seq, t0 + Duration::from_secs(i * 11));
+		}
+
+		// -- Check: only the newest instance survives, not 50.
+		assert_eq!(corr.instance_count(), 1);
+
+		Ok(())
+	}
+
+	#[test]
+	fn instances_per_root_are_capped() -> Result<()> {
+		// -- Setup & Fixtures
+		let mut corr = Correlator::new();
+		let seq = mk_seq();
+		let t0 = Instant::now();
+		let root = Arc::<str>::from("very-noisy-root");
+
+		// -- Exec: all within the first step's window, so the sweep can't reclaim them.
+		for i in 0..(MAX_INSTANCES_PER_ROOT * 3) {
+			corr.on_root_match(&root, &seq, t0 + Duration::from_millis(i as u64));
+		}
+
+		// -- Check
+		assert_eq!(corr.instance_count(), MAX_INSTANCES_PER_ROOT);
+
+		Ok(())
+	}
+
+	#[test]
+	fn instance_ids_are_monotonic() -> Result<()> {
+		let mut corr = Correlator::new();
+		let seq = mk_seq();
+		let t0 = Instant::now();
+		let root = Arc::<str>::from("kernel-module-loader");
+
+		corr.on_root_match(&root, &seq, t0);
+		corr.on_root_match(&root, &seq, t0);
+
+		let mut ids: Vec<u64> = corr.active.get(&root).expect("root missing").keys().copied().collect();
+		ids.sort_unstable();
+
+		assert_eq!(ids, vec![1, 2]);
 
 		Ok(())
 	}

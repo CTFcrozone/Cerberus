@@ -21,6 +21,7 @@ impl EvalCtx {
 	pub fn fields(&self) -> &[Option<FieldValue>; Field::COUNT] {
 		&self.fields
 	}
+
 	#[inline]
 	pub fn insert(&mut self, field: Field, value: FieldValue) {
 		self.fields[field.index()] = Some(value);

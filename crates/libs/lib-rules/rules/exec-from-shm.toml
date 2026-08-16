@@ -1,0 +1,10 @@
+[rule]
+id = "exec-from-shm"
+description = "Execution of a binary from /dev/shm"
+severity = "high"
+category = "test"
+
+[[rule.conditions]]
+field = "process.filepath"
+op = "starts_with"
+value = "/dev/shm"
