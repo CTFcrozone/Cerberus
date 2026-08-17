@@ -1,0 +1,14 @@
+[rule]
+id = "hardlink-created"
+description = "Hard link created by a non-root user — used to bypass path-based access controls"
+severity = "medium"
+
+[[rule.conditions]]
+field = "inode.mutation.type"
+op = "=="
+value = 1
+
+[[rule.conditions]]
+field = "process.uid"
+op = "!="
+value = 0

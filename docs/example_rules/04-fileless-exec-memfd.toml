@@ -1,0 +1,18 @@
+[rule]
+id = "fileless-exec-memfd"
+description = "Execution from an anonymous memory file descriptor — fileless payload execution"
+severity = "critical"
+
+[[rule.conditions]]
+field = "process.filepath"
+op = "contains"
+value = "memfd:"
+
+[rule.sequence]
+id = "memfd-then-egress"
+kind = "rule"
+scope = "pid"
+
+[[rule.sequence.steps]]
+rule_id = "shell-egress"
+within = "10m"

@@ -1,0 +1,20 @@
+[rule]
+id = "exec-from-tmp"
+description = "Binary executed from /tmp — common staging directory for dropped payloads"
+severity = "high"
+
+[[rule.conditions]]
+field = "process.filepath"
+op = "starts_with"
+value = "/tmp/"
+
+# Correlation: the same process that executed from /tmp later calls out.
+# pid-scoped, so an unrelated connection in the same container will not advance it.
+[rule.sequence]
+id = "tmp-payload-then-c2"
+kind = "rule"
+scope = "pid"
+
+[[rule.sequence.steps]]
+rule_id = "shell-egress"
+within = "5m"

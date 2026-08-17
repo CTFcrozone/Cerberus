@@ -1,0 +1,14 @@
+[rule]
+id = "ingress-tool-transfer"
+description = "Network download utility executed by a non-root user — possible tool staging"
+severity = "medium"
+
+[[rule.conditions]]
+field = "process.filepath"
+op = "in"
+value = ["/usr/bin/curl", "/usr/bin/wget", "/bin/busybox", "/usr/bin/ftp", "/usr/bin/tftp"]
+
+[[rule.conditions]]
+field = "process.uid"
+op = "!="
+value = 0

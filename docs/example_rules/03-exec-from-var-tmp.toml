@@ -1,0 +1,9 @@
+[rule]
+id = "exec-from-var-tmp"
+description = "Binary executed from /var/tmp — persistence-friendly world-writable path"
+severity = "medium"
+
+[[rule.conditions]]
+field = "process.filepath"
+op = "starts_with"
+value = "/var/tmp/"

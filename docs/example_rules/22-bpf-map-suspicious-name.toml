@@ -1,0 +1,9 @@
+[rule]
+id = "bpf-map-suspicious-name"
+description = "BPF map created with a name matching known eBPF rootkit tooling"
+severity = "critical"
+
+[[rule.conditions]]
+field = "bpf.map.name"
+op = "regex"
+value = "(ebpfkit|boopkit|pamspy|sslsniff|bad_bpf|hide)"

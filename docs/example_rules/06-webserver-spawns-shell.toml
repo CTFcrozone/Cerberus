@@ -1,0 +1,25 @@
+[rule]
+id = "webserver-spawns-shell"
+description = "Web server process executed a shell — strong indicator of web shell or RCE"
+severity = "critical"
+
+[[rule.conditions]]
+field = "process.comm"
+op = "in"
+value = ["nginx", "apache2", "httpd", "php-fpm", "php", "tomcat", "node", "gunicorn", "uwsgi"]
+
+[[rule.conditions]]
+field = "process.filepath"
+op = "in"
+value = ["/bin/sh", "/bin/bash", "/bin/dash", "/usr/bin/sh", "/usr/bin/bash", "/bin/zsh", "/usr/bin/zsh"]
+
+# Correlation: web shell spawns a shell, that shell calls out.
+# NOT pid-scoped: the spawned shell is a child, so it has a different pid.
+# Scope is therefore the container (mnt_ns + cgroup).
+[rule.sequence]
+id = "webshell-then-egress"
+kind = "rule"
+
+[[rule.sequence.steps]]
+rule_id = "shell-egress"
+within = "2m"

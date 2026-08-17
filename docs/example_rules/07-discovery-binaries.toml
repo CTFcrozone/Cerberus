@@ -1,0 +1,18 @@
+[rule]
+id = "discovery-binaries"
+description = "Host reconnaissance binary executed — enumeration typical of post-exploitation"
+severity = "low"
+
+[[rule.conditions]]
+field = "process.filepath"
+op = "in"
+value = [
+  "/usr/bin/whoami",
+  "/usr/bin/id",
+  "/usr/bin/hostname",
+  "/usr/bin/uname",
+  "/usr/bin/lsb_release",
+  "/usr/bin/last",
+  "/usr/bin/w",
+  "/usr/bin/who",
+]

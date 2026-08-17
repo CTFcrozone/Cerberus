@@ -1,0 +1,14 @@
+[rule]
+id = "symlink-to-sensitive"
+description = "Symlink created pointing at a sensitive credential file — TOCTOU or privilege escalation primitive"
+severity = "high"
+
+[[rule.conditions]]
+field = "inode.mutation.type"
+op = "=="
+value = 2
+
+[[rule.conditions]]
+field = "inode.old_filename"
+op = "in"
+value = ["/etc/shadow", "/etc/passwd", "/etc/sudoers", "/root/.ssh/id_rsa", "/proc/self/mem"]

@@ -1,0 +1,14 @@
+[rule]
+id = "ptrace-attach"
+description = "Process attached to another via ptrace — code injection or memory scraping"
+severity = "high"
+
+[[rule.conditions]]
+field = "ptrace.mode"
+op = "bit_and"
+value = 2
+
+[[rule.conditions]]
+field = "process.comm"
+op = "not_in"
+value = ["gdb", "strace", "ltrace", "lldb", "perf", "dlv", "rr"]

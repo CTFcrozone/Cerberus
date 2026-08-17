@@ -1,0 +1,14 @@
+[rule]
+id = "shell-history-deleted"
+description = "Shell history file unlinked — anti-forensics, MITRE T1070.003"
+severity = "high"
+
+[[rule.conditions]]
+field = "inode.op"
+op = "=="
+value = 0
+
+[[rule.conditions]]
+field = "inode.filename"
+op = "regex"
+value = "(bash_history|zsh_history|sh_history|\\.history)$"

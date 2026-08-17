@@ -1,0 +1,9 @@
+[rule]
+id = "kernel-module-unloaded"
+description = "Kernel module unloaded — may indicate security module tampering"
+severity = "medium"
+
+[[rule.conditions]]
+field = "module.op"
+op = "=="
+value = 1

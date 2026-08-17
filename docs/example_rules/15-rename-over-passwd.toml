@@ -1,0 +1,14 @@
+[rule]
+id = "rename-over-passwd"
+description = "File renamed over a credential database — account manipulation"
+severity = "critical"
+
+[[rule.conditions]]
+field = "inode.mutation.type"
+op = "=="
+value = 0
+
+[[rule.conditions]]
+field = "inode.new_filename"
+op = "in"
+value = ["/etc/passwd", "/etc/shadow", "/etc/gshadow", "/etc/sudoers"]

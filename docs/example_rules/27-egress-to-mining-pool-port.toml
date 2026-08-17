@@ -1,0 +1,14 @@
+[rule]
+id = "egress-to-mining-pool-port"
+description = "Outbound connection to a port commonly used by cryptomining pools"
+severity = "high"
+
+[[rule.conditions]]
+field = "socket.new_state"
+op = "=="
+value = "TCP_ESTABLISHED"
+
+[[rule.conditions]]
+field = "network.dport"
+op = "in"
+value = [3333, 4444, 5555, 7777, 8888, 9999, 14444, 45700]

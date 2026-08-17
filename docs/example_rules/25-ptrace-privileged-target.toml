@@ -1,0 +1,19 @@
+[rule]
+id = "ptrace-privileged-target"
+description = "Unprivileged process attached to a root-owned process — privilege escalation attempt"
+severity = "critical"
+
+[[rule.conditions]]
+field = "ptrace.mode"
+op = "bit_and"
+value = 2
+
+[[rule.conditions]]
+field = "process.target.uid"
+op = "=="
+value = 0
+
+[[rule.conditions]]
+field = "process.uid"
+op = "!="
+value = 0

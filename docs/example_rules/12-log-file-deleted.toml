@@ -1,0 +1,14 @@
+[rule]
+id = "log-file-deleted"
+description = "File under /var/log unlinked — log destruction, MITRE T1070.002"
+severity = "high"
+
+[[rule.conditions]]
+field = "inode.op"
+op = "=="
+value = 0
+
+[[rule.conditions]]
+field = "inode.filename"
+op = "starts_with"
+value = "/var/log/"

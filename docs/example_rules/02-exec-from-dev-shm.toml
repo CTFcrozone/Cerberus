@@ -1,0 +1,9 @@
+[rule]
+id = "exec-from-dev-shm"
+description = "Binary executed from /dev/shm — tmpfs execution, evades disk-based scanning"
+severity = "high"
+
+[[rule.conditions]]
+field = "process.filepath"
+op = "starts_with"
+value = "/dev/shm/"

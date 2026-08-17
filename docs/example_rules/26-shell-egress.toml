@@ -1,0 +1,14 @@
+[rule]
+id = "shell-egress"
+description = "Interactive shell established an outbound TCP connection — reverse shell indicator"
+severity = "critical"
+
+[[rule.conditions]]
+field = "socket.new_state"
+op = "=="
+value = "TCP_ESTABLISHED"
+
+[[rule.conditions]]
+field = "process.comm"
+op = "in"
+value = ["sh", "bash", "dash", "zsh", "ksh", "busybox", "nc", "ncat", "netcat", "socat"]

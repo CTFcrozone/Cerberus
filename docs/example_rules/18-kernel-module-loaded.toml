@@ -1,0 +1,14 @@
+[rule]
+id = "kernel-module-loaded"
+description = "Kernel module loaded — rootkit installation vector, MITRE T1547.006"
+severity = "high"
+
+[[rule.conditions]]
+field = "module.op"
+op = "=="
+value = 0
+
+[[rule.conditions]]
+field = "process.comm"
+op = "not_in"
+value = ["systemd-udevd", "kmod", "modprobe", "systemd", "kubelet"]

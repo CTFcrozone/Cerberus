@@ -1,0 +1,9 @@
+[rule]
+id = "fileless-exec-procfd"
+description = "Execution via /proc/self/fd — classic fileless execution technique"
+severity = "critical"
+
+[[rule.conditions]]
+field = "process.filepath"
+op = "regex"
+value = "^/proc/(self|[0-9]+)/fd/"

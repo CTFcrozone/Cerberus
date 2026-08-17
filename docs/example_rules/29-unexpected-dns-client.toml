@@ -1,0 +1,14 @@
+[rule]
+id = "unexpected-dns-client"
+description = "DNS traffic from a process that is not a known resolver — possible DNS tunnelling"
+severity = "medium"
+
+[[rule.conditions]]
+field = "network.dport"
+op = "=="
+value = 53
+
+[[rule.conditions]]
+field = "process.comm"
+op = "not_in"
+value = ["systemd-resolve", "dnsmasq", "named", "unbound", "coredns", "nscd", "resolvconf"]

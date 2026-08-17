@@ -1,0 +1,14 @@
+[rule]
+id = "smb-egress"
+description = "Outbound SMB connection — lateral movement or NTLM credential relay"
+severity = "high"
+
+[[rule.conditions]]
+field = "socket.new_state"
+op = "=="
+value = "TCP_ESTABLISHED"
+
+[[rule.conditions]]
+field = "network.dport"
+op = "in"
+value = [139, 445]

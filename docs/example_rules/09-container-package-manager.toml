@@ -1,0 +1,9 @@
+[rule]
+id = "container-package-manager"
+description = "Package manager executed at runtime — unexpected inside an immutable container"
+severity = "medium"
+
+[[rule.conditions]]
+field = "process.filepath"
+op = "in"
+value = ["/usr/bin/apt", "/usr/bin/apt-get", "/usr/bin/dpkg", "/usr/bin/yum", "/usr/bin/dnf", "/usr/bin/rpm", "/sbin/apk", "/usr/bin/pip", "/usr/bin/pip3"]

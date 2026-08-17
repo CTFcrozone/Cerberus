@@ -1,0 +1,14 @@
+[rule]
+id = "bpf-load-non-root"
+description = "BPF program loaded by a non-root user — unexpected outside privileged tooling"
+severity = "high"
+
+[[rule.conditions]]
+field = "bpf.prog.type"
+op = "exists"
+value = true
+
+[[rule.conditions]]
+field = "process.uid"
+op = "!="
+value = 0

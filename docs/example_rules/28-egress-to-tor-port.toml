@@ -1,0 +1,14 @@
+[rule]
+id = "egress-to-tor-port"
+description = "Outbound connection to a default Tor port — anonymised C2 channel"
+severity = "high"
+
+[[rule.conditions]]
+field = "socket.new_state"
+op = "=="
+value = "TCP_ESTABLISHED"
+
+[[rule.conditions]]
+field = "network.dport"
+op = "in"
+value = [9001, 9030, 9050, 9051, 9150]
