@@ -1,7 +1,7 @@
 //! The property under test: `process_event_into` performs **zero** heap allocations
 //! per event when the caller supplies a buffer with spare capacity. That holds for
 //! both the no-match path and the match-without-response path, and it is what the
-//! lazy `LazyFields` cell and the deferred `Instant::now()` buy.
+//! lazy `LazyFields` cell and the deferred `Instant::now()` buy
 
 use std::alloc::{GlobalAlloc, Layout, System};
 use std::sync::Arc;
