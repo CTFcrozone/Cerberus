@@ -8,7 +8,7 @@ use strum::EnumCount;
 use crate::engine::correlator::ShardedCorrelator;
 use crate::engine::identity::ShardKey;
 use crate::engine::snapshot::RuleSnapshot;
-use crate::engine::{EngineEvent, EvalCtx, EvaluatedEvent, Evaluator, EventKind, RuleIndex};
+use crate::engine::{EngineEvent, EvalCtx, EvaluatedEvent, Evaluator, EventKind};
 use crate::error::Result;
 use crate::rule::compiled::rule::CompiledRule;
 use crate::rule::compiled::ruleset::CompiledRuleSet;
@@ -99,21 +99,15 @@ impl RuleEngine {
 		shard_key: &ShardKey,
 		matched_rule: &CompiledRule,
 		now: Instant,
-		ruleset: &CompiledRuleSet,
-		index: &RuleIndex,
+		rules: &[CompiledRule],
+		roots: &[u32],
 		out: &mut Vec<EngineEvent>,
 		meta: &EventMeta,
 		ctx: &EvalCtx,
 		fields: &mut LazyFields,
 	) {
-		let key = matched_rule.inner.id.as_ref();
-
-		let Some(root_ids) = index.seq_listeners.get(key) else {
-			return;
-		};
-
-		for root_id in root_ids {
-			let Some(root_rule) = ruleset.find_rule_by_id(root_id) else {
+		for &root_idx in roots {
+			let Some(root_rule) = rules.get(root_idx as usize) else {
 				continue;
 			};
 
@@ -138,7 +132,7 @@ impl RuleEngine {
 								ResponseRequest {
 									id: 0,
 									rule_id: root_rule_id.clone(),
-									response_chain: chain.clone(),
+									response_chain: Arc::clone(chain),
 									event_meta: event_meta.clone(),
 									fields: Self::fields_for_response(fields, ctx),
 								}
@@ -152,29 +146,27 @@ impl RuleEngine {
 		}
 	}
 
-	pub fn process_event(&self, event: &CerberusEvent) -> Vec<EngineEvent> {
-		let ctx = Self::event_to_ctx(event);
+	pub fn process_event_into(&self, event: &CerberusEvent, out: &mut Vec<EngineEvent>) {
 		let snapshot = self.snapshot.load();
-		let ruleset = snapshot.ruleset();
 		let index = snapshot.index();
 
-		let mut out = Vec::<EngineEvent>::new();
-		let now = Instant::now();
-		// let mut corr = self.correlator.lock();
 		let evt_kind = EventKind::from(event);
-		let header = event.header();
-		let meta = Self::event_meta(event);
-		let shard_key = ShardKey::from(header);
-		let specific = index.by_evt_kind.get(&evt_kind).map(|v| v.as_slice()).unwrap_or(&[]);
-		let universal = index.universal_rules.as_slice();
-
-		if specific.is_empty() && universal.is_empty() {
-			return out;
+		let candidates = index.candidates(evt_kind);
+		if candidates.is_empty() {
+			return;
 		}
 
+		let rules = snapshot.ruleset().rules();
+
+		let ctx = EvalCtx::new(event.to_fields());
+		let meta = Self::event_meta(event);
+		let shard_key = ShardKey::from(event.header());
+
+		let mut now: Option<Instant> = None;
 		let mut fields: LazyFields = None;
-		for rule_id in specific.iter().chain(universal.iter()) {
-			let Some(rule) = ruleset.find_rule_by_id(rule_id) else {
+
+		for cand in candidates {
+			let Some(rule) = rules.get(cand.idx as usize) else {
 				continue;
 			};
 
@@ -189,8 +181,8 @@ impl RuleEngine {
 					out.push(
 						ResponseRequest {
 							id: 0,
-							rule_id: rule_id.clone(),
-							response_chain: chain.clone(),
+							rule_id: rule.inner.id.clone(),
+							response_chain: Arc::clone(chain),
 							event_meta: meta.clone(),
 							fields: Self::fields_for_response(&mut fields, &ctx),
 						}
@@ -199,32 +191,31 @@ impl RuleEngine {
 				}
 			}
 
-			if let Some(seq) = &rule.inner.sequence {
-				self.correlator.on_root_match(&shard_key, &rule.inner.id, seq, now);
-			}
-			self.advance_sequences(
-				&shard_key,
-				rule,
-				now,
-				ruleset,
-				index,
-				&mut out,
-				&meta,
-				&ctx,
-				&mut fields,
-			);
-		}
+			let roots = index.seq_roots(cand.idx);
 
-		out
+			if rule.inner.sequence.is_some() || !roots.is_empty() {
+				let now = *now.get_or_insert_with(Instant::now);
+
+				if let Some(seq) = &rule.inner.sequence {
+					self.correlator.on_root_match(&shard_key, &rule.inner.id, seq, now, meta.pid);
+				}
+
+				if !roots.is_empty() {
+					self.advance_sequences(&shard_key, rule, now, rules, roots, out, &meta, &ctx, &mut fields);
+				}
+			}
+		}
 	}
 
-	fn event_to_ctx<E: Event>(event: &E) -> EvalCtx {
-		EvalCtx::new(event.to_fields())
+	pub fn process_event(&self, event: &CerberusEvent) -> Vec<EngineEvent> {
+		let mut out = Vec::new();
+		self.process_event_into(event, &mut out);
+		out
 	}
 
 	fn rule_to_eval_event(rule: &CompiledRule, event_meta: EventMeta) -> EvaluatedEvent {
 		EvaluatedEvent {
-			rule_id: Arc::from(rule.inner.id.clone()),
+			rule_id: rule.inner.id.clone(),
 			rule_hash: rule.hash_hex.clone(),
 			severity: rule.inner.severity,
 			event_meta,
@@ -249,6 +240,48 @@ mod tests {
 		match ev {
 			EngineEvent::Matched(e) => e,
 			_ => panic!("expected EngineEvent::Matched"),
+		}
+	}
+
+	fn generic_event(pid: u32, uid: u32, comm: &str) -> CerberusEvent {
+		CerberusEvent::Generic(RingBufEvent {
+			name: "KILL",
+			header: EventHeader {
+				cgroup_id: 0,
+				container: None,
+				ts: 0,
+				mnt_ns: 0,
+				pid,
+				ppid: 1,
+				tgid: pid,
+				uid,
+				comm: Arc::from(comm),
+			},
+			meta_type: 0,
+			meta: 0,
+		})
+	}
+
+	fn raw_rule(id: &str, conditions: Vec<crate::rule::Condition>) -> crate::rule::Rule {
+		crate::rule::Rule {
+			inner: crate::rule::RuleInner {
+				id: id.to_string(),
+				description: "test".to_string(),
+				severity: Severity::Low,
+				conditions,
+				sequence: None,
+				response_chain: None,
+			},
+			hash: [0u8; 32],
+			hash_hex: Arc::from("0".repeat(64)),
+		}
+	}
+
+	fn cond(field: &str, op: &str, value: Value) -> crate::rule::Condition {
+		crate::rule::Condition {
+			field: field.to_string(),
+			op: op.to_string(),
+			value,
 		}
 	}
 
@@ -397,6 +430,67 @@ mod tests {
 	}
 
 	#[test]
+	fn rules_needing_absent_fields_are_not_candidates() -> Result<()> {
+		// -- Setup & Fixtures
+		// inode.filename is only supplied by Inode events, so placement files this
+		// rule under Inode alone — a Generic event never lists it as a candidate.
+		let rule = raw_rule(
+			"inode-rule",
+			vec![cond("inode.filename", "starts_with", Value::String("/tmp".to_string()))],
+		);
+		let engine = RuleEngine::new_from_ruleset(crate::RuleSet::new(vec![rule])?)?;
+
+		// -- Exec & Check
+		assert!(engine.process_event(&generic_event(1, 0, "bash")).is_empty());
+
+		Ok(())
+	}
+
+	#[test]
+	fn not_in_does_not_match_when_field_is_absent() -> Result<()> {
+		// -- Setup & Fixtures
+		// not_in requires presence: "the field exists and is not in this set".
+		let rule = raw_rule(
+			"not-in-absent",
+			vec![
+				cond("process.pid", "equals", Value::Integer(1)),
+				cond(
+					"inode.filename",
+					"not_in",
+					Value::Array(vec![Value::String("/etc/shadow".to_string())]),
+				),
+			],
+		);
+		let engine = RuleEngine::new_from_ruleset(crate::RuleSet::new(vec![rule])?)?;
+
+		// -- Exec & Check
+		assert!(
+			engine.process_event(&generic_event(1, 0, "bash")).is_empty(),
+			"not_in must not match an event lacking the field"
+		);
+
+		Ok(())
+	}
+
+	#[test]
+	fn process_event_into_appends_without_clearing() -> Result<()> {
+		let ruleset = RuleSet::load_from_dir("./rules/")?;
+		let engine = RuleEngine::new_from_ruleset(ruleset)?;
+
+		let event = generic_event(1, 0, "bash");
+
+		let mut buf = Vec::new();
+		engine.process_event_into(&event, &mut buf);
+		let first = buf.len();
+		assert!(first > 0);
+
+		engine.process_event_into(&event, &mut buf);
+		assert_eq!(buf.len(), first * 2, "process_event_into must append, not clear");
+
+		Ok(())
+	}
+
+	#[test]
 	fn load_rule_from_file_and_match_event() -> Result<()> {
 		let engine = RuleEngine::new("rules/")?;
 
@@ -419,7 +513,7 @@ mod tests {
 			meta: 0,
 		});
 
-		let mut ctx = RuleEngine::event_to_ctx(&event);
+		let mut ctx = EvalCtx::new(event.to_fields());
 		ctx.insert(
 			lib_event_schema::Field::ProcessFilepath,
 			lib_event_schema::FieldValue::String("/tmp/test.txt".into()),

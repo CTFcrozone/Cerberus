@@ -1,5 +1,7 @@
 use std::sync::Arc;
 
+use lib_event_schema::FieldValue;
+
 use crate::{
 	Error, Rule, Severity, Trigger,
 	error::Result,
@@ -24,32 +26,41 @@ pub struct CompiledRuleInner {
 	pub conditions: Vec<CompiledCondition>,
 	pub sequence: Option<CompiledSequence>,
 	pub response_chain: Option<Arc<CompiledResponseChain>>,
-	/// Every field this rule mentions. Drives index placement.
-	pub field_mask: u64,
 	/// Fields whose *absence* makes this rule fail. Drives the runtime prefilter:
 	/// `required_mask & !ctx.present() != 0` means the rule cannot possibly match,
 	/// without evaluating a single condition.
 	pub required_mask: u64,
 }
 
-fn condition_masks(conditions: &[CompiledCondition]) -> (u64, u64) {
-	let mut field_mask = 0u64;
-	let mut required_mask = 0u64;
+fn op_cost(cond: &CompiledCondition) -> u8 {
+	use FieldValue as V;
 
-	for c in conditions {
-		let bit = c.field.mask();
-		field_mask |= bit;
+	match (cond.op, &cond.value) {
+		// presence check, no comparison at all
+		(Op::Exists, _) => 0,
 
-		if !matches!(c.op, Op::NotIn) {
-			required_mask |= bit;
-		}
+		// single-word integer work
+		(Op::BitAnd, _) => 1,
+		(Op::Gt | Op::Gte | Op::Lt | Op::Lte, _) => 1,
+		(Op::Eq | Op::NotEq, V::Int(_) | V::Ip(_) | V::Bool(_)) => 1,
+
+		// string equality: length check, then memcmp
+		(Op::Eq | Op::NotEq, _) => 2,
+
+		// linear scan over scalars
+		(Op::In | Op::NotIn, V::IntSet(_) | V::IpSet(_)) => 3,
+
+		// linear scan with a string compare per element
+		(Op::In | Op::NotIn, _) => 4,
+
+		(Op::StartsWith, _) => 5,
+		(Op::Contains, _) => 6,
+		(Op::Regex, _) => 7,
 	}
-
-	(field_mask, required_mask)
 }
 
 pub fn compile_rule(raw: Rule, hash: [u8; 32], hash_hex: Arc<str>) -> Result<CompiledRule> {
-	let conditions = raw
+	let mut conditions = raw
 		.inner
 		.conditions
 		.into_iter()
@@ -60,7 +71,9 @@ pub fn compile_rule(raw: Rule, hash: [u8; 32], hash_hex: Arc<str>) -> Result<Com
 		return Err(Error::RuleWithoutConditions { rule_id: raw.inner.id });
 	}
 
-	let (field_mask, required_mask) = condition_masks(&conditions);
+	conditions.sort_by_key(op_cost);
+
+	let required_mask = conditions.iter().fold(0u64, |acc, c| acc | c.field.mask());
 
 	let sequence = raw.inner.sequence.map(compile_sequence).transpose()?;
 
@@ -82,7 +95,6 @@ pub fn compile_rule(raw: Rule, hash: [u8; 32], hash_hex: Arc<str>) -> Result<Com
 			conditions,
 			sequence,
 			response_chain,
-			field_mask,
 			required_mask,
 		},
 	})
@@ -143,17 +155,13 @@ mod tests {
 
 		// -- Check
 		let expected = Field::ProcessPid.mask() | Field::ProcessComm.mask();
-		assert_eq!(compiled.inner.field_mask, expected);
 		assert_eq!(compiled.inner.required_mask, expected);
 
 		Ok(())
 	}
 
 	#[test]
-	fn not_in_is_excluded_from_required_mask() -> Result<()> {
-		// -- Setup & Fixtures
-		// `not_in` on a missing field evaluates to TRUE, so it must not be treated as
-		// a presence requirement. This is the mask bug that silently drops matches.
+	fn not_in_requires_presence_like_every_other_op() -> Result<()> {
 		let raw = raw_rule(
 			"not-in-rule",
 			vec![
@@ -162,16 +170,12 @@ mod tests {
 			],
 		);
 
-		// -- Exec
 		let compiled = compile(raw)?;
 
-		// -- Check
 		assert_eq!(
-			compiled.inner.field_mask,
+			compiled.inner.required_mask,
 			Field::ProcessPid.mask() | Field::ProcessUid.mask()
 		);
-		assert_eq!(compiled.inner.required_mask, Field::ProcessPid.mask());
-		assert_eq!(compiled.inner.required_mask & Field::ProcessUid.mask(), 0);
 
 		Ok(())
 	}
@@ -203,16 +207,15 @@ mod tests {
 	}
 
 	#[test]
-	fn every_op_except_not_in_requires_presence() -> Result<()> {
+	fn every_op_requires_presence() -> Result<()> {
 		// -- Setup & Fixtures
-		// Guards against a new op being added to Evaluator without revisiting
-		// condition_masks.
 		let cases = [
 			("equals", Value::Integer(1)),
 			("not_equals", Value::Integer(1)),
 			(">", Value::Integer(1)),
 			("<=", Value::Integer(1)),
 			("bit_and", Value::Integer(1)),
+			("not_in", Value::Array(vec![Value::Integer(1)])),
 			("exists", Value::Boolean(true)),
 			("in", Value::Array(vec![Value::Integer(1)])),
 		];
@@ -228,6 +231,46 @@ mod tests {
 				"op '{op}' should require presence"
 			);
 		}
+
+		Ok(())
+	}
+	#[test]
+	fn conditions_are_sorted_cheapest_first() -> Result<()> {
+		// -- Setup & Fixtures: authored worst-first
+		let raw = raw_rule(
+			"ordered",
+			vec![
+				cond("process.comm", "regex", Value::String("^sshd".into())),
+				cond("process.filepath", "contains", Value::String("/tmp".into())),
+				cond("process.pid", "equals", Value::Integer(42)),
+			],
+		);
+
+		// -- Exec
+		let compiled = compile(raw)?;
+
+		// -- Check
+		let costs: Vec<u8> = compiled.inner.conditions.iter().map(op_cost).collect();
+		assert_eq!(costs, vec![1, 6, 7], "conditions were not reordered");
+
+		Ok(())
+	}
+
+	#[test]
+	fn equal_cost_conditions_keep_authored_order() -> Result<()> {
+		let raw = raw_rule(
+			"stable",
+			vec![
+				cond("process.tgid", "equals", Value::Integer(1)),
+				cond("process.pid", "equals", Value::Integer(2)),
+				cond("process.uid", "equals", Value::Integer(3)),
+			],
+		);
+
+		let compiled = compile(raw)?;
+
+		let fields: Vec<Field> = compiled.inner.conditions.iter().map(|c| c.field).collect();
+		assert_eq!(fields, vec![Field::ProcessTgid, Field::ProcessPid, Field::ProcessUid]);
 
 		Ok(())
 	}

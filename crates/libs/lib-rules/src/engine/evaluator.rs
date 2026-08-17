@@ -32,7 +32,7 @@ impl Evaluator {
 			},
 
 			Op::In => Self::eval_in(left, &cond.value),
-			Op::NotIn => !Self::eval_in(left, &cond.value),
+			Op::NotIn => left.is_some() && !Self::eval_in(left, &cond.value),
 			Op::Exists => left.is_some(),
 			Op::Gt => Self::numeric_cmp_compiled(left, &cond.value, |a, b| a > b),
 			Op::Gte => Self::numeric_cmp_compiled(left, &cond.value, |a, b| a >= b),
@@ -207,7 +207,6 @@ mod tests {
 
 			sequence: None,
 			response_chain: None,
-			field_mask: 0,
 			required_mask: 0,
 		};
 
@@ -228,7 +227,6 @@ mod tests {
 
 			sequence: None,
 			response_chain: None,
-			field_mask: 0,
 			required_mask: 0,
 		};
 

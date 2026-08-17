@@ -1,9 +1,7 @@
-use std::{collections::HashMap, sync::Arc};
-
 use lib_common::event::CerberusEvent;
 use lib_event_schema::Field;
-use strum::IntoEnumIterator;
-use strum_macros::EnumIter;
+use strum::{EnumCount, IntoEnumIterator};
+use strum_macros::{EnumCount, EnumIter};
 
 use crate::rule::compiled::ruleset::CompiledRuleSet;
 
@@ -47,11 +45,7 @@ pub const fn kind_chars(kind: EventKind) -> u64 {
 	kind_fields(kind) & !COMMON
 }
 
-fn rule_field_mask(rule: &crate::rule::compiled::rule::CompiledRule) -> u64 {
-	rule.inner.conditions.iter().fold(0u64, |acc, c| acc | c.field.mask())
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, EnumIter)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, EnumCount, EnumIter)]
 pub enum EventKind {
 	Generic,
 	InetSock,
@@ -82,55 +76,102 @@ impl From<&CerberusEvent> for EventKind {
 	}
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Candidate {
+	pub idx: u32,
+}
+
 pub struct RuleIndex {
-	// Event kind -> rule IDs that may match that event kind.
-	pub by_evt_kind: HashMap<EventKind, Vec<Arc<str>>>,
+	// Event kind -> candidates, kind-specific first then universal.
+	candidates: [Vec<Candidate>; EventKind::COUNT],
 
-	// Rules that cannot be narrowed to a specific event kind.
-	pub universal_rules: Vec<Arc<str>>,
+	// Dense: one slot per rule, empty for the common case.
+	seq_listeners: Vec<Vec<u32>>,
 
-	// Step rule ID -> root rule IDs containing that step.
-	pub seq_listeners: HashMap<Arc<str>, Vec<Arc<str>>>,
+	// Rules that could not be narrowed to a kind. Kept for introspection.
+	universal: Vec<Candidate>,
 }
 
 impl RuleIndex {
 	pub fn build(ruleset: &CompiledRuleSet) -> Self {
-		let mut by_evt_kind: HashMap<EventKind, Vec<Arc<str>>> = HashMap::new();
-		let mut seq_listeners: HashMap<Arc<str>, Vec<Arc<str>>> = HashMap::new();
-		let mut universal_rules = Vec::new();
-		for rule in ruleset.rules() {
-			let rule_id = rule.inner.id.clone();
-			let used = rule_field_mask(rule);
+		let rules = ruleset.rules();
+
+		let mut per_kind: [Vec<Candidate>; EventKind::COUNT] = core::array::from_fn(|_| Vec::new());
+		let mut universal: Vec<Candidate> = Vec::new();
+		let mut seq_listeners: Vec<Vec<u32>> = vec![Vec::new(); rules.len()];
+
+		for (i, rule) in rules.iter().enumerate() {
+			let idx = i as u32;
+			let used = rule.inner.required_mask;
+			let cand = Candidate { idx };
 			let mut placed = false;
 			for kind in EventKind::iter() {
 				let discriminates = used & kind_chars(kind) != 0;
 				let satisfiable = used & !kind_fields(kind) == 0;
+
 				if discriminates && satisfiable {
-					by_evt_kind.entry(kind).or_default().push(rule_id.clone());
+					per_kind[kind as usize].push(cand);
 					placed = true;
 				}
 			}
+
 			if !placed {
-				universal_rules.push(rule_id.clone());
+				universal.push(cand);
 			}
+
+			// A rule whose fields no single kind can supply is evaluated against every
+			// event and can never match. Almost always a typo.
+			// if used != 0 && !EventKind::iter().any(|k| used & !kind_fields(k) == 0) {
+			// 	tracing::warn!(
+			// 		rule.id = %rule.inner.id,
+			// 		"rule references fields that no single event kind provides; it can never match"
+			// 	);
+			// }
 
 			if let Some(seq) = &rule.inner.sequence {
 				for step in &seq.steps {
-					seq_listeners.entry(step.rule_id.clone()).or_default().push(rule_id.clone());
+					// CompiledRuleSet::new rejects unknown step ids, so this always resolves
+					let Some(step_idx) = ruleset.index_of(&step.rule_id) else {
+						continue;
+					};
+
+					seq_listeners[step_idx].push(idx);
 				}
 			}
 		}
 
-		for roots in seq_listeners.values_mut() {
+		for roots in seq_listeners.iter_mut() {
 			roots.sort_unstable();
 			roots.dedup();
 		}
 
-		Self {
-			by_evt_kind,
-			seq_listeners,
-			universal_rules,
+		let mut candidates = per_kind;
+		for bucket in candidates.iter_mut() {
+			bucket.extend_from_slice(&universal);
+			bucket.shrink_to_fit();
 		}
+
+		Self {
+			candidates,
+			seq_listeners,
+			universal,
+		}
+	}
+
+	#[inline]
+	pub fn candidates(&self, kind: EventKind) -> &[Candidate] {
+		&self.candidates[kind as usize]
+	}
+
+	/// Root rules whose sequences list `rule_idx` as a step. Empty for most rules.
+	#[inline]
+	pub fn seq_roots(&self, rule_idx: u32) -> &[u32] {
+		self.seq_listeners.get(rule_idx as usize).map(|v| v.as_slice()).unwrap_or(&[])
+	}
+
+	#[inline]
+	pub fn universal(&self) -> &[Candidate] {
+		&self.universal
 	}
 }
 
@@ -140,7 +181,7 @@ impl RuleIndex {
 mod tests {
 	type Result<T> = core::result::Result<T, Box<dyn std::error::Error>>; // For tests.
 
-	use std::time::Duration;
+	use std::{sync::Arc, time::Duration};
 
 	use lib_common::event::*;
 	use lib_event_schema::FieldValue;
@@ -158,10 +199,6 @@ mod tests {
 
 	use super::*;
 
-	fn candidates_for(index: &RuleIndex, kind: EventKind) -> Vec<Arc<str>> {
-		let specific = index.by_evt_kind.get(&kind).map(|v| v.as_slice()).unwrap_or(&[]);
-		specific.iter().chain(index.universal_rules.iter()).cloned().collect()
-	}
 	fn mask_of(fields: &[Option<FieldValue>; Field::COUNT]) -> u64 {
 		fields
 			.iter()
@@ -266,11 +303,41 @@ mod tests {
 				conditions: vec![],
 				sequence,
 				response_chain: None,
-				field_mask: 0,
 				required_mask: 0,
 			},
 			hash: [0u8; 32],
 			hash_hex: Arc::from("0".repeat(64)),
+		}
+	}
+
+	fn mk_rule_with(id: &str, conds: Vec<Condition>) -> Result<CompiledRule> {
+		let conditions = conds
+			.into_iter()
+			.map(compile_condition)
+			.collect::<core::result::Result<Vec<_>, _>>()?;
+
+		let required_mask = conditions.iter().fold(0u64, |acc, c| acc | c.field.mask());
+
+		Ok(CompiledRule {
+			inner: CompiledRuleInner {
+				id: id.into(),
+				description: "test".into(),
+				severity: crate::rule::Severity::Medium,
+				conditions,
+				sequence: None,
+				response_chain: None,
+				required_mask,
+			},
+			hash: [0u8; 32],
+			hash_hex: Arc::from("0".repeat(64)),
+		})
+	}
+
+	fn cond(field: &str, op: &str, value: Value) -> Condition {
+		Condition {
+			field: field.into(),
+			op: op.into(),
+			value,
 		}
 	}
 
@@ -299,29 +366,28 @@ mod tests {
 	#[test]
 	fn sequence_listener_is_deduplicated_for_repeated_steps() -> Result<()> {
 		// -- Setup & Fixtures
-		// The step rules must exist: CompiledRuleSet::new now rejects sequences
-		// that reference unknown rule ids.
+		// The step rules must exist: CompiledRuleSet::new rejects sequences that
+		// reference unknown rule ids.
 		let ruleset = CompiledRuleSet::new(vec![
 			mk_rule("brute-force", Some(mk_seq())),
 			mk_rule("failed-login", None),
 			mk_rule("success-login", None),
 		])?;
 
+		let brute = ruleset.index_of("brute-force").expect("brute-force missing") as u32;
+		let failed = ruleset.index_of("failed-login").expect("failed-login missing") as u32;
+		let success = ruleset.index_of("success-login").expect("success-login missing") as u32;
+
 		// -- Exec
 		let index = RuleIndex::build(&ruleset);
 
 		// -- Check
 		// "failed-login" appears twice in the sequence; the root is listed once.
-		let roots = index.seq_listeners.get("failed-login").expect("missing failed-login listener");
-		assert_eq!(roots.len(), 1);
-		assert_eq!(roots[0], "brute-force".into());
+		assert_eq!(index.seq_roots(failed), &[brute]);
+		assert_eq!(index.seq_roots(success), &[brute]);
 
-		let roots = index
-			.seq_listeners
-			.get("success-login")
-			.expect("missing success-login listener");
-		assert_eq!(roots.len(), 1);
-		assert_eq!(roots[0], "brute-force".into());
+		// the root itself is not a step of anything
+		assert!(index.seq_roots(brute).is_empty());
 
 		Ok(())
 	}
@@ -344,47 +410,51 @@ mod tests {
 				"kind_fields({kind:?}) disagrees with to_fields(); update the mask table"
 			);
 
+			// chars is derived
 			assert_eq!(kind_chars(kind) & !kind_fields(kind), 0);
 		}
 	}
 
 	#[test]
 	fn process_fields_do_not_demote_a_kind_specific_rule() {
-		// `all_available` and fall through to universal_rules.
 		let used = Field::NetworkProtocol.mask() | Field::ProcessComm.mask();
 
 		assert!(used & kind_chars(EventKind::InetSock) != 0);
 		assert!(used & !kind_fields(EventKind::InetSock) == 0);
 
-		// and network.daddr is both characteristic and available
 		let used = Field::NetworkDaddr.mask();
 		assert!(used & kind_chars(EventKind::InetSock) != 0);
 		assert!(used & !kind_fields(EventKind::InetSock) == 0);
 	}
 
 	#[test]
+	fn common_fields_alone_do_not_pin_a_rule_to_a_kind() -> Result<()> {
+		// process.* is carried by every kind, so it discriminates nothing.
+		let rule = mk_rule_with("pid-only", vec![cond("process.pid", "equals", Value::Integer(1))])?;
+		let ruleset = CompiledRuleSet::new(vec![rule])?;
+
+		let index = RuleIndex::build(&ruleset);
+
+		assert_eq!(index.universal().len(), 1);
+
+		Ok(())
+	}
+
+	#[test]
 	fn universal_rules_appear_in_every_kind_bucket() -> Result<()> {
 		// -- Setup & Fixtures
-		// mk_rule has no conditions, so its field mask is 0 and it can never
-		// discriminate a kind: it must land in universal_rules.
 		let ruleset = CompiledRuleSet::new(vec![mk_rule("everywhere", None)])?;
 
 		// -- Exec
 		let index = RuleIndex::build(&ruleset);
 
 		// -- Check
-		assert_eq!(index.universal_rules.len(), 1);
-		assert!(
-			index.by_evt_kind.is_empty(),
-			"a universal rule must not be placed under any specific kind"
-		);
+		assert_eq!(index.universal().len(), 1);
 
 		for kind in EventKind::iter() {
-			let cands = candidates_for(&index, kind);
-			assert!(
-				cands.iter().any(|id| id.as_ref() == "everywhere"),
-				"{kind:?} does not consider the universal rule"
-			);
+			let cands = index.candidates(kind);
+			assert_eq!(cands.len(), 1, "{kind:?} bucket missing the universal rule");
+			assert_eq!(cands[0].idx, 0);
 		}
 
 		Ok(())
@@ -393,31 +463,55 @@ mod tests {
 	#[test]
 	fn kind_specific_rules_are_not_universal() -> Result<()> {
 		// -- Setup & Fixtures
-		let mut rule = mk_rule("inet-only", None);
-		rule.inner.conditions = vec![compile_condition(Condition {
-			field: "network.protocol".into(),
-			op: "==".into(),
-			value: Value::String("TCP".into()),
-		})?];
-
+		// Includes process.comm on purpose: the P3 regression case.
+		let rule = mk_rule_with(
+			"inet-only",
+			vec![
+				cond("network.protocol", "==", Value::String("TCP".into())),
+				cond("process.comm", "==", Value::String("curl".into())),
+			],
+		)?;
 		let ruleset = CompiledRuleSet::new(vec![rule])?;
 
 		// -- Exec
 		let index = RuleIndex::build(&ruleset);
 
 		// -- Check
-		assert!(index.universal_rules.is_empty());
-		assert_eq!(index.by_evt_kind.get(&EventKind::InetSock).map(|v| v.len()), Some(1));
+		assert!(index.universal().is_empty(), "rule was demoted to universal");
 
-		// and it is considered for InetSock only
 		for kind in EventKind::iter() {
-			let expected = kind == EventKind::InetSock;
-			assert_eq!(
-				candidates_for(&index, kind).iter().any(|id| id.as_ref() == "inet-only"),
-				expected,
-				"{kind:?}"
-			);
+			let expected = usize::from(kind == EventKind::InetSock);
+			assert_eq!(index.candidates(kind).len(), expected, "{kind:?}");
 		}
+
+		Ok(())
+	}
+	#[test]
+	fn required_mask_places_a_rule_under_its_kind() -> Result<()> {
+		// -- Setup & Fixtures
+		let rule = mk_rule_with(
+			"inode-rule",
+			vec![cond("inode.filename", "starts_with", Value::String("/tmp".into()))],
+		)?;
+		let ruleset = CompiledRuleSet::new(vec![rule])?;
+
+		// -- Exec
+		let index = RuleIndex::build(&ruleset);
+
+		// -- Check
+		assert!(index.universal().is_empty());
+		assert_eq!(index.candidates(EventKind::Inode).len(), 1);
+		assert_eq!(index.candidates(EventKind::Generic).len(), 0);
+
+		Ok(())
+	}
+	#[test]
+	fn seq_roots_is_empty_for_unknown_index() -> Result<()> {
+		let ruleset = CompiledRuleSet::new(vec![])?;
+		let index = RuleIndex::build(&ruleset);
+
+		assert!(index.seq_roots(0).is_empty());
+		assert!(index.seq_roots(9999).is_empty());
 
 		Ok(())
 	}

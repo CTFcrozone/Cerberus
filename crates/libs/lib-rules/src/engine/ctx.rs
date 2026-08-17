@@ -17,7 +17,6 @@ impl EvalCtx {
 		self.fields[field.index()].as_ref()
 	}
 
-	#[allow(dead_code)]
 	pub fn fields(&self) -> &[Option<FieldValue>; Field::COUNT] {
 		&self.fields
 	}

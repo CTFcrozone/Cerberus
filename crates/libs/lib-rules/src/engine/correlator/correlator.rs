@@ -5,7 +5,7 @@ use lib_common::event::EventMeta;
 use crate::{
 	engine::CorrelationEvent,
 	hash_utils::{FastMap, new_fast_map},
-	rule::compiled::sequence::CompiledSequence,
+	rule::{Scope, compiled::sequence::CompiledSequence},
 };
 
 pub struct Correlator {
@@ -31,6 +31,7 @@ pub struct SequenceProgress {
 	pub path: Vec<Arc<str>>,
 	pub last_match: Instant,
 	pub expiry: Instant,
+	pub scope_pid: Option<u32>,
 }
 
 impl Correlator {
@@ -41,7 +42,7 @@ impl Correlator {
 		}
 	}
 
-	pub fn on_root_match(&mut self, root_rule_id: &Arc<str>, seq: &CompiledSequence, now: Instant) {
+	pub fn on_root_match(&mut self, root_rule_id: &Arc<str>, seq: &CompiledSequence, now: Instant, pid: u32) {
 		if seq.steps.is_empty() {
 			return;
 		}
@@ -67,6 +68,7 @@ impl Correlator {
 				step_idx: 0,
 				last_match: now,
 				expiry: now + seq.steps[0].within,
+				scope_pid: matches!(seq.scope, Some(Scope::Pid)).then_some(pid),
 			},
 		);
 
@@ -92,6 +94,12 @@ impl Correlator {
 		for (instance_id, prog) in root.iter_mut() {
 			if prog.seq_id.as_ref() != seq.id.as_ref() {
 				continue;
+			}
+
+			if let Some(scope_pid) = prog.scope_pid {
+				if scope_pid != event_meta.pid {
+					continue;
+				}
 			}
 
 			if now > prog.expiry {
@@ -188,6 +196,21 @@ mod tests {
 		}
 	}
 
+	fn mk_scoped_seq() -> CompiledSequence {
+		CompiledSequence {
+			scope: Some(Scope::Pid),
+			..mk_seq()
+		}
+	}
+
+	fn meta_for(pid: u32) -> EventMeta {
+		EventMeta {
+			uid: 0,
+			pid,
+			comm: "test".into(),
+		}
+	}
+
 	fn mk_meta() -> EventMeta {
 		EventMeta {
 			uid: 0,
@@ -201,7 +224,7 @@ mod tests {
 		let seq = mk_seq();
 		let t0 = Instant::now();
 
-		corr.on_root_match(&Arc::<str>::from("kernel-module-loader"), &seq, t0);
+		corr.on_root_match(&Arc::<str>::from("kernel-module-loader"), &seq, t0, 0);
 
 		let res = corr.on_rule_match(
 			&Arc::<str>::from("port-scan"),
@@ -257,12 +280,69 @@ mod tests {
 	}
 
 	#[test]
+	fn pid_scoped_sequence_ignores_other_processes() -> Result<()> {
+		// -- Setup & Fixtures
+		let mut corr = Correlator::new();
+		let seq = mk_scoped_seq();
+		let t0 = Instant::now();
+		let root = Arc::<str>::from("kernel-module-loader");
+
+		corr.on_root_match(&root, &seq, t0, 100);
+
+		// -- Exec: step fires, but from a different process
+		let res = corr.on_rule_match(
+			&Arc::<str>::from("port-scan"),
+			&seq,
+			&root,
+			t0 + Duration::from_secs(1),
+			&meta_for(999),
+		);
+
+		// -- Check
+		assert!(res.is_empty(), "a different pid must not advance a pid-scoped sequence");
+
+		// same pid does advance it
+		let res = corr.on_rule_match(
+			&Arc::<str>::from("port-scan"),
+			&seq,
+			&root,
+			t0 + Duration::from_secs(2),
+			&meta_for(100),
+		);
+		assert_eq!(res.len(), 1);
+
+		Ok(())
+	}
+
+	#[test]
+	fn unscoped_sequence_advances_from_any_process() -> Result<()> {
+		let mut corr = Correlator::new();
+		let seq = mk_seq(); // scope: None
+		let t0 = Instant::now();
+		let root = Arc::<str>::from("kernel-module-loader");
+
+		corr.on_root_match(&root, &seq, t0, 100);
+
+		let res = corr.on_rule_match(
+			&Arc::<str>::from("port-scan"),
+			&seq,
+			&root,
+			t0 + Duration::from_secs(1),
+			&meta_for(999),
+		);
+
+		assert_eq!(res.len(), 1, "unscoped sequences must not filter by pid");
+
+		Ok(())
+	}
+
+	#[test]
 	fn rule_sequence_expires() -> Result<()> {
 		let mut corr = Correlator::new();
 		let seq = mk_seq();
 		let t0 = Instant::now();
 
-		corr.on_root_match(&Arc::<str>::from("kernel-module-loader"), &seq, t0);
+		corr.on_root_match(&Arc::<str>::from("kernel-module-loader"), &seq, t0, 0);
 		let res = corr.on_rule_match(
 			&Arc::<str>::from("port-scan"),
 			&seq,
@@ -283,7 +363,7 @@ mod tests {
 		let seq = mk_seq();
 		let t0 = Instant::now();
 
-		corr.on_root_match(&Arc::<str>::from("kernel-module-loader"), &seq, t0);
+		corr.on_root_match(&Arc::<str>::from("kernel-module-loader"), &seq, t0, 0);
 
 		let res = corr.on_rule_match(
 			&Arc::<str>::from("unrelated-rule"),
@@ -304,7 +384,7 @@ mod tests {
 		let seq = mk_seq();
 		let t0 = Instant::now();
 
-		corr.on_root_match(&Arc::<str>::from("kernel-module-loader"), &seq, t0);
+		corr.on_root_match(&Arc::<str>::from("kernel-module-loader"), &seq, t0, 0);
 
 		let res = corr.on_rule_match(
 			&Arc::<str>::from("service-probe"),
@@ -325,11 +405,12 @@ mod tests {
 		let seq = mk_seq();
 		let t0 = Instant::now();
 
-		corr.on_root_match(&Arc::<str>::from("kernel-module-loader"), &seq, t0);
+		corr.on_root_match(&Arc::<str>::from("kernel-module-loader"), &seq, t0, 0);
 		corr.on_root_match(
 			&Arc::<str>::from("kernel-module-loader"),
 			&seq,
 			t0 + Duration::from_secs(1),
+			0,
 		);
 
 		let res = corr.on_rule_match(
@@ -357,7 +438,7 @@ mod tests {
 			scope: None,
 		};
 
-		corr.on_root_match(&Arc::<str>::from("tmp-exec"), &seq, t0);
+		corr.on_root_match(&Arc::<str>::from("tmp-exec"), &seq, t0, 0);
 
 		assert!(corr.active.is_empty());
 
@@ -377,7 +458,7 @@ mod tests {
 		// -- Exec: a root that fires repeatedly, with step rules that never fire.
 		// Every match is past the previous instance's 10s window.
 		for i in 0..50 {
-			corr.on_root_match(&root, &seq, t0 + Duration::from_secs(i * 11));
+			corr.on_root_match(&root, &seq, t0 + Duration::from_secs(i * 11), 0);
 		}
 
 		// -- Check: only the newest instance survives, not 50.
@@ -396,7 +477,7 @@ mod tests {
 
 		// -- Exec: all within the first step's window, so the sweep can't reclaim them.
 		for i in 0..(MAX_INSTANCES_PER_ROOT * 3) {
-			corr.on_root_match(&root, &seq, t0 + Duration::from_millis(i as u64));
+			corr.on_root_match(&root, &seq, t0 + Duration::from_millis(i as u64), 0);
 		}
 
 		// -- Check
@@ -412,8 +493,8 @@ mod tests {
 		let t0 = Instant::now();
 		let root = Arc::<str>::from("kernel-module-loader");
 
-		corr.on_root_match(&root, &seq, t0);
-		corr.on_root_match(&root, &seq, t0);
+		corr.on_root_match(&root, &seq, t0, 0);
+		corr.on_root_match(&root, &seq, t0, 0);
 
 		let mut ids: Vec<u64> = corr.active.get(&root).expect("root missing").keys().copied().collect();
 		ids.sort_unstable();

@@ -33,11 +33,18 @@ impl ShardedCorrelator {
 		}
 	}
 
-	pub fn on_root_match(&self, shard_key: &ShardKey, root_rule_id: &Arc<str>, seq: &CompiledSequence, now: Instant) {
+	pub fn on_root_match(
+		&self,
+		shard_key: &ShardKey,
+		root_rule_id: &Arc<str>,
+		seq: &CompiledSequence,
+		now: Instant,
+		pid: u32,
+	) {
 		if seq.steps.is_empty() {
 			return;
 		}
-		self.get_or_create(shard_key).on_root_match(root_rule_id, seq, now);
+		self.get_or_create(shard_key).on_root_match(root_rule_id, seq, now, pid);
 	}
 
 	pub fn on_rule_match(
