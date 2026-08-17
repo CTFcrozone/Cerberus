@@ -20,6 +20,7 @@ impl Event for RingBufEvent {
 		f[Field::ProcessPid.index()] = Some(FieldValue::Int(self.header.pid as i64));
 		f[Field::ProcessTgid.index()] = Some(FieldValue::Int(self.header.tgid as i64));
 		f[Field::ProcessComm.index()] = Some(FieldValue::String(self.header.comm.clone()));
+		f[Field::ProcessParentComm.index()] = Some(FieldValue::String(self.header.parent_comm.clone()));
 		f
 	}
 }
@@ -37,6 +38,7 @@ impl Event for BpfMapEvent {
 		f[Field::ProcessPid.index()] = Some(FieldValue::Int(self.header.pid as i64));
 		f[Field::ProcessTgid.index()] = Some(FieldValue::Int(self.header.tgid as i64));
 		f[Field::ProcessComm.index()] = Some(FieldValue::String(self.header.comm.clone()));
+		f[Field::ProcessParentComm.index()] = Some(FieldValue::String(self.header.parent_comm.clone()));
 		f[Field::BpfMapId.index()] = Some(FieldValue::Int(self.map_id as i64));
 		f[Field::BpfMapName.index()] = Some(FieldValue::String(self.map_name.clone()));
 		f[Field::BpfMapType.index()] = Some(FieldValue::String(self.map_type.clone()));
@@ -57,6 +59,7 @@ impl Event for ModuleEvent {
 		f[Field::ProcessPid.index()] = Some(FieldValue::Int(self.header.pid as i64));
 		f[Field::ProcessTgid.index()] = Some(FieldValue::Int(self.header.tgid as i64));
 		f[Field::ProcessComm.index()] = Some(FieldValue::String(self.header.comm.clone()));
+		f[Field::ProcessParentComm.index()] = Some(FieldValue::String(self.header.parent_comm.clone()));
 		f[Field::ModuleName.index()] = Some(FieldValue::String(self.module_name.clone()));
 		f[Field::ModuleOp.index()] = Some(FieldValue::Int(self.op as i64));
 		f
@@ -77,6 +80,7 @@ impl Event for BprmSecurityEvent {
 		f[Field::ProcessPid.index()] = Some(FieldValue::Int(self.header.pid as i64));
 		f[Field::ProcessTgid.index()] = Some(FieldValue::Int(self.header.tgid as i64));
 		f[Field::ProcessComm.index()] = Some(FieldValue::String(self.header.comm.clone()));
+		f[Field::ProcessParentComm.index()] = Some(FieldValue::String(self.header.parent_comm.clone()));
 		f[Field::ProcessFilepath.index()] = Some(FieldValue::String(self.filepath.clone()));
 		f
 	}
@@ -95,6 +99,7 @@ impl Event for InodeMutationEvent {
 		f[Field::ProcessPid.index()] = Some(FieldValue::Int(self.header.pid as i64));
 		f[Field::ProcessTgid.index()] = Some(FieldValue::Int(self.header.tgid as i64));
 		f[Field::ProcessComm.index()] = Some(FieldValue::String(self.header.comm.clone()));
+		f[Field::ProcessParentComm.index()] = Some(FieldValue::String(self.header.parent_comm.clone()));
 		f[Field::InodeNewFilename.index()] = Some(FieldValue::String(self.new_filename.clone()));
 		f[Field::InodeOldFilename.index()] = Some(FieldValue::String(self.old_filename.clone()));
 		f[Field::InodeMutationType.index()] = Some(FieldValue::Int(self.mutation as i64));
@@ -115,6 +120,7 @@ impl Event for PtraceAccessCheckEvent {
 		f[Field::ProcessPid.index()] = Some(FieldValue::Int(self.header.pid as i64));
 		f[Field::ProcessTgid.index()] = Some(FieldValue::Int(self.header.tgid as i64));
 		f[Field::ProcessComm.index()] = Some(FieldValue::String(self.header.comm.clone()));
+		f[Field::ProcessParentComm.index()] = Some(FieldValue::String(self.header.parent_comm.clone()));
 		f[Field::ProcessTargetPid.index()] = Some(FieldValue::Int(self.target_pid as i64));
 		f[Field::ProcessTargetTgid.index()] = Some(FieldValue::Int(self.target_tgid as i64));
 		f[Field::ProcessTargetUid.index()] = Some(FieldValue::Int(self.target_uid as i64));
@@ -139,6 +145,7 @@ impl Event for InodeEvent {
 		f[Field::ProcessPid.index()] = Some(FieldValue::Int(self.header.pid as i64));
 		f[Field::ProcessTgid.index()] = Some(FieldValue::Int(self.header.tgid as i64));
 		f[Field::ProcessComm.index()] = Some(FieldValue::String(self.header.comm.clone()));
+		f[Field::ProcessParentComm.index()] = Some(FieldValue::String(self.header.parent_comm.clone()));
 		f[Field::InodeFilename.index()] = Some(FieldValue::String(self.filename.clone()));
 		f[Field::InodeOp.index()] = Some(FieldValue::Int(self.op as i64));
 		f
@@ -158,6 +165,7 @@ impl Event for InetSockEvent {
 		f[Field::ProcessPid.index()] = Some(FieldValue::Int(self.header.pid as i64));
 		f[Field::ProcessTgid.index()] = Some(FieldValue::Int(self.header.tgid as i64));
 		f[Field::ProcessComm.index()] = Some(FieldValue::String(self.header.comm.clone()));
+		f[Field::ProcessParentComm.index()] = Some(FieldValue::String(self.header.parent_comm.clone()));
 		f[Field::NetworkSport.index()] = Some(FieldValue::Int(self.sport as i64));
 		f[Field::NetworkDport.index()] = Some(FieldValue::Int(self.dport as i64));
 		f[Field::NetworkSaddr.index()] = Some(FieldValue::Ip(self.saddr));
@@ -183,6 +191,7 @@ impl Event for SocketEvent {
 		f[Field::ProcessPid.index()] = Some(FieldValue::Int(self.header.pid as i64));
 		f[Field::ProcessTgid.index()] = Some(FieldValue::Int(self.header.tgid as i64));
 		f[Field::ProcessComm.index()] = Some(FieldValue::String(self.header.comm.clone()));
+		f[Field::ProcessParentComm.index()] = Some(FieldValue::String(self.header.parent_comm.clone()));
 		f[Field::SocketPort.index()] = Some(FieldValue::Int(self.port as i64));
 		f[Field::SocketFamily.index()] = Some(FieldValue::Int(self.family as i64));
 		f[Field::SocketOp.index()] = Some(FieldValue::Int(self.op as i64));
@@ -203,6 +212,7 @@ impl Event for BpfProgLoadEvent {
 		f[Field::ProcessPid.index()] = Some(FieldValue::Int(self.header.pid as i64));
 		f[Field::ProcessTgid.index()] = Some(FieldValue::Int(self.header.tgid as i64));
 		f[Field::ProcessComm.index()] = Some(FieldValue::String(self.header.comm.clone()));
+		f[Field::ProcessParentComm.index()] = Some(FieldValue::String(self.header.parent_comm.clone()));
 		f[Field::BpfProgType.index()] = Some(FieldValue::Int(self.prog_type as i64));
 		f[Field::BpfProgFlags.index()] = Some(FieldValue::Int(self.flags as i64));
 		f[Field::BpfProgAttachType.index()] = Some(FieldValue::Int(self.attach_type as i64));

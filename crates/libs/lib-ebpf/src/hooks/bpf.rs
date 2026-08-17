@@ -13,7 +13,7 @@ use lib_ebpf_common::{
 
 use crate::{
 	EVT_MAP,
-	utils::{get_mnt_ns, get_ppid},
+	utils::{get_mnt_ns, get_parent_comm, get_ppid},
 	vmlinux::{bpf_map, bpf_prog},
 };
 
@@ -26,7 +26,7 @@ pub fn try_bpf_prog_load(ctx: LsmContext) -> Result<i32, i32> {
 	// let task = unsafe { bpf_get_current_task() as *const task_struct };
 	// let parent = unsafe { bpf_probe_read_kernel(&(*task).real_parent).map_err(|e| e as i32)? };
 	// let raw_ppid: i32 = unsafe { bpf_probe_read_kernel(&(*parent).pid).map_err(|e| e as i32)? };
-
+	let parent_comm = unsafe { get_parent_comm() };
 	let comm = bpf_get_current_comm().unwrap_or([0u8; 16]);
 	let cgroup_id = unsafe { bpf_get_current_cgroup_id() };
 	let mnt_ns = unsafe { get_mnt_ns() };
@@ -69,6 +69,7 @@ pub fn try_bpf_prog_load(ctx: LsmContext) -> Result<i32, i32> {
 			uid,
 			tgid,
 			comm,
+			parent_comm,
 			_pad0: [0u8; 3],
 		},
 		attach_type,
@@ -93,6 +94,7 @@ pub fn try_bpf_map(ctx: LsmContext) -> Result<i32, i32> {
 	// let task = unsafe { bpf_get_current_task() as *const task_struct };
 	// let parent = unsafe { bpf_probe_read_kernel(&(*task).real_parent).map_err(|e| e as i32)? };
 	// let raw_ppid: i32 = unsafe { bpf_probe_read_kernel(&(*parent).pid).map_err(|e| e as i32)? };
+	let parent_comm = unsafe { get_parent_comm() };
 
 	let comm = bpf_get_current_comm().unwrap_or([0u8; 16]);
 	let cgroup_id = unsafe { bpf_get_current_cgroup_id() };
@@ -130,6 +132,7 @@ pub fn try_bpf_map(ctx: LsmContext) -> Result<i32, i32> {
 			uid,
 			tgid,
 			comm,
+			parent_comm,
 			_pad0: [0u8; 3],
 		},
 		map_id,

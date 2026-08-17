@@ -81,6 +81,7 @@ fn generic_event(pid: u32, uid: u32) -> CerberusEvent {
 			tgid: pid,
 			uid,
 			comm: Arc::from("bash"),
+			parent_comm: Arc::from("bash"),
 		},
 		meta_type: 0,
 		meta: 0,

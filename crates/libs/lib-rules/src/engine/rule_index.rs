@@ -5,8 +5,11 @@ use strum_macros::{EnumCount, EnumIter};
 
 use crate::rule::compiled::ruleset::CompiledRuleSet;
 
-const COMMON: u64 =
-	Field::ProcessUid.mask() | Field::ProcessPid.mask() | Field::ProcessTgid.mask() | Field::ProcessComm.mask();
+const COMMON: u64 = Field::ProcessUid.mask()
+	| Field::ProcessPid.mask()
+	| Field::ProcessTgid.mask()
+	| Field::ProcessComm.mask()
+	| Field::ProcessParentComm.mask();
 
 pub const fn kind_fields(kind: EventKind) -> u64 {
 	use Field::*;
@@ -217,6 +220,7 @@ mod tests {
 			ppid: 1,
 			uid: 0,
 			tgid: 1,
+			parent_comm: Arc::from("test"),
 		}
 	}
 

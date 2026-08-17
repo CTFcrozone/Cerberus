@@ -8,6 +8,7 @@ pub fn compile_field(s: &str) -> Result<Field> {
 		"process.pid" => Field::ProcessPid,
 		"process.tgid" => Field::ProcessTgid,
 		"process.comm" => Field::ProcessComm,
+		"process.parent.comm" => Field::ProcessParentComm,
 		"process.filepath" => Field::ProcessFilepath,
 		"process.target.pid" => Field::ProcessTargetPid,
 		"process.target.tgid" => Field::ProcessTargetTgid,

@@ -14,7 +14,7 @@ use lib_ebpf_common::{
 
 use crate::{
 	EVT_MAP,
-	utils::{get_mnt_ns, get_ppid, read_dentry_name},
+	utils::{get_mnt_ns, get_parent_comm, get_ppid, read_dentry_name},
 	vmlinux::dentry,
 };
 
@@ -26,6 +26,7 @@ pub fn try_inode_unlink(ctx: LsmContext) -> Result<i32, i32> {
 	let comm_raw = bpf_get_current_comm().unwrap_or([0u8; 16]);
 	let ts = unsafe { bpf_ktime_get_ns() };
 	let ppid = unsafe { get_ppid() };
+	let parent_comm = unsafe { get_parent_comm() };
 
 	let cgroup_id = unsafe { bpf_get_current_cgroup_id() };
 	let mnt_ns = unsafe { get_mnt_ns() };
@@ -49,6 +50,7 @@ pub fn try_inode_unlink(ctx: LsmContext) -> Result<i32, i32> {
 			uid,
 			tgid,
 			comm: comm_raw,
+			parent_comm,
 			_pad0: [0u8; 3],
 		},
 		filename,
@@ -68,9 +70,10 @@ pub fn try_inode_rename(ctx: LsmContext) -> Result<i32, i32> {
 	let uid = bpf_get_current_uid_gid() as u32;
 	let pid = bpf_get_current_pid_tgid() as u32;
 	let tgid = (bpf_get_current_pid_tgid() >> 32) as u32;
-	let comm_raw = bpf_get_current_comm().unwrap_or([0u8; 16]);
+	let comm = bpf_get_current_comm().unwrap_or([0u8; 16]);
 	let ts = unsafe { bpf_ktime_get_ns() };
 	let ppid = unsafe { get_ppid() };
+	let parent_comm = unsafe { get_parent_comm() };
 
 	let cgroup_id = unsafe { bpf_get_current_cgroup_id() };
 	let mnt_ns = unsafe { get_mnt_ns() };
@@ -100,7 +103,8 @@ pub fn try_inode_rename(ctx: LsmContext) -> Result<i32, i32> {
 			ppid: ppid as u32,
 			uid,
 			tgid,
-			comm: comm_raw,
+			comm,
+			parent_comm,
 			_pad0: [0u8; 3],
 		},
 		new_filename,
@@ -120,9 +124,10 @@ pub fn try_inode_mkdir(ctx: LsmContext) -> Result<i32, i32> {
 	let uid = bpf_get_current_uid_gid() as u32;
 	let pid = bpf_get_current_pid_tgid() as u32;
 	let tgid = (bpf_get_current_pid_tgid() >> 32) as u32;
-	let comm_raw = bpf_get_current_comm().unwrap_or([0u8; 16]);
+	let comm = bpf_get_current_comm().unwrap_or([0u8; 16]);
 	let ts = unsafe { bpf_ktime_get_ns() };
 	let ppid = unsafe { get_ppid() };
+	let parent_comm = unsafe { get_parent_comm() };
 
 	let cgroup_id = unsafe { bpf_get_current_cgroup_id() };
 	let mnt_ns = unsafe { get_mnt_ns() };
@@ -144,7 +149,8 @@ pub fn try_inode_mkdir(ctx: LsmContext) -> Result<i32, i32> {
 			ppid: ppid as u32,
 			uid,
 			tgid,
-			comm: comm_raw,
+			comm,
+			parent_comm,
 			_pad0: [0u8; 3],
 		},
 		filename,
@@ -162,11 +168,12 @@ pub fn try_inode_link(ctx: LsmContext) -> Result<i32, i32> {
 	let uid = bpf_get_current_uid_gid() as u32;
 	let pid = bpf_get_current_pid_tgid() as u32;
 	let tgid = (bpf_get_current_pid_tgid() >> 32) as u32;
-	let comm_raw = bpf_get_current_comm().unwrap_or([0u8; 16]);
+	let comm = bpf_get_current_comm().unwrap_or([0u8; 16]);
 	let ts = unsafe { bpf_ktime_get_ns() };
 	let ppid = unsafe { get_ppid() };
 	let cgroup_id = unsafe { bpf_get_current_cgroup_id() };
 	let mnt_ns = unsafe { get_mnt_ns() };
+	let parent_comm = unsafe { get_parent_comm() };
 
 	let mut old_filename = [0u8; FILE_NAME_LEN];
 	let mut new_filename = [0u8; FILE_NAME_LEN];
@@ -194,7 +201,8 @@ pub fn try_inode_link(ctx: LsmContext) -> Result<i32, i32> {
 			ppid: ppid as u32,
 			uid,
 			tgid,
-			comm: comm_raw,
+			comm,
+			parent_comm,
 			_pad0: [0u8; 3],
 		},
 		new_filename,
@@ -214,11 +222,12 @@ pub fn try_inode_symlink(ctx: LsmContext) -> Result<i32, i32> {
 	let uid = bpf_get_current_uid_gid() as u32;
 	let pid = bpf_get_current_pid_tgid() as u32;
 	let tgid = (bpf_get_current_pid_tgid() >> 32) as u32;
-	let comm_raw = bpf_get_current_comm().unwrap_or([0u8; 16]);
+	let comm = bpf_get_current_comm().unwrap_or([0u8; 16]);
 	let ts = unsafe { bpf_ktime_get_ns() };
 	let ppid = unsafe { get_ppid() };
 	let cgroup_id = unsafe { bpf_get_current_cgroup_id() };
 	let mnt_ns = unsafe { get_mnt_ns() };
+	let parent_comm = unsafe { get_parent_comm() };
 
 	let mut old_filename = [0u8; FILE_NAME_LEN];
 	let mut new_filename = [0u8; FILE_NAME_LEN];
@@ -248,7 +257,8 @@ pub fn try_inode_symlink(ctx: LsmContext) -> Result<i32, i32> {
 			ppid: ppid as u32,
 			uid,
 			tgid,
-			comm: comm_raw,
+			comm,
+			parent_comm,
 			_pad0: [0u8; 3],
 		},
 		new_filename,
@@ -268,9 +278,10 @@ pub fn try_inode_rmdir(ctx: LsmContext) -> Result<i32, i32> {
 	let uid = bpf_get_current_uid_gid() as u32;
 	let pid = bpf_get_current_pid_tgid() as u32;
 	let tgid = (bpf_get_current_pid_tgid() >> 32) as u32;
-	let comm_raw = bpf_get_current_comm().unwrap_or([0u8; 16]);
+	let comm = bpf_get_current_comm().unwrap_or([0u8; 16]);
 	let ts = unsafe { bpf_ktime_get_ns() };
 	let ppid = unsafe { get_ppid() };
+	let parent_comm = unsafe { get_parent_comm() };
 
 	let cgroup_id = unsafe { bpf_get_current_cgroup_id() };
 	let mnt_ns = unsafe { get_mnt_ns() };
@@ -292,7 +303,8 @@ pub fn try_inode_rmdir(ctx: LsmContext) -> Result<i32, i32> {
 			ppid: ppid as u32,
 			uid,
 			tgid,
-			comm: comm_raw,
+			comm,
+			parent_comm,
 			_pad0: [0u8; 3],
 		},
 		filename,

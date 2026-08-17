@@ -255,6 +255,7 @@ mod tests {
 				ppid: 1,
 				tgid: pid,
 				uid,
+				parent_comm: Arc::from("bash"),
 				comm: Arc::from(comm),
 			},
 			meta_type: 0,
@@ -301,6 +302,8 @@ mod tests {
 				ppid: 1,
 				tgid: 4242,
 				uid: 0,
+				parent_comm: Arc::from("bash"),
+
 				comm: Arc::from("bash"),
 			},
 			meta_type: 0,
@@ -354,6 +357,8 @@ mod tests {
 				pid: 4242,
 				tgid: 4242,
 				uid: 1000,
+				parent_comm: Arc::from("bash"),
+
 				comm: Arc::from("bash"),
 			},
 			meta_type: 0,
@@ -403,6 +408,7 @@ mod tests {
 				container: None,
 				ts: 0,
 				ppid: 1,
+				parent_comm: Arc::from("bash"),
 
 				mnt_ns: 0,
 				pid: 0,
@@ -501,6 +507,7 @@ mod tests {
 				container: None,
 				ts: 0,
 				ppid: 1,
+				parent_comm: Arc::from("bash"),
 
 				mnt_ns: 0,
 				pid: 2222,

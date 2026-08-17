@@ -12,7 +12,7 @@ use lib_ebpf_common::{BprmSecurityCheckEvent, EVT_BPRM_CHECK_SEC, EventHeader, F
 
 use crate::{
 	EVT_MAP, LSM_EXEC_DENY,
-	utils::{get_mnt_ns, get_ppid, resolve_file_path},
+	utils::{get_mnt_ns, get_parent_comm, get_ppid, resolve_file_path},
 	vmlinux::linux_binprm,
 };
 
@@ -24,6 +24,8 @@ pub fn try_bprm_check_security(ctx: LsmContext) -> Result<i32, i32> {
 	let pid = bpf_get_current_pid_tgid() as u32;
 	let tgid = (bpf_get_current_pid_tgid() >> 32) as u32;
 	let comm = bpf_get_current_comm().unwrap_or([0u8; 16]);
+	let parent_comm = unsafe { get_parent_comm() };
+
 	let ts = unsafe { bpf_ktime_get_ns() };
 	let ppid = unsafe { get_ppid() };
 	let cgroup_id = unsafe { bpf_get_current_cgroup_id() };
@@ -51,6 +53,7 @@ pub fn try_bprm_check_security(ctx: LsmContext) -> Result<i32, i32> {
 			uid,
 			tgid,
 			comm,
+			parent_comm,
 			_pad0: [0u8; 3],
 		},
 		filepath: unsafe { *buf },

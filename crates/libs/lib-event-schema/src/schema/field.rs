@@ -15,7 +15,7 @@ pub enum Field {
 	ProcessTgid,
 	ProcessComm,
 	ProcessFilepath,
-
+	ProcessParentComm,
 	ProcessTargetPid,
 	ProcessTargetTgid,
 	ProcessTargetUid,
@@ -72,7 +72,7 @@ impl FromStr for Field {
 			"process.tgid" => Field::ProcessTgid,
 			"process.comm" => Field::ProcessComm,
 			"process.filepath" => Field::ProcessFilepath,
-
+			"process.parent.comm" => Field::ProcessParentComm,
 			"process.target.pid" => Field::ProcessTargetPid,
 			"process.target.tgid" => Field::ProcessTargetTgid,
 			"process.target.uid" => Field::ProcessTargetUid,
@@ -143,7 +143,7 @@ impl Field {
 			Field::ProcessTgid => "process.tgid",
 			Field::ProcessComm => "process.comm",
 			Field::ProcessFilepath => "process.filepath",
-
+			Field::ProcessParentComm => "process.parent.comm",
 			Field::ProcessTargetPid => "process.target.pid",
 			Field::ProcessTargetTgid => "process.target.tgid",
 			Field::ProcessTargetUid => "process.target.uid",
@@ -192,7 +192,9 @@ impl Field {
 			| Field::ProcessTargetTgid
 			| Field::ProcessTargetUid => FieldType::Int,
 
-			Field::ProcessComm | Field::ProcessFilepath | Field::ProcessTargetComm => FieldType::String,
+			Field::ProcessComm | Field::ProcessFilepath | Field::ProcessTargetComm | Field::ProcessParentComm => {
+				FieldType::String
+			}
 
 			// Socket
 			Field::SocketOldState | Field::SocketNewState => FieldType::String,

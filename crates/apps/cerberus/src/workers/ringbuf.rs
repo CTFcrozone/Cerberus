@@ -16,6 +16,7 @@ use lib_event::unbound::Tx;
 use tokio::io::unix::AsyncFd;
 
 use tokio_util::sync::CancellationToken;
+use tracing::debug;
 use zerocopy::FromBytes;
 
 pub struct RingBufWorker {
@@ -96,17 +97,7 @@ fn parse_cerberus_event(evt: EbpfEvent) -> Result<CerberusEvent> {
 			name: event_name(e.header.event_type),
 			meta: e.meta,
 			meta_type: e.meta_type,
-			header: EventHeader {
-				cgroup_id: e.header.cgroup_id,
-				container: None,
-				ts: e.header.ts,
-				mnt_ns: e.header.mnt_ns,
-				pid: e.header.pid,
-				ppid: e.header.ppid,
-				uid: e.header.uid,
-				tgid: e.header.tgid,
-				comm: arc_from_bytes(&e.header.comm),
-			},
+			header: build_header(&e.header),
 		}),
 
 		EbpfEvent::PtraceAccessCheck(ref e) => CerberusEvent::PtraceAccessCheck(PtraceAccessCheckEvent {
@@ -116,17 +107,7 @@ fn parse_cerberus_event(evt: EbpfEvent) -> Result<CerberusEvent> {
 			target_uid: e.target_uid,
 			mode: e.mode,
 			stage: e.stage,
-			header: EventHeader {
-				cgroup_id: e.header.cgroup_id,
-				container: None,
-				ts: e.header.ts,
-				mnt_ns: e.header.mnt_ns,
-				pid: e.header.pid,
-				ppid: e.header.ppid,
-				uid: e.header.uid,
-				tgid: e.header.tgid,
-				comm: arc_from_bytes(&e.header.comm),
-			},
+			header: build_header(&e.header),
 		}),
 
 		EbpfEvent::InodeMutation(ref e) => CerberusEvent::InodeMutation(InodeMutationEvent {
@@ -135,69 +116,25 @@ fn parse_cerberus_event(evt: EbpfEvent) -> Result<CerberusEvent> {
 			old_filename: arc_from_bytes(&e.old_filename),
 			old_filename_len: e.old_filename_len,
 			mutation: e.mutation,
-			header: EventHeader {
-				cgroup_id: e.header.cgroup_id,
-				container: None,
-				ts: e.header.ts,
-				mnt_ns: e.header.mnt_ns,
-				pid: e.header.pid,
-				ppid: e.header.ppid,
-
-				uid: e.header.uid,
-				tgid: e.header.tgid,
-				comm: arc_from_bytes(&e.header.comm),
-			},
+			header: build_header(&e.header),
 		}),
 		EbpfEvent::Module(ref e) => CerberusEvent::Module(ModuleEvent {
 			module_name: arc_from_bytes(&e.module_name),
 			op: e.op,
-			header: EventHeader {
-				cgroup_id: e.header.cgroup_id,
-				container: None,
-				ts: e.header.ts,
-				mnt_ns: e.header.mnt_ns,
-				pid: e.header.pid,
-				ppid: e.header.ppid,
-
-				uid: e.header.uid,
-				tgid: e.header.tgid,
-				comm: arc_from_bytes(&e.header.comm),
-			},
+			header: build_header(&e.header),
 		}),
 
 		EbpfEvent::BpfMap(ref e) => CerberusEvent::BpfMap(BpfMapEvent {
 			map_id: e.map_id,
 			map_type: Arc::from(bpf_map_type_to_str(e.map_type)),
 			map_name: arc_from_bytes(&e.map_name),
-			header: EventHeader {
-				cgroup_id: e.header.cgroup_id,
-				container: None,
-				ts: e.header.ts,
-				mnt_ns: e.header.mnt_ns,
-				pid: e.header.pid,
-				ppid: e.header.ppid,
-
-				uid: e.header.uid,
-				tgid: e.header.tgid,
-				comm: arc_from_bytes(&e.header.comm),
-			},
+			header: build_header(&e.header),
 		}),
 		EbpfEvent::Inode(ref e) => CerberusEvent::Inode(InodeEvent {
 			filename: arc_from_bytes(&e.filename),
 			filename_len: e.filename_len,
 			op: e.op,
-			header: EventHeader {
-				cgroup_id: e.header.cgroup_id,
-				container: None,
-				ts: e.header.ts,
-				mnt_ns: e.header.mnt_ns,
-				pid: e.header.pid,
-				ppid: e.header.ppid,
-
-				uid: e.header.uid,
-				tgid: e.header.tgid,
-				comm: arc_from_bytes(&e.header.comm),
-			},
+			header: build_header(&e.header),
 		}),
 
 		EbpfEvent::BprmSecurityCheck(ref e) => {
@@ -207,18 +144,7 @@ fn parse_cerberus_event(evt: EbpfEvent) -> Result<CerberusEvent> {
 
 			CerberusEvent::Bprm(BprmSecurityEvent {
 				filepath: arc_from_bytes(filepath_bytes),
-				header: EventHeader {
-					cgroup_id: e.header.cgroup_id,
-					container: None,
-					ts: e.header.ts,
-					mnt_ns: e.header.mnt_ns,
-					pid: e.header.pid,
-					ppid: e.header.ppid,
-
-					uid: e.header.uid,
-					tgid: e.header.tgid,
-					comm,
-				},
+				header: build_header(&e.header),
 				path_len: e.path_len,
 			})
 		}
@@ -228,18 +154,7 @@ fn parse_cerberus_event(evt: EbpfEvent) -> Result<CerberusEvent> {
 			attach_type: e.attach_type,
 			prog_type: e.prog_type,
 			tag: arc_from_bytes(&e.tag),
-			header: EventHeader {
-				cgroup_id: e.header.cgroup_id,
-				container: None,
-				ts: e.header.ts,
-				mnt_ns: e.header.mnt_ns,
-				pid: e.header.pid,
-				ppid: e.header.ppid,
-
-				uid: e.header.uid,
-				tgid: e.header.tgid,
-				comm: arc_from_bytes(&e.header.comm),
-			},
+			header: build_header(&e.header),
 		}),
 
 		EbpfEvent::InetSock(ref e) => CerberusEvent::InetSock(InetSockEvent {
@@ -250,40 +165,33 @@ fn parse_cerberus_event(evt: EbpfEvent) -> Result<CerberusEvent> {
 			protocol: Arc::from(protocol_to_str(e.protocol)),
 			saddr: e.saddr,
 			daddr: e.daddr,
-			header: EventHeader {
-				cgroup_id: e.header.cgroup_id,
-				container: None,
-				ts: e.header.ts,
-				mnt_ns: e.header.mnt_ns,
-				pid: e.header.pid,
-				ppid: e.header.ppid,
-
-				uid: e.header.uid,
-				tgid: e.header.tgid,
-				comm: arc_from_bytes(&e.header.comm),
-			},
+			header: build_header(&e.header),
 		}),
 		EbpfEvent::Socket(ref e) => CerberusEvent::Socket(lib_common::event::SocketEvent {
 			addr: e.addr,
 			port: e.port,
 			family: e.family,
 			op: e.op,
-			header: EventHeader {
-				cgroup_id: e.header.cgroup_id,
-				container: None,
-				ts: e.header.ts,
-				mnt_ns: e.header.mnt_ns,
-				pid: e.header.pid,
-				ppid: e.header.ppid,
-
-				uid: e.header.uid,
-				tgid: e.header.tgid,
-				comm: arc_from_bytes(&e.header.comm),
-			},
+			header: build_header(&e.header),
 		}),
 	};
 
 	Ok(cerberus_evt)
+}
+
+fn build_header(h: &lib_ebpf_common::EventHeader) -> EventHeader {
+	EventHeader {
+		container: None,
+		comm: arc_from_bytes(&h.comm),
+		parent_comm: arc_from_bytes(&h.parent_comm),
+		ts: h.ts,
+		cgroup_id: h.cgroup_id,
+		mnt_ns: h.mnt_ns,
+		pid: h.pid,
+		ppid: h.ppid,
+		uid: h.uid,
+		tgid: h.tgid,
+	}
 }
 
 fn parse_event_from_bytes(data: &[u8]) -> Result<EbpfEvent> {

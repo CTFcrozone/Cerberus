@@ -20,16 +20,17 @@ use crate::FILE_PATH_LEN;
 #[repr(C)]
 #[derive(Clone, Copy, Debug, FromBytes, Immutable, KnownLayout)]
 pub struct EventHeader {
-	pub ts: u64,        // 0..8
-	pub cgroup_id: u64, // 8..16
-	pub mnt_ns: u32,    // 16..20
-	pub pid: u32,       // 20..24
-	pub ppid: u32,      // 24..28
-	pub uid: u32,       // 28..32
-	pub tgid: u32,      // 32..36
-	pub event_type: u8, // 36..37
-	pub comm: [u8; 16], // 37..53
-	pub _pad0: [u8; 3], // 53..56
+	pub ts: u64,               // 0..8
+	pub cgroup_id: u64,        // 8..16
+	pub mnt_ns: u32,           // 16..20
+	pub pid: u32,              // 20..24
+	pub ppid: u32,             // 24..28
+	pub uid: u32,              // 28..32
+	pub tgid: u32,             // 32..36
+	pub event_type: u8,        // 36..37
+	pub comm: [u8; 16],        // 37..53
+	pub parent_comm: [u8; 16], // 53..69
+	pub _pad0: [u8; 3],        // 69..72
 }
 
 // META_TYPE

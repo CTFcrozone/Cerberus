@@ -13,7 +13,7 @@ use lib_ebpf_common::{
 
 use crate::{
 	EVT_MAP,
-	utils::{get_mnt_ns, get_ppid},
+	utils::{get_mnt_ns, get_parent_comm, get_ppid},
 	vmlinux::task_struct,
 };
 
@@ -21,11 +21,12 @@ pub fn try_sys_enter_ptrace(_ctx: TracePointContext) -> Result<u32, u32> {
 	let uid = bpf_get_current_uid_gid() as u32;
 	let pid = bpf_get_current_pid_tgid() as u32;
 	let tgid = (bpf_get_current_pid_tgid() >> 32) as u32;
-	let comm_raw = bpf_get_current_comm().unwrap_or([0u8; 16]);
+	let comm = bpf_get_current_comm().unwrap_or([0u8; 16]);
 	let cgroup_id = unsafe { bpf_get_current_cgroup_id() };
 	let mnt_ns = unsafe { get_mnt_ns() };
 	let ts = unsafe { bpf_ktime_get_ns() };
 	let ppid = unsafe { get_ppid() };
+	let parent_comm = unsafe { get_parent_comm() };
 
 	let event = GenericEvent {
 		header: EventHeader {
@@ -37,7 +38,8 @@ pub fn try_sys_enter_ptrace(_ctx: TracePointContext) -> Result<u32, u32> {
 			ppid: ppid as u32,
 			uid,
 			tgid,
-			comm: comm_raw,
+			comm,
+			parent_comm,
 			_pad0: [0u8; 3],
 		},
 		meta: 0, // success flag
@@ -64,9 +66,10 @@ pub fn try_sys_enter_kill(ctx: LsmContext) -> Result<i32, i32> {
 	let pid = unsafe { (*task).pid as u32 };
 	let ts = unsafe { bpf_ktime_get_ns() };
 	let ppid = unsafe { get_ppid() };
+	let parent_comm = unsafe { get_parent_comm() };
 
 	let tgid = (bpf_get_current_pid_tgid() >> 32) as u32;
-	let comm_raw = bpf_get_current_comm().unwrap_or([0u8; 16]);
+	let comm = bpf_get_current_comm().unwrap_or([0u8; 16]);
 	let uid = bpf_get_current_uid_gid() as u32;
 	let cgroup_id = unsafe { bpf_get_current_cgroup_id() };
 	let mnt_ns = unsafe { get_mnt_ns() };
@@ -81,7 +84,8 @@ pub fn try_sys_enter_kill(ctx: LsmContext) -> Result<i32, i32> {
 			ppid: ppid as u32,
 			uid,
 			tgid,
-			comm: comm_raw,
+			comm,
+			parent_comm,
 			_pad0: [0u8; 3],
 		},
 		meta: sig,
@@ -98,11 +102,12 @@ pub fn try_ptrace_access_check(ctx: LsmContext) -> Result<i32, i32> {
 	let uid = bpf_get_current_uid_gid() as u32;
 	let pid = bpf_get_current_pid_tgid() as u32;
 	let tgid = (bpf_get_current_pid_tgid() >> 32) as u32;
-	let comm_raw = bpf_get_current_comm().unwrap_or([0u8; 16]);
+	let comm = bpf_get_current_comm().unwrap_or([0u8; 16]);
 	let cgroup_id = unsafe { bpf_get_current_cgroup_id() };
 	let mnt_ns = unsafe { get_mnt_ns() };
 	let ts = unsafe { bpf_ktime_get_ns() };
 	let ppid = unsafe { get_ppid() };
+	let parent_comm = unsafe { get_parent_comm() };
 
 	let child: *const task_struct = ctx.arg(0);
 
@@ -141,8 +146,11 @@ pub fn try_ptrace_access_check(ctx: LsmContext) -> Result<i32, i32> {
 		}
 	};
 
-	let target_comm: [u8; 16] =
-		unsafe { core::mem::transmute(bpf_probe_read_kernel(&(*child).comm).unwrap_or([0i8; 16])) };
+	let target_comm_i8 = match unsafe { bpf_probe_read_kernel(&(*child).comm) } {
+		Ok(v) => v,
+		Err(_) => return Ok(0),
+	};
+	let target_comm: [u8; 16] = unsafe { core::mem::transmute(target_comm_i8) };
 
 	let event = PtraceAccessCheckEvent {
 		header: EventHeader {
@@ -154,7 +162,8 @@ pub fn try_ptrace_access_check(ctx: LsmContext) -> Result<i32, i32> {
 			ppid: ppid as u32,
 			uid,
 			tgid,
-			comm: comm_raw,
+			comm,
+			parent_comm,
 			_pad0: [0u8; 3],
 		},
 		target_pid,

@@ -39,6 +39,28 @@ macro_rules! tp_try_read {
 	};
 }
 
+pub unsafe fn get_parent_comm() -> [u8; 16] {
+	let mut comm = [0u8; 16];
+
+	let task = unsafe { bpf_get_current_task() } as *const crate::vmlinux::task_struct;
+	if task.is_null() {
+		return comm;
+	}
+
+	let parent: *const crate::vmlinux::task_struct = match unsafe { bpf_probe_read_kernel(&(*task).real_parent) } {
+		Ok(p) => p,
+		Err(_) => return comm,
+	};
+	if parent.is_null() {
+		return comm;
+	}
+
+	if let Ok(c) = unsafe { bpf_probe_read_kernel::<[u8; 16]>(&(*parent).comm as *const _ as *const [u8; 16]) } {
+		comm = c;
+	}
+
+	comm
+}
 #[inline(always)]
 pub unsafe fn ptr_at<T>(ctx: &XdpContext, offset: usize) -> Result<*const T, ()> {
 	let start = ctx.data();

@@ -39,6 +39,7 @@ pub trait Event {
 pub struct EventHeader {
 	pub container: Option<ContainerInfo>,
 	pub comm: Arc<str>,
+	pub parent_comm: Arc<str>,
 	pub ts: u64,
 	pub cgroup_id: u64,
 	pub mnt_ns: u32,
