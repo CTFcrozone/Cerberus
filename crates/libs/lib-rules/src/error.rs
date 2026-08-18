@@ -58,7 +58,17 @@ pub enum Error {
 		 model that explicitly rather than matching everything."
 	)]
 	RuleWithoutConditions { rule_id: String },
+	#[display("Sequence '{sequence_id}' has kind 'threshold' but no threshold count")]
+	ThresholdKindNeedsCount { sequence_id: String },
 
+	#[display("Sequence '{sequence_id}' has threshold {threshold}; must be >= 2")]
+	ThresholdTooLow { sequence_id: String, threshold: u32 },
+
+	#[display("Sequence '{sequence_id}' is a threshold sequence, which requires exactly one step")]
+	ThresholdNeedsSingleStep { sequence_id: String },
+
+	#[display("Sequence '{sequence_id}' sets a threshold but is not kind 'threshold'")]
+	ThresholdOnNonThresholdKind { sequence_id: String },
 	#[display("Rule '{rule_id}' declares sequence '{sequence_id}' with no steps, so it can never fire")]
 	SequenceWithoutSteps { rule_id: String, sequence_id: String },
 	#[display("Rule '{rule_id}': sequence '{sequence_id}' step {step_idx} references unknown rule '{step_rule_id}'")]

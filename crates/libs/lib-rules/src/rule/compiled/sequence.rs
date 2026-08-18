@@ -1,6 +1,7 @@
 use std::{sync::Arc, time::Duration};
 
 use crate::{
+	Error,
 	error::Result,
 	rule::{
 		Sequence,
@@ -12,6 +13,7 @@ use crate::{
 pub struct CompiledSequence {
 	pub id: Arc<str>,
 	pub kind: SequenceKind,
+	pub threshold: Option<u32>,
 	pub scope: Option<Scope>,
 	pub steps: Vec<CompiledStep>,
 }
@@ -23,13 +25,31 @@ pub struct CompiledStep {
 }
 
 pub fn compile_sequence(raw: Sequence) -> Result<CompiledSequence> {
+	match (&raw.kind, raw.threshold) {
+		(SequenceKind::Threshold, None) => {
+			return Err(Error::ThresholdKindNeedsCount { sequence_id: raw.id });
+		}
+		(SequenceKind::Threshold, Some(n)) if n < 2 => {
+			return Err(Error::ThresholdTooLow {
+				sequence_id: raw.id,
+				threshold: n,
+			});
+		}
+		(SequenceKind::Threshold, Some(_)) if raw.steps.len() != 1 => {
+			return Err(Error::ThresholdNeedsSingleStep { sequence_id: raw.id });
+		}
+		(SequenceKind::Rule | SequenceKind::Event, Some(_)) => {
+			return Err(Error::ThresholdOnNonThresholdKind { sequence_id: raw.id });
+		}
+		_ => {}
+	}
 	Ok(CompiledSequence {
 		id: raw.id.into(),
 
 		kind: raw.kind,
 
 		scope: raw.scope,
-
+		threshold: raw.threshold,
 		steps: raw
 			.steps
 			.into_iter()

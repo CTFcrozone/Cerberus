@@ -7,6 +7,8 @@ use crate::rule::common::{Scope, SequenceKind};
 pub struct Sequence {
 	pub id: String,
 	pub kind: SequenceKind,
+	#[serde(default)]
+	pub threshold: Option<u32>,
 	pub steps: Vec<Step>,
 	#[serde(default)]
 	pub scope: Option<Scope>,

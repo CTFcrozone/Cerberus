@@ -363,6 +363,7 @@ mod tests {
 					within: Duration::from_secs(15),
 				},
 			],
+			threshold: None,
 			scope: None,
 		}
 	}

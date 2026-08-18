@@ -192,6 +192,7 @@ mod tests {
 					within: Duration::from_secs(15),
 				},
 			],
+			threshold: None,
 			scope: None,
 		}
 	}
@@ -436,6 +437,7 @@ mod tests {
 			kind: SequenceKind::Rule,
 			steps: vec![],
 			scope: None,
+			threshold: None,
 		};
 
 		corr.on_root_match(&Arc::<str>::from("tmp-exec"), &seq, t0, 0);

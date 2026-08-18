@@ -60,6 +60,7 @@ impl Severity {
 pub enum SequenceKind {
 	Rule,
 	Event,
+	Threshold,
 }
 
 #[cfg_attr(test, derive(PartialEq))]
