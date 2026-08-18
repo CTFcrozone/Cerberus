@@ -16,7 +16,6 @@ use lib_event::unbound::Tx;
 use tokio::io::unix::AsyncFd;
 
 use tokio_util::sync::CancellationToken;
-use tracing::debug;
 use zerocopy::FromBytes;
 
 pub struct RingBufWorker {
@@ -138,7 +137,6 @@ fn parse_cerberus_event(evt: EbpfEvent) -> Result<CerberusEvent> {
 		}),
 
 		EbpfEvent::BprmSecurityCheck(ref e) => {
-			let comm = arc_from_bytes(&e.header.comm);
 			let path_len = e.path_len as usize;
 			let filepath_bytes = &e.filepath[..path_len.min(FILE_PATH_LEN)];
 
