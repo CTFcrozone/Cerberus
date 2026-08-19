@@ -1,0 +1,4 @@
+obj-m += orthrus.o
+orthrus-objs := src/orthrus.o
+
+ccflags-y := -I$(src)/include
