@@ -1,11 +1,11 @@
-use std::{sync::Arc, time::Instant, usize};
+use std::{collections::VecDeque, sync::Arc, time::Instant, usize};
 
 use lib_common::event::EventMeta;
 
 use crate::{
 	engine::CorrelationEvent,
 	hash_utils::{FastMap, new_fast_map},
-	rule::{Scope, compiled::sequence::CompiledSequence},
+	rule::{Scope, SequenceKind, compiled::sequence::CompiledSequence},
 };
 
 pub struct Correlator {
@@ -32,6 +32,7 @@ pub struct SequenceProgress {
 	pub last_match: Instant,
 	pub expiry: Instant,
 	pub scope_pid: Option<u32>,
+	pub hits: Option<VecDeque<Instant>>,
 }
 
 impl Correlator {
@@ -60,6 +61,8 @@ impl Correlator {
 		self.next_instance_id += 1;
 		let instance_id = self.next_instance_id;
 
+		let is_threshold = matches!(seq.kind, SequenceKind::Threshold);
+
 		root.insert(
 			instance_id,
 			SequenceProgress {
@@ -68,7 +71,11 @@ impl Correlator {
 				step_idx: 0,
 				last_match: now,
 				expiry: now + seq.steps[0].within,
-				scope_pid: matches!(seq.scope, Some(Scope::Pid)).then_some(pid),
+				scope_pid: match seq.scope {
+					Some(Scope::Pid) => Some(pid),
+					None => None,
+				},
+				hits: if is_threshold { Some(VecDeque::new()) } else { None },
 			},
 		);
 
