@@ -14,8 +14,8 @@ all:
 	\) -exec rm -f {} +
 	@rm -rf .tmp_versions
 
-#listener: tools/test_listener.c
-	#cc -Wall -Iinclude -o build/test_listener tools/test_listener.c
+listener: tools/test_listener.c
+	cc -Wall -Iinclude -o build/test_listener tools/test_listener.c
 
 clean:
 	@rm -rf build

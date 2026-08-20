@@ -14,45 +14,58 @@
  * Load only in a VM you can snapshot and hard-reboot.
  */
 
+#include <linux/hrtimer.h>
 #include <linux/init.h>
 #include <linux/kernel.h>
 #include <linux/ktime.h>
 #include <linux/module.h>
-#include <linux/mutex.h>
 #include <linux/skbuff.h>
+#include <linux/spinlock.h>
 #include <net/genetlink.h>
 #include <net/netlink.h>
 
 #include "orthrus.h"
 
-static DEFINE_MUTEX(state_lock);
+#define ORTHRUS_CHECK_INTERVAL_MS 5000
+#define ORTHRUS_STALE_THRESHOLD_MS 15000
+
+static DEFINE_SPINLOCK(state_lock);
 static u64 last_heartbeat_ns;
 static bool heartbeat_seen;
 static u32 agent_pid;
 static int orthrus_send_tamper(const char *reason, u64 age_ms);
 
-static int orthrus_cmd_heartbeat(struct sk_buff *skb, struct genl_info *info) {
-  u32 pid = 0;
+static bool tamper_fired;
+static struct hrtimer orthrus_timer;
 
-  if (info->attrs[ORTHRUS_ATTR_PID]) {
-    pid = nla_get_u32(info->attrs[ORTHRUS_ATTR_PID]);
+static int orthrus_cmd_heartbeat(struct sk_buff *skb, struct genl_info *info) {
+  u32 sender_pid = task_tgid_nr(current);
+
+  spin_lock_bh(&state_lock);
+
+  if (!heartbeat_seen) {
+    agent_pid = sender_pid;
+  } else if (sender_pid != agent_pid) {
+    // Someone other than the registered agent is trying to heartbeat.
+
+    spin_unlock_bh(&state_lock);
+    pr_warn(
+        "[orthrus]: heartbeat from pid %u, expected agent pid %u — ignored\n",
+        sender_pid, agent_pid);
+    return 0;
   }
 
-  mutex_lock(&state_lock);
   last_heartbeat_ns = ktime_get_ns();
   heartbeat_seen = true;
-  if (pid) {
-    agent_pid = pid;
-  }
-
-  mutex_unlock(&state_lock);
-  orthrus_send_tamper("heartbeat-test", 0);
+  tamper_fired = false;
+  spin_unlock_bh(&state_lock);
 
   return 0;
 }
 
-static const struct genl_ops orthrus_ops[] = {
-    {.cmd = ORTHRUS_CMD_HEARTBEAT, .doit = orthrus_cmd_heartbeat, .flags = 0}};
+static const struct genl_ops orthrus_ops[] = {{.cmd = ORTHRUS_CMD_HEARTBEAT,
+                                               .doit = orthrus_cmd_heartbeat,
+                                               .flags = GENL_ADMIN_PERM}};
 
 static const struct nla_policy orthrus_policy[ORTHRUS_ATTR_MAX + 1] = {
     [ORTHRUS_ATTR_PID] = {.type = NLA_U32},
@@ -79,7 +92,7 @@ static int orthrus_send_tamper(const char *reason, u64 age_ms) {
   void *hdr;
   int ret;
 
-  skb = genlmsg_new(NLMSG_GOODSIZE, GFP_KERNEL);
+  skb = genlmsg_new(NLMSG_GOODSIZE, GFP_ATOMIC);
   if (!skb) {
     return -ENOMEM;
   }
@@ -98,12 +111,35 @@ static int orthrus_send_tamper(const char *reason, u64 age_ms) {
   genlmsg_end(skb, hdr);
 
   ret = genlmsg_multicast(&orthrus_family, skb, 0, ORTHRUS_MCGRP_TAMPER,
-                          GFP_KERNEL);
+                          GFP_ATOMIC);
 
   if (ret == -ESRCH) {
     ret = 0;
   }
   return ret;
+}
+
+static enum hrtimer_restart orthrus_timer_fn(struct hrtimer *t) {
+  u64 now = ktime_get_ns();
+  bool fire = false;
+  u64 age_ms = 0;
+
+  spin_lock(&state_lock);
+  if (heartbeat_seen && !tamper_fired) {
+    u64 age_ns = (now > last_heartbeat_ns) ? now - last_heartbeat_ns : 0;
+    age_ms = age_ns / 1000000ULL;
+    if (age_ms >= ORTHRUS_STALE_THRESHOLD_MS) {
+      fire = true;
+      tamper_fired = true;
+    }
+  }
+  spin_unlock(&state_lock);
+
+  if (fire)
+    orthrus_send_tamper("heartbeat-stale", age_ms);
+
+  hrtimer_forward_now(t, ms_to_ktime(ORTHRUS_CHECK_INTERVAL_MS));
+  return HRTIMER_RESTART;
 }
 
 static int __init orthrus_init(void) {
@@ -115,11 +151,21 @@ static int __init orthrus_init(void) {
     return ret;
   }
 
-  pr_info("[orthrus]: netlink family '%s' registered\n", ORTHRUS_GENL_NAME);
+  hrtimer_setup(&orthrus_timer, orthrus_timer_fn, CLOCK_MONOTONIC,
+                HRTIMER_MODE_REL);
+  hrtimer_start(&orthrus_timer, ms_to_ktime(ORTHRUS_CHECK_INTERVAL_MS),
+                HRTIMER_MODE_REL);
+
+  pr_info("[orthrus]: loaded; family '%s' registered, watchdog armed (%d ms "
+          "check, %d ms threshold)\n",
+          ORTHRUS_GENL_NAME, ORTHRUS_CHECK_INTERVAL_MS,
+          ORTHRUS_STALE_THRESHOLD_MS);
+
   return 0;
 }
 
 static void __exit orthrus_exit(void) {
+  hrtimer_cancel(&orthrus_timer);
   genl_unregister_family(&orthrus_family);
   pr_info("[orthrus]: unloaded\n");
 }
