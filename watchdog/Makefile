@@ -6,8 +6,16 @@ PWD  := $(shell pwd)
 all:
 	$(MAKE) -C $(KDIR) M=$(PWD) modules LLVM=1
 	@mkdir -p build
-	@mv orthrus.ko build/ 2>/dev/null || true
+	@find . -path ./build -prune -o -name '*.ko' -exec mv {} build/ \;
+	@find . -path ./build -prune -o \( \
+		-name '*.o' -o -name '*.mod' -o -name '*.mod.c' \
+		-o -name '.*.cmd' -o -name 'modules.order' \
+		-o -name 'Module.symvers' -o -name '*.symvers' \
+	\) -exec rm -f {} +
+	@rm -rf .tmp_versions
+
+#listener: tools/test_listener.c
+	#cc -Wall -Iinclude -o build/test_listener tools/test_listener.c
 
 clean:
-	$(MAKE) -C $(KDIR) M=$(PWD) clean LLVM=1
-	@rm -f build/orthrus.ko
+	@rm -rf build

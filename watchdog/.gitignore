@@ -20,3 +20,5 @@ Module.symvers
 # editor / LSP
 /compile_commands.json
 .clangd/
+cache/
+tools/
