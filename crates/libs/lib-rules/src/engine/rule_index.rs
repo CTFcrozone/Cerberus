@@ -40,6 +40,7 @@ pub const fn kind_fields(kind: EventKind) -> u64 {
 			}
 			EventKind::BpfProgLoad => BpfProgType.mask() | BpfProgAttachType.mask() | BpfProgFlags.mask(),
 			EventKind::BpfMap => BpfMapName.mask() | BpfMapType.mask() | BpfMapId.mask(),
+			EventKind::Orthrus => OrthrusTamperReason.mask() | OrthrusTamperSeverity.mask(),
 		}
 }
 
@@ -60,6 +61,7 @@ pub enum EventKind {
 	Inode,
 	InodeMutate,
 	Bprm,
+	Orthrus,
 }
 
 impl From<&CerberusEvent> for EventKind {
@@ -75,6 +77,7 @@ impl From<&CerberusEvent> for EventKind {
 			CerberusEvent::BpfMap(_) => EventKind::BpfMap,
 			CerberusEvent::InodeMutation(_) => EventKind::InodeMutate,
 			CerberusEvent::PtraceAccessCheck(_) => EventKind::PtraceAccessCheck,
+			CerberusEvent::Tamper(_) => EventKind::Orthrus,
 		}
 	}
 }
@@ -294,6 +297,13 @@ mod tests {
 				header: hdr(),
 				filepath: Arc::from("/bin/sh"),
 				path_len: 7,
+			}),
+			EventKind::Orthrus => CerberusEvent::Tamper(TamperEvent {
+				header: hdr(),
+				severity: 0,
+				reason: Arc::from("hearbeat-stale"),
+				age_ms: 0,
+				source: "orthrus",
 			}),
 		}
 	}

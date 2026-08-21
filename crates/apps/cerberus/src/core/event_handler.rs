@@ -104,6 +104,7 @@ fn handle_cerberus_event(event: &CerberusEvent, app_state: &mut AppState) {
 		CerberusEvent::BpfMap(_) => &mut app_state.cerberus_evts_general,
 		CerberusEvent::InodeMutation(_) => &mut app_state.cerberus_evts_general,
 		CerberusEvent::PtraceAccessCheck(_) => &mut app_state.cerberus_evts_general,
+		CerberusEvent::Tamper(_) => &mut app_state.cerberus_evts_general,
 	};
 
 	push_bounded(events, event);

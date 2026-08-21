@@ -4,6 +4,7 @@ use lib_rules::Severity;
 mod bpf;
 mod fs;
 mod network;
+mod orthrus;
 mod process;
 
 pub fn string_from_event(evt: &CerberusEvent) -> String {
@@ -21,6 +22,7 @@ pub fn string_from_event(evt: &CerberusEvent) -> String {
 
 		CerberusEvent::BpfProgLoad(e) => bpf::render_bpf_prog(e),
 		CerberusEvent::BpfMap(e) => bpf::render_bpf_map(e),
+		CerberusEvent::Tamper(e) => orthrus::render_tamper(e),
 	}
 }
 

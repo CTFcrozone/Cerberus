@@ -52,6 +52,9 @@ pub enum Field {
 	BpfMapName,
 	BpfMapType,
 	BpfMapId,
+
+	OrthrusTamperReason,
+	OrthrusTamperSeverity,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -110,6 +113,8 @@ impl FromStr for Field {
 			"bpf.map.type" => Field::BpfMapType,
 			"bpf.map.id" => Field::BpfMapId,
 
+			"orthrus.tamper.reason" => Field::OrthrusTamperReason,
+			"orthrus.tamper.severity" => Field::OrthrusTamperSeverity,
 			_ => return Err(Error::FieldParseFail { field: s.to_string() }),
 		})
 	}
@@ -180,6 +185,9 @@ impl Field {
 			Field::BpfMapName => "bpf.map.name",
 			Field::BpfMapType => "bpf.map.type",
 			Field::BpfMapId => "bpf.map.id",
+
+			Field::OrthrusTamperReason => "orthrus.tamper.reason",
+			Field::OrthrusTamperSeverity => "orthrus.tamper.severity",
 		}
 	}
 	pub const fn ty(self) -> FieldType {
@@ -224,6 +232,9 @@ impl Field {
 			Field::BpfProgType | Field::BpfProgAttachType | Field::BpfProgFlags | Field::BpfMapId => FieldType::Int,
 
 			Field::BpfMapName | Field::BpfMapType => FieldType::String,
+
+			Field::OrthrusTamperReason => FieldType::String,
+			Field::OrthrusTamperSeverity => FieldType::Int,
 		}
 	}
 }

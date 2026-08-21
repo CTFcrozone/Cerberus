@@ -1,9 +1,11 @@
+use std::sync::Arc;
+
 use lib_event_schema::{Field, FieldValue};
 use strum::EnumCount;
 
 use crate::event::{
 	BpfMapEvent, BpfProgLoadEvent, BprmSecurityEvent, CerberusEvent, Event, EventHeader, InetSockEvent, InodeEvent,
-	InodeMutationEvent, ModuleEvent, PtraceAccessCheckEvent, RingBufEvent, SocketEvent,
+	InodeMutationEvent, ModuleEvent, PtraceAccessCheckEvent, RingBufEvent, SocketEvent, TamperEvent,
 };
 
 impl Event for RingBufEvent {
@@ -220,6 +222,53 @@ impl Event for BpfProgLoadEvent {
 	}
 }
 
+impl TamperEvent {
+	pub fn new(source: &'static str, severity: u8, reason: Arc<str>, age_ms: u64, pid: u32) -> Self {
+		let now = std::time::SystemTime::now()
+			.duration_since(std::time::UNIX_EPOCH)
+			.map(|d| d.as_nanos() as u64)
+			.unwrap_or(0);
+
+		let header = EventHeader {
+			container: None,
+			comm: Arc::from(source),
+			parent_comm: Arc::from(""),
+			ts: now,
+			cgroup_id: 0,
+			mnt_ns: 0,
+			pid,
+			ppid: 0,
+			uid: 0,
+			tgid: pid,
+		};
+
+		TamperEvent {
+			header,
+			severity,
+			reason,
+			age_ms,
+			source,
+		}
+	}
+}
+
+impl Event for TamperEvent {
+	fn header(&self) -> &EventHeader {
+		&self.header
+	}
+
+	fn header_mut(&mut self) -> &mut EventHeader {
+		&mut self.header
+	}
+
+	fn to_fields(&self) -> [Option<FieldValue>; Field::COUNT] {
+		let mut f = [const { None }; Field::COUNT];
+		f[Field::OrthrusTamperReason.index()] = Some(FieldValue::String(self.reason.clone()));
+		f[Field::OrthrusTamperSeverity.index()] = Some(FieldValue::Int(self.severity as i64));
+		f
+	}
+}
+
 impl Event for CerberusEvent {
 	fn header(&self) -> &EventHeader {
 		match self {
@@ -233,6 +282,7 @@ impl Event for CerberusEvent {
 			CerberusEvent::BpfMap(e) => e.header(),
 			CerberusEvent::InodeMutation(e) => e.header(),
 			CerberusEvent::PtraceAccessCheck(e) => e.header(),
+			CerberusEvent::Tamper(e) => e.header(),
 		}
 	}
 
@@ -248,6 +298,7 @@ impl Event for CerberusEvent {
 			CerberusEvent::BpfMap(e) => e.header_mut(),
 			CerberusEvent::InodeMutation(e) => e.header_mut(),
 			CerberusEvent::PtraceAccessCheck(e) => e.header_mut(),
+			CerberusEvent::Tamper(e) => e.header_mut(),
 		}
 	}
 
@@ -263,6 +314,7 @@ impl Event for CerberusEvent {
 			CerberusEvent::BpfMap(e) => e.to_fields(),
 			CerberusEvent::InodeMutation(e) => e.to_fields(),
 			CerberusEvent::PtraceAccessCheck(e) => e.to_fields(),
+			CerberusEvent::Tamper(e) => e.to_fields(),
 		}
 	}
 }

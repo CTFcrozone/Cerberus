@@ -10,6 +10,8 @@ license.workspace = true
 lib-common = { path = "../../libs/lib-common"}
 lib-rules = { path = "../../libs/lib-rules" }
 lib-event = { path="../../libs/lib-event" }
+lib-orthrus = { path="../../libs/lib-orthrus" }
+
 lib-ebpf-common = { path="../../libs/lib-ebpf-common" }
 
 lib-container = { path="../../libs/lib-container" }
@@ -47,6 +49,7 @@ tracing-appender = "0.2"
 indexmap = "2.14.0"
 dirs = "6.0.0"
 time = {version="0.3.55", features=["macros", "local-offset"]}
+neli = {version="0.7.4", features=["async"]}
 [build-dependencies]
 derive_more = { workspace=true}
 cargo_metadata={workspace=true}

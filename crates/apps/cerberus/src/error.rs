@@ -64,6 +64,17 @@ pub enum Error {
 	#[from]
 	#[display("Notify error: {_0}")]
 	Notify(notify::Error),
+	#[from]
+	#[display("Neli socket error: {_0}")]
+	NeliSocket(neli::err::SocketError),
+	#[display("Neli router error: {_0}")]
+	NeliRouter(String),
+	#[display("Neli message header builder error: {_0}")]
+	NeliMsgHdrBuilder(String),
+	#[display("Neli attr type builder error: {_0}")]
+	NeliAttrTypeBuilder(String),
+	#[display("Neli attr builder error: {_0}")]
+	NeliAttrBuilder(String),
 	#[display("Lock poisoned")]
 	LockPoison,
 }

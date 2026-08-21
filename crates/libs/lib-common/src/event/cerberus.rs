@@ -27,6 +27,8 @@ pub enum CerberusEvent {
 	InodeMutation(InodeMutationEvent),
 	#[from]
 	PtraceAccessCheck(PtraceAccessCheckEvent),
+	#[from]
+	Tamper(TamperEvent),
 }
 
 pub trait Event {
@@ -47,6 +49,15 @@ pub struct EventHeader {
 	pub ppid: u32,
 	pub uid: u32,
 	pub tgid: u32,
+}
+
+#[derive(Debug, Clone)]
+pub struct TamperEvent {
+	pub header: EventHeader,
+	pub severity: u8,
+	pub reason: Arc<str>,
+	pub age_ms: u64,
+	pub source: &'static str,
 }
 
 #[derive(Debug, Clone)]
