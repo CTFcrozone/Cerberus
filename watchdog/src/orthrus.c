@@ -14,6 +14,10 @@
  * Load only in a VM you can snapshot and hard-reboot.
  */
 
+#include "orthrus.h"
+#include "linux/array_size.h"
+#include "linux/idr.h"
+#include <linux/bpf.h>
 #include <linux/hrtimer.h>
 #include <linux/init.h>
 #include <linux/kernel.h>
@@ -21,13 +25,13 @@
 #include <linux/module.h>
 #include <linux/skbuff.h>
 #include <linux/spinlock.h>
+#include <linux/string.h>
 #include <net/genetlink.h>
 #include <net/netlink.h>
 
-#include "orthrus.h"
-
 #define ORTHRUS_CHECK_INTERVAL_MS 5000
 #define ORTHRUS_STALE_THRESHOLD_MS 15000
+#define CERBERUS_BPF_PROG_PREFIX "cerberus_"
 
 static DEFINE_SPINLOCK(state_lock);
 static u64 last_heartbeat_ns;
@@ -41,18 +45,53 @@ static bool
 
 static struct hrtimer orthrus_timer;
 
+static const char *const cerberus_pins[] = {
+    "/sys/fs/bpf/cerberus/xdp_hook",
+    "/sys/fs/bpf/cerberus/bpf_prog_load",
+    "/sys/fs/bpf/cerberus/bpf_map",
+    "/sys/fs/bpf/cerberus/socket_connect",
+    "/sys/fs/bpf/cerberus/socket_bind",
+    "/sys/fs/bpf/cerberus/inode_rmdir",
+    "/sys/fs/bpf/cerberus/inode_symlink",
+    "/sys/fs/bpf/cerberus/inode_link",
+    "/sys/fs/bpf/cerberus/inode_rename",
+    "/sys/fs/bpf/cerberus/inode_mkdir",
+    "/sys/fs/bpf/cerberus/inode_unlink",
+    "/sys/fs/bpf/cerberus/inet_sock_set_state",
+    "/sys/fs/bpf/cerberus/sys_enter_ptrace",
+    "/sys/fs/bpf/cerberus/sys_enter_kill",
+    "/sys/fs/bpf/cerberus/bprm_check_security",
+    "/sys/fs/bpf/cerberus/ptrace_access_check",
+    "/sys/fs/bpf/cerberus/do_init_module",
+};
+
 static int orthrus_send_event(u8 severity, u8 kind, const char *reason,
                               u64 age_ms);
 
+static u32 count_cerberus_progs(void) {
+  u32 present = 0;
+  size_t i;
+
+  for (i = 0; i < ARRAY_SIZE(cerberus_pins); i++) {
+    struct bpf_prog *prog =
+        bpf_prog_get_type_path(cerberus_pins[i], BPF_PROG_TYPE_UNSPEC);
+    if (!IS_ERR(prog)) {
+      present++;
+      bpf_prog_put(prog);
+    }
+  }
+
+  return present;
+}
 static int orthrus_cmd_heartbeat(struct sk_buff *skb, struct genl_info *info) {
   u32 sender_pid = task_tgid_nr(current);
   u32 progs = 0;
-  bool warn_drop = false, crit_zero = false;
+  bool warn_drop = false, crit_zero = false, mismatch = false;
   u32 dropped_to = 0, expected = 0;
 
   if (info->attrs[ORTHRUS_ATTR_N_PROGS])
     progs = nla_get_u32(info->attrs[ORTHRUS_ATTR_N_PROGS]);
-
+  u32 kernel_count = count_cerberus_progs();
   spin_lock_bh(&state_lock);
 
   if (!heartbeat_seen) {
@@ -66,11 +105,10 @@ static int orthrus_cmd_heartbeat(struct sk_buff *skb, struct genl_info *info) {
         sender_pid, agent_pid);
     return 0;
   }
-
   last_heartbeat_ns = ktime_get_ns();
   heartbeat_seen = true;
   tamper_fired = false;
-
+  bool discrepancy = (kernel_count != progs);
   if (progs > n_progs_max)
     n_progs_max = progs;
 
@@ -79,13 +117,17 @@ static int orthrus_cmd_heartbeat(struct sk_buff *skb, struct genl_info *info) {
       // alive but blind
       crit_zero = true;
       progs_dropped = true;
+    } else if (discrepancy && !progs_dropped) {
+      // kernel count disagrees with the agent's claim - lying or blind agent
+      mismatch = true;
+      progs_dropped = true;
     } else if (progs < n_progs_max && progs > 0 && !progs_dropped) {
       // degraded
       warn_drop = true;
       progs_dropped = true;
       dropped_to = progs;
       expected = n_progs_max;
-    } else if (progs >= n_progs_max) {
+    } else if (progs >= n_progs_max && !discrepancy) {
       // recovered to full strength
       progs_dropped = false;
     }
@@ -96,6 +138,12 @@ static int orthrus_cmd_heartbeat(struct sk_buff *skb, struct genl_info *info) {
   if (crit_zero) {
     orthrus_send_event(ORTHRUS_SEV_CRITICAL, ORTHRUS_KIND_PROGS_ZERO,
                        "bpf-progs-zero-while-alive", 0);
+  } else if (mismatch) {
+    char reason[64];
+    scnprintf(reason, sizeof(reason), "bpf-progs-mismatch-kernel-%u-agent-%u",
+              kernel_count, progs);
+    orthrus_send_event(ORTHRUS_SEV_HIGH, ORTHRUS_KIND_PROGS_MISMATCH, reason,
+                       0);
   } else if (warn_drop) {
     char reason[64];
     scnprintf(reason, sizeof(reason), "bpf-progs-dropped-%u-of-%u", dropped_to,

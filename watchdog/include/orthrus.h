@@ -9,6 +9,7 @@ enum orthrus_tamper_kind {
   ORTHRUS_KIND_PROGS_DROPPED,
   ORTHRUS_KIND_PROGS_ZERO,
   ORTHRUS_KIND_WATCHDOG_UNLOADING,
+  ORTHRUS_KIND_PROGS_MISMATCH,
 };
 
 enum orthrus_severity {
