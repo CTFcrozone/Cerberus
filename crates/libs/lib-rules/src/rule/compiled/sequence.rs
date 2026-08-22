@@ -38,7 +38,7 @@ pub fn compile_sequence(raw: Sequence) -> Result<CompiledSequence> {
 		(SequenceKind::Threshold, Some(_)) if raw.steps.len() != 1 => {
 			return Err(Error::ThresholdNeedsSingleStep { sequence_id: raw.id });
 		}
-		(SequenceKind::Rule | SequenceKind::Event, Some(_)) => {
+		(SequenceKind::Rule, Some(_)) => {
 			return Err(Error::ThresholdOnNonThresholdKind { sequence_id: raw.id });
 		}
 		_ => {}

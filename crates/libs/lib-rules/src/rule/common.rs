@@ -59,7 +59,6 @@ impl Severity {
 #[serde(rename_all = "lowercase")]
 pub enum SequenceKind {
 	Rule,
-	Event,
 	Threshold,
 }
 

@@ -1,4 +1,9 @@
-use std::{collections::VecDeque, sync::Arc, time::Instant, usize};
+use std::{
+	collections::VecDeque,
+	sync::Arc,
+	time::{Duration, Instant},
+	usize,
+};
 
 use lib_common::event::EventMeta;
 
@@ -84,6 +89,110 @@ impl Correlator {
 		// }
 	}
 
+	fn instance_alive(
+		prog: &SequenceProgress,
+		seq: &CompiledSequence,
+		now: Instant,
+		step0_within: Option<Duration>,
+	) -> bool {
+		match seq.kind {
+			SequenceKind::Rule => now <= prog.expiry && prog.step_idx < seq.steps.len(),
+			SequenceKind::Threshold => match step0_within {
+				Some(w) => now.saturating_duration_since(prog.last_match) <= w,
+				None => false,
+			},
+		}
+	}
+
+	fn advance_threshold(
+		prog: &mut SequenceProgress,
+		seq: &CompiledSequence,
+		matched_rule_id: &Arc<str>,
+		root_rule_id: &Arc<str>,
+		instance_id: u64,
+		now: Instant,
+		event_meta: &EventMeta,
+		out: &mut Vec<CorrelationEvent>,
+	) {
+		let step = &seq.steps[0];
+		if step.rule_id.as_ref() != matched_rule_id.as_ref() {
+			return;
+		}
+		let threshold = seq.threshold.unwrap_or(u32::MAX);
+
+		let hits = prog.hits.get_or_insert_with(VecDeque::new);
+		hits.push_back(now);
+		prog.last_match = now;
+
+		if let Some(cutoff) = now.checked_sub(step.within) {
+			while hits.front().is_some_and(|&t| t < cutoff) {
+				hits.pop_front();
+			}
+		}
+		let cap = (threshold as usize).saturating_mul(4).max(8);
+		while hits.len() > cap {
+			hits.pop_front();
+		}
+
+		if hits.len() as u32 >= threshold {
+			out.push(CorrelationEvent::Completed {
+				root_rule_id: root_rule_id.clone(),
+				seq_id: prog.seq_id.clone(),
+				seq_instance_id: instance_id,
+				path: Vec::new(),
+				steps: hits.len(),
+				event_meta: event_meta.clone(),
+			});
+			hits.clear();
+		}
+	}
+
+	fn advance_sequence(
+		prog: &mut SequenceProgress,
+		seq: &CompiledSequence,
+		matched_rule_id: &Arc<str>,
+		root_rule_id: &Arc<str>,
+		instance_id: u64,
+		now: Instant,
+		event_meta: &EventMeta,
+		out: &mut Vec<CorrelationEvent>,
+	) {
+		if now > prog.expiry {
+			return;
+		}
+		let Some(expected) = seq.steps.get(prog.step_idx) else {
+			return;
+		};
+		if expected.rule_id.as_ref() != matched_rule_id.as_ref() {
+			return;
+		}
+
+		let prev_idx = prog.step_idx;
+		prog.step_idx += 1;
+		prog.last_match = now;
+		prog.path.push(matched_rule_id.clone());
+
+		out.push(CorrelationEvent::Step {
+			root_rule_id: root_rule_id.clone(),
+			seq_id: prog.seq_id.clone(),
+			seq_instance_id: instance_id,
+			step_idx: prev_idx,
+			matched_rule_id: matched_rule_id.clone(),
+		});
+
+		match seq.steps.get(prog.step_idx) {
+			Some(next) => prog.expiry = now + next.within,
+			None => out.push(CorrelationEvent::Completed {
+				root_rule_id: root_rule_id.clone(),
+				seq_id: prog.seq_id.clone(),
+				seq_instance_id: instance_id,
+				path: core::mem::take(&mut prog.path),
+				steps: seq.steps.len(),
+				event_meta: event_meta.clone(),
+			}),
+		}
+	}
+
 	pub fn on_rule_match(
 		&mut self,
 		matched_rule_id: &Arc<str>,
@@ -109,51 +218,32 @@ impl Correlator {
 				}
 			}
 
-			if now > prog.expiry {
-				continue;
-			}
-			let expected = match seq.steps.get(prog.step_idx) {
-				Some(s) => s,
-				None => continue,
-			};
-
-			if expected.rule_id.as_ref() != matched_rule_id.as_ref() {
-				continue;
-			}
-
-			let prev_idx = prog.step_idx;
-			prog.step_idx += 1;
-			prog.last_match = now;
-			prog.path.push(matched_rule_id.clone());
-			let seq_id = prog.seq_id.clone();
-
-			out.push(CorrelationEvent::Step {
-				root_rule_id: root_rule_id.clone(),
-				seq_id: seq_id.clone(),
-				seq_instance_id: *instance_id,
-				step_idx: prev_idx,
-				matched_rule_id: matched_rule_id.clone(),
-			});
-
-			match seq.steps.get(prog.step_idx) {
-				Some(next_step) => {
-					prog.expiry = now + next_step.within;
-				}
-
-				None => {
-					out.push(CorrelationEvent::Completed {
-						root_rule_id: root_rule_id.clone(),
-						seq_id,
-						seq_instance_id: *instance_id,
-						path: core::mem::take(&mut prog.path),
-						steps: seq.steps.len(),
-						event_meta: event_meta.clone(),
-					});
-				}
+			match seq.kind {
+				SequenceKind::Rule => Self::advance_sequence(
+					prog,
+					seq,
+					matched_rule_id,
+					root_rule_id,
+					*instance_id,
+					now,
+					event_meta,
+					&mut out,
+				),
+				SequenceKind::Threshold => Self::advance_threshold(
+					prog,
+					seq,
+					matched_rule_id,
+					root_rule_id,
+					*instance_id,
+					now,
+					event_meta,
+					&mut out,
+				),
 			}
 		}
 
-		root.retain(|_, p| now <= p.expiry && p.step_idx < seq.steps.len());
+		let step0_within = seq.steps.first().map(|s| s.within);
+		root.retain(|_, p| Self::instance_alive(p, seq, now, step0_within));
 
 		if root.is_empty() {
 			self.active.remove(root_rule_id);
@@ -225,6 +315,91 @@ mod tests {
 			pid: 0,
 			comm: "DDD".into(),
 		}
+	}
+
+	fn mk_threshold_seq() -> CompiledSequence {
+		CompiledSequence {
+			id: "test".into(),
+			kind: SequenceKind::Threshold,
+			steps: vec![CompiledStep {
+				rule_id: "failed-login".into(),
+				within: Duration::from_secs(10),
+			}],
+			threshold: Some(3),
+			scope: None,
+		}
+	}
+
+	#[test]
+	fn threshold_fires_on_nth_hit_within_window() -> Result<()> {
+		let mut corr = Correlator::new();
+		let seq = mk_threshold_seq();
+		let t0 = Instant::now();
+		let root = Arc::<str>::from("brute-force");
+
+		corr.on_root_match(&root, &seq, t0, 0);
+
+		// two hits - not enough
+		for i in 1..=2 {
+			let res = corr.on_rule_match(
+				&Arc::<str>::from("failed-login"),
+				&seq,
+				&root,
+				t0 + Duration::from_secs(i),
+				&mk_meta(),
+			);
+			assert!(res.is_empty(), "fired early at hit {i}");
+		}
+		// third hit within window - fires
+		let res = corr.on_rule_match(
+			&Arc::<str>::from("failed-login"),
+			&seq,
+			&root,
+			t0 + Duration::from_secs(3),
+			&mk_meta(),
+		);
+		assert_eq!(res.len(), 1);
+		assert!(matches!(res[0], CorrelationEvent::Completed { .. }));
+		Ok(())
+	}
+
+	#[test]
+	fn threshold_slides_stale_hits_out_of_window() -> Result<()> {
+		let mut corr = Correlator::new();
+		let seq = mk_threshold_seq(); // 3 within 10s
+		let t0 = Instant::now();
+		let root = Arc::<str>::from("brute-force");
+		corr.on_root_match(&root, &seq, t0, 0);
+
+		// hits at 1s, 7s - instance stays alive (gaps < 10s)
+		corr.on_rule_match(
+			&Arc::<str>::from("failed-login"),
+			&seq,
+			&root,
+			t0 + Duration::from_secs(1),
+			&mk_meta(),
+		);
+		corr.on_rule_match(
+			&Arc::<str>::from("failed-login"),
+			&seq,
+			&root,
+			t0 + Duration::from_secs(7),
+			&mk_meta(),
+		);
+		// hit at 13s: gap from 7s is 6s (< 10s, instance alive), but the 1s hit is now
+		// 12s old - outside the 10s window, so it ages out. Deque = {7s, 13s} = 2, no fire.
+		let res = corr.on_rule_match(
+			&Arc::<str>::from("failed-login"),
+			&seq,
+			&root,
+			t0 + Duration::from_secs(13),
+			&mk_meta(),
+		);
+		assert!(
+			res.is_empty(),
+			"the 1s hit should have aged out, leaving only 2 in window"
+		);
+		Ok(())
 	}
 	#[test]
 	fn rule_sequence_completes() -> Result<()> {
