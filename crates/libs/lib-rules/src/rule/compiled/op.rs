@@ -19,8 +19,8 @@ pub enum Op {
 
 pub fn compile_op(s: &str) -> Result<Op> {
 	Ok(match s {
-		"==" | "equals" => Op::Eq,
-		"!=" | "not_equals" => Op::NotEq,
+		"==" | "equals" | "eq" => Op::Eq,
+		"!=" | "not_equals" | "not_eq" => Op::NotEq,
 		">" | "gt" => Op::Gt,
 		">=" | "gte" => Op::Gte,
 		"<" | "lt" => Op::Lt,

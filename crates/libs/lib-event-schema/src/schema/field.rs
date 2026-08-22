@@ -55,6 +55,7 @@ pub enum Field {
 
 	OrthrusTamperReason,
 	OrthrusTamperSeverity,
+	OrthrusTamperKind,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -115,6 +116,7 @@ impl FromStr for Field {
 
 			"orthrus.tamper.reason" => Field::OrthrusTamperReason,
 			"orthrus.tamper.severity" => Field::OrthrusTamperSeverity,
+			"orthrus.tamper.kind" => Field::OrthrusTamperKind,
 			_ => return Err(Error::FieldParseFail { field: s.to_string() }),
 		})
 	}
@@ -188,6 +190,7 @@ impl Field {
 
 			Field::OrthrusTamperReason => "orthrus.tamper.reason",
 			Field::OrthrusTamperSeverity => "orthrus.tamper.severity",
+			Field::OrthrusTamperKind => "orthrus.tamper.kind",
 		}
 	}
 	pub const fn ty(self) -> FieldType {
@@ -234,7 +237,7 @@ impl Field {
 			Field::BpfMapName | Field::BpfMapType => FieldType::String,
 
 			Field::OrthrusTamperReason => FieldType::String,
-			Field::OrthrusTamperSeverity => FieldType::Int,
+			Field::OrthrusTamperSeverity | Self::OrthrusTamperKind => FieldType::Int,
 		}
 	}
 }

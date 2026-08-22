@@ -4,6 +4,13 @@
 #define ORTHRUS_GENL_NAME "orthrus"
 #define ORTHRUS_GENL_VERSION 1
 
+enum orthrus_tamper_kind {
+  ORTHRUS_KIND_HEARTBEAT_STALE,
+  ORTHRUS_KIND_PROGS_DROPPED,
+  ORTHRUS_KIND_PROGS_ZERO,
+  ORTHRUS_KIND_WATCHDOG_UNLOADING,
+};
+
 enum orthrus_severity {
   ORTHRUS_SEV_INFO,
   ORTHRUS_SEV_VERY_LOW,
@@ -20,6 +27,7 @@ enum orthrus_attr {
   ORTHRUS_ATTR_AGE_MS,  // how stale the heartbeat was
   ORTHRUS_ATTR_N_PROGS, // agent-reported attached bpf prog count
   ORTHRUS_ATTR_SEVERITY,
+  ORTHRUS_ATTR_KIND,
   __ORTHRUS_ATTR_MAX
 };
 

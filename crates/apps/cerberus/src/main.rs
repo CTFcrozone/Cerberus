@@ -23,7 +23,10 @@ use crate::{
 		registry::HookRegistry,
 	},
 	supervisor::Supervisor,
-	workers::{ContainerResolver, HookWorker, ResponseExecutor, RingBufWorker, RuleEngineWorker, RuleWatchWorker},
+	workers::{
+		ContainerResolver, HookWorker, OrthrusWorker, ResponseExecutor, RingBufWorker, RuleEngineWorker,
+		RuleWatchWorker,
+	},
 };
 
 pub use self::error::{Error, Result};
@@ -38,7 +41,10 @@ use lib_common::event::CerberusEvent;
 use lib_container::{container_manager::ContainerManager, runtime::k8s_connect};
 use lib_event::unbound::new_channel_unbounded_async;
 use lib_rules::{ResponseRequest, RuleEngine, RuleSet};
-use std::{path::Path, sync::Arc};
+use std::{
+	path::Path,
+	sync::{Arc, atomic::AtomicUsize},
+};
 use tracing_subscriber::{EnvFilter, fmt::time::ChronoLocal, layer::SubscriberExt, util::SubscriberInitExt};
 #[rustfmt::skip]
 use tracing::{debug};
@@ -135,6 +141,8 @@ async fn main() -> Result<()> {
 	let mut registry = HookRegistry::default();
 
 	let ringbuf_fd = load_hooks(&mut ebpf, &mut registry, &args.iface)?;
+	let prog_count: Arc<AtomicUsize> = Arc::new(AtomicUsize::new(0));
+	registry.set_prog_count(prog_count.clone());
 
 	let hooks = registry
 		.hooks()
@@ -193,6 +201,16 @@ async fn main() -> Result<()> {
 	supervisor.spawn(ringbuf_worker.run());
 	supervisor.spawn(hook_worker.run());
 	supervisor.spawn(rule_worker.run(logging_enabled));
+	match OrthrusWorker::start(ringbuf_tx.clone(), prog_count.clone(), token.clone()).await {
+		Ok(worker) => {
+			let (heartbeat, listener) = worker.into_tasks();
+			supervisor.spawn(heartbeat);
+			supervisor.spawn(listener);
+		}
+		Err(e) => {
+			tracing::warn!(error = %e, "[orthrus]: watchdog unavailable, continuing without it");
+		}
+	}
 	supervisor.spawn(response_worker.run());
 	supervisor.spawn(rule_watch_worker.run());
 

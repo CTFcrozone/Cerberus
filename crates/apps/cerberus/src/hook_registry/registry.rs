@@ -1,30 +1,50 @@
 use std::{
-	collections::{hash_map::Entry, HashMap},
-	sync::Arc,
+	collections::{HashMap, hash_map::Entry},
+	sync::{
+		Arc,
+		atomic::{AtomicUsize, Ordering},
+	},
 };
 
 use aya::Ebpf;
 
-use crate::{hook_registry::hook::Hook, Error, Result};
+use crate::{Error, Result, hook_registry::hook::Hook};
 
 #[derive(Default)]
 pub struct HookRegistry {
 	hooks: HashMap<Arc<str>, Hook>,
+	prog_count: Option<Arc<AtomicUsize>>,
 }
 
 impl HookRegistry {
+	pub fn set_prog_count(&mut self, c: Arc<AtomicUsize>) {
+		self.prog_count = Some(c);
+		self.refresh_count();
+	}
+
+	fn refresh_count(&self) {
+		if let Some(c) = &self.prog_count {
+			let n = self.hooks.values().filter(|h| h.is_enabled()).count();
+			c.store(n, Ordering::Relaxed);
+		}
+	}
+
 	pub fn disable(&mut self, name: &str, ebpf: &mut Ebpf) -> Result<()> {
 		self.hooks
 			.get_mut(name)
 			.ok_or(Error::HookNotFound { hook: name.into() })?
-			.disable(ebpf)
+			.disable(ebpf)?;
+		self.refresh_count();
+		Ok(())
 	}
 
 	pub fn enable(&mut self, name: &str, ebpf: &mut Ebpf) -> Result<()> {
 		self.hooks
 			.get_mut(name)
 			.ok_or(Error::HookNotFound { hook: name.into() })?
-			.enable(ebpf)
+			.enable(ebpf)?;
+		self.refresh_count();
+		Ok(())
 	}
 
 	pub fn unload_all(&mut self, ebpf: &mut Ebpf) -> Result<()> {
@@ -32,6 +52,7 @@ impl HookRegistry {
 			let _ = hook.disable(ebpf);
 			let _ = hook.unload(ebpf);
 		}
+		self.refresh_count();
 		Ok(())
 	}
 
@@ -39,6 +60,7 @@ impl HookRegistry {
 		for hook in self.hooks.values_mut() {
 			let _ = hook.enable(ebpf);
 		}
+		self.refresh_count();
 		Ok(())
 	}
 
@@ -74,6 +96,7 @@ impl HookRegistry {
 		for hook in self.hooks.values_mut() {
 			let _ = hook.disable(ebpf);
 		}
+		self.refresh_count();
 		Ok(())
 	}
 }

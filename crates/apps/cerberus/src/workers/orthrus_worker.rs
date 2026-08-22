@@ -8,7 +8,7 @@ use std::{
 
 use lib_common::event::{CerberusEvent, TamperEvent};
 use lib_event::unbound::Tx;
-use lib_orthrus::consts::*;
+use lib_orthrus::{consts::*, enums::TamperKind};
 use lib_rules::Severity;
 use neli::{
 	consts::{nl::NlmF, socket::NlFamily},
@@ -25,10 +25,17 @@ use crate::{Error, Result};
 pub type ProgCount = Arc<AtomicUsize>;
 type OrthrusGenl = Genlmsghdr<u8, u16, NoUserHeader>;
 
-pub struct OrthrusWorker;
+pub struct OrthrusWorker {
+	router: Arc<NlRouter>,
+	multicast: NlRouterReceiverHandle<u16, OrthrusGenl>,
+	family_id: u16,
+	prog_count: ProgCount,
+	tx: Tx<CerberusEvent>,
+	token: CancellationToken,
+}
 
 impl OrthrusWorker {
-	pub async fn spawn(tx: Tx<CerberusEvent>, prog_count: ProgCount, token: CancellationToken) -> Result<()> {
+	pub async fn start(tx: Tx<CerberusEvent>, prog_count: ProgCount, token: CancellationToken) -> Result<Self> {
 		let (router, multicast) = NlRouter::connect(NlFamily::Generic, None, Groups::empty())
 			.await
 			.map_err(|e| Error::NeliRouter(e.to_string()))?;
@@ -46,19 +53,39 @@ impl OrthrusWorker {
 			.add_mcast_membership(Groups::new_groups(&[grp]))
 			.map_err(|e| Error::NeliRouter(e.to_string()))?;
 
-		let hb_router = router.clone();
+		Ok(Self {
+			router,
+			multicast,
+			family_id,
+			prog_count,
+			tx,
+			token,
+		})
+	}
+	pub fn into_tasks(
+		self,
+	) -> (
+		impl Future<Output = Result<()>> + Send + 'static,
+		impl Future<Output = Result<()>> + Send + 'static,
+	) {
+		let Self {
+			router,
+			multicast,
+			family_id,
+			prog_count,
+			tx,
+			token,
+		} = self;
+
 		let hb_token = token.clone();
-		tokio::spawn(async move {
-			Self::heartbeat_loop(hb_router, family_id, prog_count, Duration::from_secs(3), hb_token).await;
-		});
+		let heartbeat = async move {
+			Self::heartbeat_loop(router, family_id, prog_count, Duration::from_secs(3), hb_token).await;
+			Ok(())
+		};
 
-		tokio::spawn(async move {
-			if let Err(e) = Self::event_listener(multicast, tx, token).await {
-				tracing::error!(error = %e, "[orthrus]: event listener exited");
-			}
-		});
+		let listener = async move { Self::event_listener(multicast, tx, token).await };
 
-		Ok(())
+		(heartbeat, listener)
 	}
 
 	fn parse_event(nlmsg: &neli::nl::Nlmsghdr<u16, OrthrusGenl>) -> Option<OrthrusEvent> {
@@ -72,8 +99,15 @@ impl OrthrusWorker {
 
 		let handle = genl.attrs().get_attr_handle();
 		let sev_raw = handle.get_attr_payload_as::<u8>(ORTHRUS_ATTR_SEVERITY).ok()?;
+		let kind_raw = handle.get_attr_payload_as::<u8>(ORTHRUS_ATTR_KIND).unwrap_or(0);
 		let severity = match severity_from_wire(sev_raw) {
 			Some(s) => s,
+			None => {
+				return None;
+			}
+		};
+		let kind = match kind_from_wire(kind_raw) {
+			Some(k) => k,
 			None => {
 				return None;
 			}
@@ -85,6 +119,7 @@ impl OrthrusWorker {
 
 		Some(OrthrusEvent {
 			severity,
+			kind,
 			reason,
 			age_ms,
 		})
@@ -133,9 +168,10 @@ impl OrthrusWorker {
 		CerberusEvent::Tamper(TamperEvent::new(
 			"orthrus",
 			ev.severity as u8,
+			ev.kind as u8,
 			Arc::from(ev.reason.as_str()),
 			ev.age_ms,
-			0,
+			std::process::id(),
 		))
 	}
 
@@ -207,6 +243,7 @@ impl OrthrusWorker {
 
 struct OrthrusEvent {
 	severity: Severity,
+	kind: TamperKind,
 	reason: String,
 	age_ms: u64,
 }
@@ -219,6 +256,16 @@ fn severity_from_wire(v: u8) -> Option<Severity> {
 		3 => Some(Severity::Medium),
 		4 => Some(Severity::High),
 		5 => Some(Severity::Critical),
+		_ => None,
+	}
+}
+
+fn kind_from_wire(v: u8) -> Option<TamperKind> {
+	match v {
+		0 => Some(TamperKind::HeartbeatStale),
+		1 => Some(TamperKind::ProgsDropped),
+		2 => Some(TamperKind::ProgsZero),
+		3 => Some(TamperKind::WatchdogUnloading),
 		_ => None,
 	}
 }

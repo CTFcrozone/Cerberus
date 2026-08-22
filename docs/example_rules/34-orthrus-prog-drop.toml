@@ -1,0 +1,9 @@
+[rule]
+id = "orthrus-progs-dropped"
+description = "orthrus watchdog: eBPF program count dropped below healthy level"
+severity = "medium"
+
+[[rule.conditions]]
+field = "orthrus.tamper.kind"
+op = "eq"
+value = 1

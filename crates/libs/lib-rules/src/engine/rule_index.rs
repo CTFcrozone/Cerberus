@@ -40,7 +40,7 @@ pub const fn kind_fields(kind: EventKind) -> u64 {
 			}
 			EventKind::BpfProgLoad => BpfProgType.mask() | BpfProgAttachType.mask() | BpfProgFlags.mask(),
 			EventKind::BpfMap => BpfMapName.mask() | BpfMapType.mask() | BpfMapId.mask(),
-			EventKind::Orthrus => OrthrusTamperReason.mask() | OrthrusTamperSeverity.mask(),
+			EventKind::Orthrus => OrthrusTamperReason.mask() | OrthrusTamperSeverity.mask() | OrthrusTamperKind.mask(),
 		}
 }
 
@@ -303,6 +303,7 @@ mod tests {
 				severity: 0,
 				reason: Arc::from("hearbeat-stale"),
 				age_ms: 0,
+				kind: 0,
 				source: "orthrus",
 			}),
 		}

@@ -12,3 +12,10 @@ pub const ORTHRUS_ATTR_REASON: u16 = 2;
 pub const ORTHRUS_ATTR_AGE_MS: u16 = 3;
 pub const ORTHRUS_ATTR_N_PROGS: u16 = 4;
 pub const ORTHRUS_ATTR_SEVERITY: u16 = 5;
+pub const ORTHRUS_ATTR_KIND: u16 = 6;
+
+// tamper kinds
+pub const ORTHRUS_KIND_HEARTBEAT_STALE: u8 = 0;
+pub const ORTHRUS_KIND_PROGS_DROPPED: u8 = 1;
+pub const ORTHRUS_KIND_PROGS_ZERO: u8 = 2;
+pub const ORTHRUS_KIND_WATCHDOG_UNLOADING: u8 = 3;

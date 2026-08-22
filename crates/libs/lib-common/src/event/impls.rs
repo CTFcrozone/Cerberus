@@ -223,7 +223,7 @@ impl Event for BpfProgLoadEvent {
 }
 
 impl TamperEvent {
-	pub fn new(source: &'static str, severity: u8, reason: Arc<str>, age_ms: u64, pid: u32) -> Self {
+	pub fn new(source: &'static str, severity: u8, kind: u8, reason: Arc<str>, age_ms: u64, pid: u32) -> Self {
 		let now = std::time::SystemTime::now()
 			.duration_since(std::time::UNIX_EPOCH)
 			.map(|d| d.as_nanos() as u64)
@@ -245,6 +245,7 @@ impl TamperEvent {
 		TamperEvent {
 			header,
 			severity,
+			kind,
 			reason,
 			age_ms,
 			source,
@@ -263,8 +264,14 @@ impl Event for TamperEvent {
 
 	fn to_fields(&self) -> [Option<FieldValue>; Field::COUNT] {
 		let mut f = [const { None }; Field::COUNT];
+		f[Field::ProcessUid.index()] = Some(FieldValue::Int(self.header.uid as i64));
+		f[Field::ProcessPid.index()] = Some(FieldValue::Int(self.header.pid as i64));
+		f[Field::ProcessTgid.index()] = Some(FieldValue::Int(self.header.tgid as i64));
+		f[Field::ProcessComm.index()] = Some(FieldValue::String(self.header.comm.clone()));
+		f[Field::ProcessParentComm.index()] = Some(FieldValue::String(self.header.parent_comm.clone()));
 		f[Field::OrthrusTamperReason.index()] = Some(FieldValue::String(self.reason.clone()));
 		f[Field::OrthrusTamperSeverity.index()] = Some(FieldValue::Int(self.severity as i64));
+		f[Field::OrthrusTamperKind.index()] = Some(FieldValue::Int(self.kind as i64));
 		f
 	}
 }

@@ -55,6 +55,10 @@ impl Hook {
 		}
 	}
 
+	pub fn is_enabled(&self) -> bool {
+		self.link.is_some()
+	}
+
 	pub fn unload(&mut self, ebpf: &mut Ebpf) -> Result<()> {
 		match &self.kind {
 			HookKind::Lsm => {

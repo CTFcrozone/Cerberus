@@ -55,6 +55,7 @@ pub struct EventHeader {
 pub struct TamperEvent {
 	pub header: EventHeader,
 	pub severity: u8,
+	pub kind: u8,
 	pub reason: Arc<str>,
 	pub age_ms: u64,
 	pub source: &'static str,

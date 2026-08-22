@@ -10062,6 +10062,7 @@ pub struct block_device_operations {
 #[derive(Copy, Clone)]
 pub struct bpf_map {
 	pub sha: [u8_; 32usize],
+	pub excl: u32_,
 	pub ops: *const bpf_map_ops,
 	pub inner_map_meta: *mut bpf_map,
 	pub security: *mut ::aya_ebpf::cty::c_void,
@@ -10132,6 +10133,8 @@ pub struct bpf_arena {
 	pub spinlock: rqspinlock_t,
 	pub vma_list: list_head,
 	pub lock: mutex,
+	pub zap_gen: u64_,
+	pub zap_mutex: mutex,
 	pub free_irq: irq_work,
 	pub free_work: work_struct,
 	pub free_spans: llist_head,
@@ -28131,15 +28134,16 @@ pub struct ethtool_fec_hist_value {
 }
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
-pub struct ethtool_fec_hist {
-	pub values: [ethtool_fec_hist_value; 17usize],
-	pub ranges: *const ethtool_fec_hist_range,
-}
-#[repr(C)]
-#[derive(Debug, Copy, Clone)]
 pub struct ethtool_fec_hist_range {
 	pub low: u16_,
 	pub high: u16_,
+}
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct ethtool_fec_hist {
+	pub values: [ethtool_fec_hist_value; 17usize],
+	pub ranges: *const ethtool_fec_hist_range,
+	pub ranges_buf: [ethtool_fec_hist_range; 17usize],
 }
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
@@ -32218,7 +32222,7 @@ pub struct fscrypt_operations {
 	pub empty_dir: ::core::option::Option<unsafe extern "C" fn(arg1: *mut inode) -> bool_>,
 	pub has_stable_inodes: ::core::option::Option<unsafe extern "C" fn(arg1: *mut super_block) -> bool_>,
 	pub get_devices: ::core::option::Option<
-		unsafe extern "C" fn(arg1: *mut super_block, arg2: *mut ::aya_ebpf::cty::c_uint) -> *mut *mut block_device,
+		unsafe extern "C" fn(arg1: *mut super_block, arg2: *mut *mut block_device) -> ::aya_ebpf::cty::c_uint,
 	>,
 }
 impl fscrypt_operations {
@@ -38878,6 +38882,19 @@ pub struct io_wq_hash {
 	pub wait: wait_queue_head,
 }
 #[repr(C)]
+#[derive(Copy, Clone)]
+pub struct rt6_info {
+	pub dst: dst_entry,
+	pub from: *mut fib6_info,
+	pub sernum: ::aya_ebpf::cty::c_int,
+	pub rt6i_dst: rt6key,
+	pub rt6i_src: rt6key,
+	pub rt6i_gateway: in6_addr,
+	pub rt6i_idev: *mut inet6_dev,
+	pub rt6i_flags: u32_,
+	pub rt6i_nfheader_len: ::aya_ebpf::cty::c_ushort,
+}
+#[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct ipv6_opt_hdr {
 	pub nexthdr: __u8,
@@ -41471,7 +41488,7 @@ pub struct kernfs_iattrs {
 	pub ia_atime: timespec64,
 	pub ia_mtime: timespec64,
 	pub ia_ctime: timespec64,
-	pub xattrs: *mut simple_xattrs,
+	pub xattrs: list_head,
 	pub xattr_limits: simple_xattr_limits,
 }
 #[repr(C)]
@@ -41655,6 +41672,11 @@ pub struct kernfs_ops {
 	>,
 }
 #[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct simple_xattr_cache {
+	pub ht: *mut rhashtable,
+}
+#[repr(C)]
 #[derive(Copy, Clone)]
 pub struct kernfs_root {
 	pub kn: *mut kernfs_node,
@@ -41671,6 +41693,7 @@ pub struct kernfs_root {
 	pub kernfs_supers_rwsem: rw_semaphore,
 	pub kernfs_rename_lock: rwlock_t,
 	pub rcu: callback_head,
+	pub xa_cache: simple_xattr_cache,
 }
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
@@ -45548,19 +45571,6 @@ impl rtable {
 	}
 }
 #[repr(C)]
-#[derive(Copy, Clone)]
-pub struct rt6_info {
-	pub dst: dst_entry,
-	pub from: *mut fib6_info,
-	pub sernum: ::aya_ebpf::cty::c_int,
-	pub rt6i_dst: rt6key,
-	pub rt6i_src: rt6key,
-	pub rt6i_gateway: in6_addr,
-	pub rt6i_idev: *mut inet6_dev,
-	pub rt6i_flags: u32_,
-	pub rt6i_nfheader_len: ::aya_ebpf::cty::c_ushort,
-}
-#[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct netdev_tc_txq {
 	pub count: u16_,
@@ -45901,6 +45911,8 @@ pub struct net_device {
 	pub qdisc_hash: [hlist_head; 16usize],
 	pub watchdog_timer: timer_list,
 	pub watchdog_timeo: ::aya_ebpf::cty::c_int,
+	pub watchdog_lock: spinlock_t,
+	pub watchdog_ref_held: bool_,
 	pub proto_down_reason: u32_,
 	pub todo_list: list_head,
 	pub pcpu_refcnt: *mut ::aya_ebpf::cty::c_int,
@@ -45966,8 +45978,6 @@ pub struct net_device {
 	pub net_shaper_hierarchy: *mut net_shaper_hierarchy,
 	pub neighbours: [hlist_head; 2usize],
 	pub hwprov: *mut hwtstamp_provider,
-	pub _bitfield_align_3: [u8; 0],
-	pub _bitfield_3: __BindgenBitfieldUnit<[u8; 8usize]>,
 	pub priv_: __IncompleteArrayField<u8_>,
 }
 #[repr(C)]
@@ -46446,11 +46456,6 @@ impl net_device {
 			let fcoe_mtu: u64 = unsafe { ::core::mem::transmute(fcoe_mtu) };
 			fcoe_mtu as u64
 		});
-		__bindgen_bitfield_unit
-	}
-	#[inline]
-	pub fn new_bitfield_3() -> __BindgenBitfieldUnit<[u8; 8usize]> {
-		let mut __bindgen_bitfield_unit: __BindgenBitfieldUnit<[u8; 8usize]> = Default::default();
 		__bindgen_bitfield_unit
 	}
 }
@@ -47707,6 +47712,7 @@ pub struct nf_conntrack_expect {
 	pub lnode: hlist_node,
 	pub hnode: hlist_node,
 	pub net: possible_net_t,
+	pub master_tuple: nf_conntrack_tuple,
 	pub tuple: nf_conntrack_tuple,
 	pub mask: nf_conntrack_tuple_mask,
 	pub zone: nf_conntrack_zone,
@@ -47717,7 +47723,7 @@ pub struct nf_conntrack_expect {
 	pub helper: *mut nf_conntrack_helper,
 	pub assign_helper: *mut nf_conntrack_helper,
 	pub master: *mut nf_conn,
-	pub timeout: timer_list,
+	pub timeout: u32_,
 	pub saved_addr: nf_inet_addr,
 	pub saved_proto: nf_conntrack_man_proto,
 	pub dir: ip_conntrack_dir::Type,
@@ -47745,7 +47751,7 @@ pub struct nf_ct_event_notifier {
 pub struct nf_ct_ext {
 	pub offset: [u8_; 10usize],
 	pub len: u8_,
-	pub gen_id: ::aya_ebpf::cty::c_uint,
+	pub __bindgen_padding_0: [u8; 5usize],
 	pub data: __IncompleteArrayField<::aya_ebpf::cty::c_char>,
 }
 #[repr(C)]
@@ -54207,7 +54213,7 @@ impl pid_namespace {
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct pidfs_attr {
-	pub xattrs: *mut simple_xattrs,
+	pub xattrs: list_head,
 	pub __bindgen_anon_1: pidfs_attr__bindgen_ty_1,
 }
 #[repr(C)]
@@ -63358,11 +63364,6 @@ impl signal_struct {
 	}
 }
 #[repr(C)]
-#[derive(Copy, Clone)]
-pub struct simple_xattrs {
-	pub ht: rhashtable,
-}
-#[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct sk_filter {
 	pub refcnt: refcount_t,
@@ -68454,6 +68455,7 @@ pub struct tcp_ao_info {
 	pub snd_sne: u32_,
 	pub rcv_sne: u32_,
 	pub refcnt: refcount_t,
+	pub rcu: callback_head,
 }
 impl tcp_ao_info {
 	#[inline]
@@ -70900,7 +70902,7 @@ pub struct wireless_dev {
 	pub connect_keys: *mut cfg80211_cached_keys,
 	pub conn_bss_type: ieee80211_bss_type::Type,
 	pub conn_owner_nlportid: u32_,
-	pub disconnect_wk: work_struct,
+	pub disconnect_wk: wiphy_work,
 	pub disconnect_bssid: [u8_; 6usize],
 	pub event_list: list_head,
 	pub event_lock: spinlock_t,
@@ -70916,7 +70918,7 @@ pub struct wireless_dev {
 	pub cqm_config: *mut cfg80211_cqm_config,
 	pub pmsr_list: list_head,
 	pub pmsr_lock: spinlock_t,
-	pub pmsr_free_wk: work_struct,
+	pub pmsr_free_wk: wiphy_work,
 	pub unprot_beacon_reported: ::aya_ebpf::cty::c_ulong,
 	pub u: wireless_dev__bindgen_ty_2,
 	pub links: [wireless_dev__bindgen_ty_3; 15usize],
@@ -72414,6 +72416,9 @@ pub struct xsk_buff_pool {
 	pub chunk_size: u32_,
 	pub chunk_shift: u32_,
 	pub frame_len: u32_,
+	pub tx_descs_nentries: u32_,
+	pub reclaim_descs: u32_,
+	pub tx_zc_pending_descs: u32_,
 	pub xdp_zc_max_segs: u32_,
 	pub tx_metadata_len: u8_,
 	pub cached_need_wakeup: u8_,
@@ -72423,15 +72428,6 @@ pub struct xsk_buff_pool {
 	pub addrs: *mut ::aya_ebpf::cty::c_void,
 	pub cq_prod_lock: spinlock_t,
 	pub free_heads: __IncompleteArrayField<*mut xdp_buff_xsk>,
-	pub _bitfield_align_1: [u8; 0],
-	pub _bitfield_1: __BindgenBitfieldUnit<[u8; 16usize]>,
-}
-impl xsk_buff_pool {
-	#[inline]
-	pub fn new_bitfield_1() -> __BindgenBitfieldUnit<[u8; 16usize]> {
-		let mut __bindgen_bitfield_unit: __BindgenBitfieldUnit<[u8; 16usize]> = Default::default();
-		__bindgen_bitfield_unit
-	}
 }
 #[repr(C)]
 #[derive(Copy, Clone)]
