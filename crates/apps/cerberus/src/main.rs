@@ -201,14 +201,16 @@ async fn main() -> Result<()> {
 	supervisor.spawn(ringbuf_worker.run());
 	supervisor.spawn(hook_worker.run());
 	supervisor.spawn(rule_worker.run(logging_enabled));
-	match OrthrusWorker::start(ringbuf_tx.clone(), prog_count.clone(), token.clone()).await {
-		Ok(worker) => {
-			let (heartbeat, listener) = worker.into_tasks();
-			supervisor.spawn(heartbeat);
-			supervisor.spawn(listener);
-		}
-		Err(e) => {
-			tracing::warn!(error = %e, "[orthrus]: watchdog unavailable, continuing without it");
+	if args.watchdog {
+		match OrthrusWorker::start(ringbuf_tx.clone(), prog_count.clone(), token.clone()).await {
+			Ok(worker) => {
+				let (heartbeat, listener) = worker.into_tasks();
+				supervisor.spawn(heartbeat);
+				supervisor.spawn(listener);
+			}
+			Err(e) => {
+				tracing::warn!(error = %e, "[orthrus]: watchdog unavailable, continuing without it");
+			}
 		}
 	}
 	supervisor.spawn(response_worker.run());

@@ -59,12 +59,13 @@ cargo run -p cerberus --release \
 
 ### Common options
 
-| Option                 | Description                                                                                      |
-| ---------------------- | ------------------------------------------------------------------------------------------------ |
-| `--mode <tui\|agent>`  | Run mode (default: `tui`)                                                                        |
-| `--rules <DIR>`        | Directory containing detection rules (default: `~/.cerberus/rules`)                              |
-| `--log <PATH>`         | Write logs to a file or directory                                                                |
-| `--container-resolver` | **Experimental (currently unavailable)**. Enable Docker/Kubernetes container metadata resolution |
+| Option                 | Description                                                                                         |
+| ---------------------- | --------------------------------------------------------------------------------------------------- |
+| `--mode <tui\|agent>`  | Run mode (default: `tui`)                                                                           |
+| `--rules <DIR>`        | Directory containing detection rules (default: `~/.cerberus/rules`)                                 |
+| `--log <PATH>`         | Write logs to a file or directory                                                                   |
+| `--container-resolver` | **Experimental (currently unavailable)**. Enable Docker/Kubernetes container metadata resolution    |
+| `--watchdog`           | Enable the orthrus watchdog (requires the orthrus kernel module - see [Orthrus](#orthrus-watchdog)) |
 
 ### TUI mode
 
@@ -140,6 +141,70 @@ cargo run -p cerberus --release \
 ```
 
 Cargo build scripts automatically build the eBPF program and bundle it with the userspace binary.
+
+## Orthrus watchdog
+
+An eBPF security agent has a structural blind spot: it cannot reliably observe
+attacks against itself. If its programs are detached, its process is killed, or
+its components are removed, it goes silent - and the silence is invisible,
+because the sensor that would report the tampering is the thing being disabled.
+
+**Orthrus** is a companion Linux kernel module that watches Cerberus from a
+vantage point Cerberus cannot occupy. It detects:
+
+- **the agent going silent** - Cerberus sends a periodic heartbeat; if it stops,
+  orthrus raises a stale-heartbeat tamper;
+- **eBPF programs being dropped** - each heartbeat reports the agent's attached
+  program count; a drop below the established healthy level is flagged, and a
+  drop to zero while the agent is still alive (the "alive but blind" state) is
+  raised as critical;
+- **the watchdog itself being removed** - unloading the module fires a tamper on
+  the way out, so removing the watchdog is noisy rather than silent.
+
+Tamper events cross into userspace over generic netlink and enter Cerberus's
+rule engine as ordinary events, so they are matched by the same rule language as
+everything else. "The monitor was attacked" becomes a rule-matchable detection.
+
+> **Security note.** Orthrus catches accidental failure and unsophisticated
+> tampering, and makes deliberate blinding noisy. The reported program count is
+> agent-supplied, so a fully compromised agent can lie; and a kernel module
+> cannot defeat an adversary with full kernel control. Orthrus raises the cost
+> and visibility of disabling the monitor - it is not an absolute defense.
+
+### Building and loading the module
+
+The module lives under `watchdog/`. Build it against your running kernel:
+
+```sh
+cd watchdog
+make          # use `make LLVM=1` if your kernel was built with clang
+```
+
+Load it (kernel code - load only on a system you can recover):
+
+```sh
+sudo insmod build/orthrus.ko
+dmesg | tail    # should show: family 'orthrus' registered, watchdog armed
+```
+
+Unload it with `sudo rmmod orthrus`. For persistence across reboots and kernel
+updates, install via the provided DKMS config.
+
+### Running Cerberus with the watchdog
+
+With the module loaded, pass `--watchdog`:
+
+```sh
+cargo run -p cerberus --release \
+  --config 'target."cfg(all())".runner="sudo -E"' -- \
+  --mode agent \
+  --iface eth0 \
+  --watchdog
+```
+
+Cerberus will begin heartbeating to orthrus and listening for tamper events. Add
+rules that match on `orthrus.tamper.kind` (or `.severity`) to act on them - see
+the field reference for the tamper fields and their values.
 
 ## Cross-compiling on macOS
 

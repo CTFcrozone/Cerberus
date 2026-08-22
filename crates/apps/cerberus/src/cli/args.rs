@@ -25,6 +25,9 @@ pub struct Cli {
 	#[arg(long, help = "Enable container metadata resolution (Docker/K8s)")]
 	pub container_resolver: bool,
 
+	#[arg(long, help = "Enable the orthrus watchdog (requires the orthrus kernel module)")]
+	pub watchdog: bool,
+
 	#[arg(long, value_name = "PATH", help = "Write logs to the specified file or directory")]
 	pub log: Option<PathBuf>,
 }
