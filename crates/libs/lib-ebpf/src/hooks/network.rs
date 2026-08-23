@@ -29,14 +29,9 @@ fn block_ip(addr: u32) -> bool {
 
 pub fn try_socket_connect(ctx: LsmContext) -> Result<i32, i32> {
 	let addr: *const sockaddr = ctx.arg(1);
-	let ret: i32 = ctx.arg(3);
 
 	if addr.is_null() {
 		return Ok(0);
-	}
-
-	if ret != 0 {
-		return Ok(ret);
 	}
 
 	let sa_family = unsafe { (*addr).sa_family };
@@ -94,14 +89,9 @@ pub fn try_socket_connect(ctx: LsmContext) -> Result<i32, i32> {
 
 pub fn try_socket_bind(ctx: LsmContext) -> Result<i32, i32> {
 	let addr: *const sockaddr = ctx.arg(1);
-	let ret: i32 = ctx.arg(3);
 
 	if addr.is_null() {
 		return Ok(0);
-	}
-
-	if ret != 0 {
-		return Ok(ret);
 	}
 
 	let sa_family = unsafe { (*addr).sa_family };

@@ -21,6 +21,7 @@
 #include <linux/hrtimer.h>
 #include <linux/init.h>
 #include <linux/kernel.h>
+#include <linux/kprobes.h>
 #include <linux/ktime.h>
 #include <linux/module.h>
 #include <linux/skbuff.h>

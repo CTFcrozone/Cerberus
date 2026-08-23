@@ -4,4 +4,5 @@ pub enum TamperKind {
 	ProgsDropped,
 	ProgsZero,
 	WatchdogUnloading,
+	ProgsMismatch,
 }

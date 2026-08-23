@@ -142,6 +142,7 @@ listed inline - match on the number (e.g. `inode.op == 0` for unlink).
   - `1` = progs-dropped
   - `2` = progs-zero (alive but blind)
   - `3` = watchdog-unloading
+  - `4` = progs-mismatch
 
 ---
 

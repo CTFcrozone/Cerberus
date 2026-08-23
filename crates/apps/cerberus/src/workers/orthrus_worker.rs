@@ -266,6 +266,7 @@ fn kind_from_wire(v: u8) -> Option<TamperKind> {
 		1 => Some(TamperKind::ProgsDropped),
 		2 => Some(TamperKind::ProgsZero),
 		3 => Some(TamperKind::WatchdogUnloading),
+		4 => Some(TamperKind::ProgsMismatch),
 		_ => None,
 	}
 }
