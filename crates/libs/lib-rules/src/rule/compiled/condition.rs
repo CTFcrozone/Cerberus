@@ -72,7 +72,7 @@ fn compile_value(field: &str, value: toml::Value) -> Result<FieldValue> {
 							value: v.to_string(),
 						})?);
 					}
-					Ok(FieldValue::IntSet(out))
+					Ok(FieldValue::IntSet(out.into()))
 				}
 
 				toml::Value::String(_) => {
@@ -93,9 +93,9 @@ fn compile_value(field: &str, value: toml::Value) -> Result<FieldValue> {
 						}
 					}
 					if all_ips && !ip_values.is_empty() {
-						Ok(FieldValue::IpSet(ip_values))
+						Ok(FieldValue::IpSet(ip_values.into()))
 					} else {
-						Ok(FieldValue::StringSet(string_values))
+						Ok(FieldValue::StringSet(string_values.into()))
 					}
 				}
 				_ => Err(Error::InvalidFieldValue {

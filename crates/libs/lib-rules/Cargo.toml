@@ -40,3 +40,10 @@ humantime = {workspace=true}
 dashmap = "6.1.0"
 uuid = {version="1.23.3", features=["v4"]}
 rustc-hash = "2.1.3"
+
+[dev-dependencies]
+criterion = { version = "0.5", features = ["html_reports"] }
+
+[[bench]]
+name = "engine_throughput"
+harness = false

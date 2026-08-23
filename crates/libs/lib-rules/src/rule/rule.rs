@@ -166,7 +166,6 @@ mod tests {
 		};
 		// -- Exec
 		let rule = Rule::from_file(fx_rule_path)?;
-		println!("{:?}", rule.hash);
 		// -- Check
 		assert_eq!(fx_rule, rule);
 

@@ -169,7 +169,6 @@ impl RuleEngine {
 			let Some(rule) = rules.get(cand.idx as usize) else {
 				continue;
 			};
-
 			if !Evaluator::rule_matches_compiled(&rule.inner, &ctx) {
 				continue;
 			}
@@ -439,7 +438,7 @@ mod tests {
 	fn rules_needing_absent_fields_are_not_candidates() -> Result<()> {
 		// -- Setup & Fixtures
 		// inode.filename is only supplied by Inode events, so placement files this
-		// rule under Inode alone — a Generic event never lists it as a candidate.
+		// rule under Inode alone - a Generic event never lists it as a candidate.
 		let rule = raw_rule(
 			"inode-rule",
 			vec![cond("inode.filename", "starts_with", Value::String("/tmp".to_string()))],

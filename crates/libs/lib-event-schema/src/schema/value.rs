@@ -12,10 +12,10 @@ pub enum FieldValue {
 	Int(i64),
 	String(Arc<str>),
 	Regex(Arc<Regex>),
-	IntSet(Vec<i64>),
-	StringSet(Vec<Arc<str>>),
+	IntSet(Box<[i64]>),
+	StringSet(Box<[Arc<str>]>),
 	Ip(IpRepr),
-	IpSet(Vec<IpRepr>),
+	IpSet(Box<[IpRepr]>),
 }
 
 impl FieldValue {
