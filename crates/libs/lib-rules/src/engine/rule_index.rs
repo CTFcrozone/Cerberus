@@ -89,13 +89,13 @@ pub struct Candidate {
 
 pub struct RuleIndex {
 	// Event kind -> candidates, kind-specific first then universal.
-	candidates: [Vec<Candidate>; EventKind::COUNT],
+	candidates: [Box<[Candidate]>; EventKind::COUNT],
 
 	// Dense: one slot per rule, empty for the common case.
-	seq_listeners: Vec<Vec<u32>>,
+	seq_listeners: Box<[Box<[u32]>]>,
 
 	// Rules that could not be narrowed to a kind. Kept for introspection.
-	universal: Vec<Candidate>,
+	universal: Box<[Candidate]>,
 }
 
 impl RuleIndex {
@@ -146,21 +146,26 @@ impl RuleIndex {
 			}
 		}
 
-		for roots in seq_listeners.iter_mut() {
-			roots.sort_unstable();
-			roots.dedup();
-		}
+		let seq_listeners: Box<[Box<[u32]>]> = seq_listeners
+			.into_iter()
+			.map(|mut roots| {
+				roots.sort_unstable();
+				roots.dedup();
+				roots.into_boxed_slice()
+			})
+			.collect();
 
-		let mut candidates = per_kind;
-		for bucket in candidates.iter_mut() {
-			bucket.extend_from_slice(&universal);
-			bucket.shrink_to_fit();
-		}
-
+		let candidates: [Box<[Candidate]>; EventKind::COUNT] = {
+			let mut per_kind = per_kind;
+			for bucket in per_kind.iter_mut() {
+				bucket.extend_from_slice(&universal);
+			}
+			per_kind.map(|v| v.into_boxed_slice())
+		};
 		Self {
 			candidates,
 			seq_listeners,
-			universal,
+			universal: universal.into_boxed_slice(),
 		}
 	}
 
@@ -172,7 +177,10 @@ impl RuleIndex {
 	/// Root rules whose sequences list `rule_idx` as a step. Empty for most rules.
 	#[inline]
 	pub fn seq_roots(&self, rule_idx: u32) -> &[u32] {
-		self.seq_listeners.get(rule_idx as usize).map(|v| v.as_slice()).unwrap_or(&[])
+		match self.seq_listeners.get(rule_idx as usize) {
+			Some(v) => v,
+			None => &[],
+		}
 	}
 
 	#[inline]
