@@ -1,8 +1,13 @@
 use std::{io::Read, path::Path};
 
-use crate::{Error, error::Result, manifest};
+use crate::{Error, error::Result};
 use serde::Deserialize;
 use zip::ZipArchive;
+
+#[derive(Deserialize)]
+pub struct PackFile {
+	pub pack: PackManifest,
+}
 
 #[derive(Deserialize)]
 pub struct PackManifest {
@@ -21,8 +26,8 @@ pub struct PackManifest {
 
 impl PackManifest {
 	pub fn from_str(s: &str) -> Result<Self> {
-		let manifest = toml::from_str::<Self>(s)?;
-		Ok(manifest)
+		let file = toml::from_str::<PackFile>(s)?;
+		Ok(file.pack)
 	}
 
 	fn read_from_zip(path: &Path) -> Result<Self> {
@@ -49,17 +54,37 @@ mod tests {
 	fn parse_manifest() -> Result<()> {
 		// -- Setup & Fixtures
 		let toml = r#"
-id = "test-id"
-version = "0.0.1"
-authors = ["a@b.com"]
-description = "..."
-license = "MIT"
-cerberus-version = "0.0.1"
-"#;
+		[pack]
+		id = "test-id"
+		version = "0.0.1"
+		authors = ["a@b.com"]
+		description = "..."
+		license = "MIT"
+		cerberus-version = "0.0.1"
+		"#;
 		// -- Exec
 		let manifest = PackManifest::from_str(toml)?;
 
 		// -- Check
+		assert_eq!(manifest.id, "test-id");
+		assert_eq!(manifest.version, "0.0.1");
+		assert_eq!(manifest.cerberus_version, Some("0.0.1".into()));
+
+		Ok(())
+	}
+
+	#[test]
+	fn missing_manifest_errors() -> Result<()> {
+		// a .cerby with NO conf.toml
+		let result = PackManifest::read_from_zip(Path::new("test-fixtures/no-manifest.cerby"));
+		assert!(matches!(result, Err(Error::MissingManifest { .. })));
+		Ok(())
+	}
+
+	#[test]
+	fn parse_manifest_from_cerby() -> Result<()> {
+		let manifest = PackManifest::read_from_zip(Path::new("test-fixtures/test.cerby"))?;
+
 		assert_eq!(manifest.id, "test-id");
 		assert_eq!(manifest.version, "0.0.1");
 		assert_eq!(manifest.cerberus_version, Some("0.0.1".into()));

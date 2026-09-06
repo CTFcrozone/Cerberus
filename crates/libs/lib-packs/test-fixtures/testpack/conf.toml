@@ -1,0 +1,7 @@
+[pack]
+id = "test-id"
+version = "0.0.1"
+authors = ["a@b.com"]
+description = "test pack"
+license = "MIT"
+cerberus-version = "0.0.1"
