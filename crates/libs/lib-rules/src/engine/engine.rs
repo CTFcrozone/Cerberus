@@ -228,7 +228,13 @@ impl RuleEngine {
 mod tests {
 	type Result<T> = core::result::Result<T, Box<dyn std::error::Error>>;
 
-	use crate::rule::Severity;
+	use crate::{
+		Rule,
+		rule::{
+			raw::{Condition, RuleInner},
+			*,
+		},
+	};
 
 	use super::*;
 	use lib_common::event::{Event, EventHeader, RingBufEvent};
@@ -262,9 +268,9 @@ mod tests {
 		})
 	}
 
-	fn raw_rule(id: &str, conditions: Vec<crate::rule::Condition>) -> crate::rule::Rule {
-		crate::rule::Rule {
-			inner: crate::rule::RuleInner {
+	fn raw_rule(id: &str, conditions: Vec<Condition>) -> Rule {
+		Rule {
+			inner: RuleInner {
 				id: id.to_string(),
 				description: "test".to_string(),
 				severity: Severity::Low,
@@ -277,8 +283,8 @@ mod tests {
 		}
 	}
 
-	fn cond(field: &str, op: &str, value: Value) -> crate::rule::Condition {
-		crate::rule::Condition {
+	fn cond(field: &str, op: &str, value: Value) -> Condition {
+		Condition {
 			field: field.to_string(),
 			op: op.to_string(),
 			value,
@@ -287,7 +293,7 @@ mod tests {
 
 	#[test]
 	fn process_event_matches_rule() -> Result<()> {
-		let ruleset = RuleSet::load_from_dir("./rules/")?;
+		let ruleset = RuleSet::load_from_dir("./test-rules/")?;
 		let engine = RuleEngine::new_from_ruleset(ruleset)?;
 
 		let event = CerberusEvent::Generic(RingBufEvent {
@@ -323,12 +329,12 @@ mod tests {
 
 	#[test]
 	fn process_event_no_match() -> Result<()> {
-		let rule = crate::rule::Rule {
-			inner: crate::rule::RuleInner {
+		let rule = Rule {
+			inner: RuleInner {
 				id: "pid-zero-only".to_string(),
 				description: "Matches only pid=0".to_string(),
 				severity: Severity::High,
-				conditions: vec![crate::rule::Condition {
+				conditions: vec![Condition {
 					field: "process.pid".to_string(),
 					op: "equals".to_string(),
 					value: Value::Integer(0),
@@ -373,18 +379,18 @@ mod tests {
 
 	#[test]
 	fn process_event_network_rule_match() -> Result<()> {
-		let rule = crate::rule::Rule {
-			inner: crate::rule::RuleInner {
+		let rule = Rule {
+			inner: RuleInner {
 				id: "tcp-state-change".to_string(),
 				description: "Detect TCP state transitions".to_string(),
 				severity: Severity::Medium,
 				conditions: vec![
-					crate::rule::Condition {
+					Condition {
 						field: "network.protocol".to_string(),
 						op: "equals".to_string(),
 						value: Value::String("TCP".to_string()),
 					},
-					crate::rule::Condition {
+					Condition {
 						field: "socket.new_state".to_string(),
 						op: "equals".to_string(),
 						value: Value::String("TCP_ESTABLISHED".to_string()),
@@ -479,7 +485,7 @@ mod tests {
 
 	#[test]
 	fn process_event_into_appends_without_clearing() -> Result<()> {
-		let ruleset = RuleSet::load_from_dir("./rules/")?;
+		let ruleset = RuleSet::load_from_dir("./test-rules/")?;
 		let engine = RuleEngine::new_from_ruleset(ruleset)?;
 
 		let event = generic_event(1, 0, "bash");
@@ -497,7 +503,7 @@ mod tests {
 
 	#[test]
 	fn load_rule_from_file_and_match_event() -> Result<()> {
-		let engine = RuleEngine::new("rules/")?;
+		let engine = RuleEngine::new("test-rules/")?;
 
 		let event = CerberusEvent::Generic(lib_common::event::RingBufEvent {
 			name: "OPEN_FILE",

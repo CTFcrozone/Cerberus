@@ -12,6 +12,7 @@ members = [
     "crates/libs/lib-event-schema",
     "crates/libs/lib-orthrus",
     "crates/apps/cerberus",
+    "crates/libs/lib-packs",
 ]
 default-members = ["crates/apps/cerberus", "crates/libs/lib-common"]
 

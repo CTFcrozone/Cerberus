@@ -2,8 +2,9 @@ use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
 
+use crate::Error;
 use crate::error::Result;
-use crate::{Error, Rule};
+use crate::rule::raw::Rule;
 use glob::glob;
 use serde::Deserialize;
 use tracing::warn;
@@ -67,43 +68,27 @@ impl RuleSet {
 	}
 
 	pub fn load_from_dir(dir: impl AsRef<Path>) -> Result<RuleSet> {
-		let mut rules = Vec::new();
-		let mut by_id = HashMap::new();
-		let mut seq_by_id = HashMap::new();
+		let pattern = dir.as_ref().join("**").join("*.toml");
+		let pattern = pattern.to_string_lossy();
 
-		// Make sure the path is like: `rules/` or `some/stuff/rules/` and not `rules`
-		let pattern = format!("{}/**/*.toml", dir.as_ref().display());
-
-		for glob in glob(&pattern)? {
-			match glob {
-				Ok(path) => {
-					let rule = Rule::from_file(&path)?;
-					let rule_id: Arc<str> = rule.inner.id.as_str().into();
-
-					if by_id.contains_key(&rule_id) {
-						return Err(crate::Error::DuplicateRuleId {
-							id: rule_id.to_string(),
-						});
-					}
-
-					let idx = rules.len();
-					by_id.insert(rule_id.clone(), idx);
-
-					if let Some(seq) = &rule.inner.sequence {
-						let seq_id: Arc<str> = seq.id.as_str().into();
-
-						if seq_by_id.insert(seq_id, idx).is_some() {
-							return Err(Error::DuplicateSequenceId { id: seq.id.to_string() });
-						}
-					}
-
-					rules.push(rule);
-				}
+		let mut paths = Vec::new();
+		for entry in glob(&pattern)? {
+			match entry {
+				Ok(path) => paths.push(path),
 				Err(e) => warn!("Glob pattern error: {:?}", e),
 			}
 		}
 
-		Ok(RuleSet { rules, by_id })
+		let mut rules = Vec::with_capacity(paths.len());
+		for path in paths {
+			let rule = Rule::from_file(&path).map_err(|e| Error::RuleLoadFailed {
+				path: path.display().to_string(),
+				source: e.to_string(),
+			})?;
+			rules.push(rule);
+		}
+
+		Self::new(rules)
 	}
 
 	pub fn find_rule_by_id(&self, rule_id: &str) -> Option<&Rule> {
@@ -135,7 +120,7 @@ mod tests {
 	#[test]
 	fn load_ruleset_from_dir() -> Result<()> {
 		// -- Setup & Fixtures
-		let fx_rule_dir = "rules/";
+		let fx_rule_dir = "test-rules/";
 		let fx_rule_count = 4;
 		// -- Exec
 		let ruleset = RuleSet::load_from_dir(fx_rule_dir)?;

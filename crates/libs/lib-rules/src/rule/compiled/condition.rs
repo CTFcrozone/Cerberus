@@ -6,13 +6,11 @@ use regex::Regex;
 use crate::{
 	Error,
 	error::Result,
-	rule::{
-		Condition,
-		compiled::{
-			field::compile_field,
-			op::{Op, compile_op},
-		},
+	rule::compiled::{
+		field::compile_field,
+		op::{Op, compile_op},
 	},
+	rule::raw::Condition,
 };
 
 pub struct CompiledCondition {
@@ -169,7 +167,7 @@ mod tests {
 
 	use toml::Value;
 
-	use crate::rule::Condition;
+	use crate::rule::raw::Condition;
 
 	use super::*;
 

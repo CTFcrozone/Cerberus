@@ -52,6 +52,9 @@ pub enum Error {
 	#[display("Encountered a sequence_finished trigger outside of a sequence in rule '{rule_id}'")]
 	SequenceFinishedTriggerWithoutSequence { rule_id: String },
 
+	#[display("failed to load rule from {path}: {source}")]
+	RuleLoadFailed { path: String, source: String },
+
 	#[display(
 		"Rule '{rule_id}' has no conditions, so it would match every event. \
 		 Give it at least one condition; if it exists only to host a sequence, \

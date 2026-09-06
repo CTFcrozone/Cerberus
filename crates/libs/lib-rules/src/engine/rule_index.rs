@@ -203,12 +203,13 @@ mod tests {
 	use toml::Value;
 
 	use crate::rule::{
-		Condition, SequenceKind,
+		SequenceKind,
 		compiled::{
 			condition::compile_condition,
 			rule::{CompiledRule, CompiledRuleInner},
 			sequence::{CompiledSequence, CompiledStep},
 		},
+		raw::Condition,
 	};
 
 	use super::*;

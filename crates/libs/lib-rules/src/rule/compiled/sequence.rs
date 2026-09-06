@@ -4,8 +4,8 @@ use crate::{
 	Error,
 	error::Result,
 	rule::{
-		Sequence,
 		common::{Scope, SequenceKind},
+		raw::Sequence,
 	},
 };
 

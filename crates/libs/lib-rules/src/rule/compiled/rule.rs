@@ -110,7 +110,7 @@ mod tests {
 	use toml::Value;
 
 	use super::*;
-	use crate::rule::{Condition, RuleInner};
+	use crate::rule::raw::{Condition, RuleInner};
 
 	fn cond(field: &str, op: &str, value: Value) -> Condition {
 		Condition {

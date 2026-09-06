@@ -3,7 +3,7 @@ use std::{path::Path, sync::Arc};
 use crate::{
 	error::{Error, Result},
 	hash_utils,
-	rule::{Sequence, Trigger, common::Severity},
+	rule::{Trigger, common::Severity, raw::Sequence},
 };
 use serde::{Deserialize, Deserializer};
 use simple_fs::SPath;
@@ -135,7 +135,7 @@ mod tests {
 	#[test]
 	fn parse_rule_from_file_ok() -> Result<()> {
 		// -- Setup & Fixtures
-		let fx_rule_path = "rules/test-rule-1.toml";
+		let fx_rule_path = "test-rules/test-rule-1.toml";
 		let fx_rule_inner = RuleInner {
 			id: "test-rule".to_string(),
 			description: "Suspicious action in /tmp".to_string(),

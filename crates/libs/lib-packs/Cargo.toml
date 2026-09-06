@@ -1,0 +1,11 @@
+[package]
+name = "lib-packs"
+version = "0.1.0"
+license.workspace = true
+edition.workspace = true
+
+[dependencies]
+lib-rules = { path = "../lib-rules" }
+toml = {workspace=true}
+serde = {workspace=true}
+derive_more = {workspace=true}

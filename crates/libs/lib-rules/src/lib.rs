@@ -8,6 +8,8 @@ mod rule;
 pub use engine::{CorrelationEvent, EngineEvent, EvaluatedEvent, ResponseRequest, RuleEngine};
 pub use error::Error;
 pub use rule::{
-	Rule, RuleSet, Severity, Trigger,
+	Severity, Trigger,
 	compiled::response::{CompiledResponseChain, ResolvedAction, resolve_action},
+	raw::Rule,
+	raw::RuleSet,
 };

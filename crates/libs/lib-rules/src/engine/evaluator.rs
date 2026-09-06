@@ -93,7 +93,7 @@ mod tests {
 
 	use crate::{
 		Severity,
-		rule::{Condition, compiled::condition::compile_condition},
+		rule::{compiled::condition::compile_condition, raw::Condition},
 	};
 
 	use super::*;

@@ -1560,6 +1560,16 @@ name = "lib-orthrus"
 version = "0.1.0"
 
 [[package]]
+name = "lib-packs"
+version = "0.1.0"
+dependencies = [
+ "derive_more",
+ "lib-rules",
+ "serde",
+ "toml",
+]
+
+[[package]]
 name = "lib-rules"
 version = "0.1.0"
 dependencies = [

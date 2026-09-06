@@ -6,7 +6,8 @@ use strum::EnumCount;
 use crate::{
 	Error,
 	error::Result,
-	rule::{Action, ActionValue, ResponseChain, Trigger},
+	rule::Trigger,
+	rule::raw::{Action, ActionValue, ResponseChain},
 };
 
 #[derive(Debug, Clone)]
