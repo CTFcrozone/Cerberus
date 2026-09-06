@@ -12,6 +12,19 @@ pub enum Error {
 	#[display("Failed to parse TOML: {_0}")]
 	TomlDe(toml::de::Error),
 
+	#[from]
+	#[display("Zip archive error: {_0}")]
+	Zip(zip::result::ZipError),
+
+	#[display("pack '{pack}' has no conf.toml manifest")]
+	MissingManifest { pack: String },
+
+	// #[display("failed to open pack '{path}': {source}")]
+	// PackOpenFailed { path: String, source: std::io::Error },
+
+	// #[display("pack '{path}' is not a valid archive: {source}")]
+	// InvalidPackArchive { path: String, source: String },
+
 	// -- Externals
 	#[from]
 	Io(std::io::Error), // as example

@@ -1,5 +1,8 @@
-use crate::error::Result;
+use std::{io::Read, path::Path};
+
+use crate::{Error, error::Result, manifest};
 use serde::Deserialize;
+use zip::ZipArchive;
 
 #[derive(Deserialize)]
 pub struct PackManifest {
@@ -20,6 +23,17 @@ impl PackManifest {
 	pub fn from_str(s: &str) -> Result<Self> {
 		let manifest = toml::from_str::<Self>(s)?;
 		Ok(manifest)
+	}
+
+	fn read_from_zip(path: &Path) -> Result<Self> {
+		let file = std::fs::File::open(path)?;
+		let mut archive = ZipArchive::new(std::io::BufReader::new(file))?;
+		let mut entry = archive.by_name("conf.toml").map_err(|_| Error::MissingManifest {
+			pack: path.display().to_string(),
+		})?;
+		let mut buf = String::new();
+		entry.read_to_string(&mut buf)?;
+		Self::from_str(&buf)
 	}
 }
 

@@ -9,3 +9,4 @@ lib-rules = { path = "../lib-rules" }
 toml = {workspace=true}
 serde = {workspace=true}
 derive_more = {workspace=true}
+zip = "8.6.0"
