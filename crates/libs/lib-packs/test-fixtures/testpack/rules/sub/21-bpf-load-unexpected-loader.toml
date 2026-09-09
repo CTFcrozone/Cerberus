@@ -1,0 +1,14 @@
+[rule]
+id = "bpf-load-unexpected-loader"
+description = "BPF program loaded by a process outside the known-loader allowlist"
+severity = "medium"
+
+[[rule.conditions]]
+field = "bpf.prog.type"
+op = "exists"
+value = true
+
+[[rule.conditions]]
+field = "process.comm"
+op = "not_in"
+value = ["cerberus", "systemd", "cilium-agent", "falco", "bpftool", "tetragon", "kubelet", "dockerd", "containerd"]

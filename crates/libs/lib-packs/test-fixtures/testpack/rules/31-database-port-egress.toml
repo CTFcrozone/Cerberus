@@ -1,0 +1,19 @@
+[rule]
+id = "database-port-egress"
+description = "Outbound connection to a database port from a shell or transfer utility — possible exfiltration"
+severity = "high"
+
+[[rule.conditions]]
+field = "socket.new_state"
+op = "=="
+value = "TCP_ESTABLISHED"
+
+[[rule.conditions]]
+field = "network.dport"
+op = "in"
+value = [3306, 5432, 6379, 9200, 27017, 11211]
+
+[[rule.conditions]]
+field = "process.comm"
+op = "in"
+value = ["sh", "bash", "dash", "zsh", "curl", "wget", "nc", "ncat", "socat", "python3", "perl"]

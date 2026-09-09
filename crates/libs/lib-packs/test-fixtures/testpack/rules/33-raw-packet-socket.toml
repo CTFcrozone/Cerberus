@@ -1,0 +1,14 @@
+[rule]
+id = "raw-packet-socket"
+description = "AF_PACKET socket opened — raw packet capture or crafting"
+severity = "high"
+
+[[rule.conditions]]
+field = "socket.family"
+op = "=="
+value = 17
+
+[[rule.conditions]]
+field = "process.comm"
+op = "not_in"
+value = ["tcpdump", "dhclient", "dhcpcd", "wireshark", "NetworkManager", "systemd-network"]

@@ -18,7 +18,20 @@ pub enum Error {
 
 	#[display("pack '{pack}' has no conf.toml manifest")]
 	MissingManifest { pack: String },
+	#[from]
+	#[display("Rule engine error: {_0}")]
+	RuleEngine(lib_rules::Error),
 
+	#[display("pack '{pack}' contains no rules")]
+	EmptyPack { pack: String },
+
+	#[from]
+	#[display("Failed to read glob pattern: {_0}")]
+	Glob(glob::GlobError),
+
+	#[from]
+	#[display("Invalid glob pattern: {_0}")]
+	GlobPattern(glob::PatternError),
 	// #[display("failed to open pack '{path}': {source}")]
 	// PackOpenFailed { path: String, source: std::io::Error },
 

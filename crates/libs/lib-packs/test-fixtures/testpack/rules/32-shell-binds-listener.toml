@@ -1,0 +1,14 @@
+[rule]
+id = "shell-binds-listener"
+description = "Shell or transfer utility bound a listening socket — bind shell or staging listener"
+severity = "critical"
+
+[[rule.conditions]]
+field = "socket.op"
+op = "=="
+value = 0
+
+[[rule.conditions]]
+field = "process.comm"
+op = "in"
+value = ["sh", "bash", "dash", "zsh", "busybox", "nc", "ncat", "netcat", "socat", "python3", "perl", "ruby"]

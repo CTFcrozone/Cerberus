@@ -1,0 +1,9 @@
+[rule]
+id = "orthrus-watchdog-unloading"
+description = "orthrus watchdog: the watchdog module is being unloaded"
+severity = "high"
+
+[[rule.conditions]]
+field = "orthrus.tamper.kind"
+op = "eq"
+value = 3

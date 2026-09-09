@@ -1709,6 +1709,7 @@ name = "lib-packs"
 version = "0.1.0"
 dependencies = [
  "derive_more",
+ "glob",
  "lib-rules",
  "serde",
  "toml",
