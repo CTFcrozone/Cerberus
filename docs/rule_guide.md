@@ -383,7 +383,7 @@ Use a **field reference** to bind the IP from the event:
 ```toml
 [[rule.response_chain.actions]]
 type = "block_ip"
-params = { ip = "$network.dst_ip" }
+params = { ip = "$network.daddr" }
 ```
 
 ---

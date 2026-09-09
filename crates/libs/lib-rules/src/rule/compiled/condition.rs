@@ -131,7 +131,7 @@ fn validate_condition(field: Field, op: Op, value: &FieldValue) -> Result<()> {
 			}
 		}
 
-		Op::Contains | Op::StartsWith | Op::Regex => {
+		Op::Contains | Op::StartsWith | Op::Regex | Op::NotRegex => {
 			if ty != FieldType::String {
 				return Err(Error::InvalidFieldValue {
 					field: field.as_str().into(),

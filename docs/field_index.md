@@ -18,7 +18,6 @@ listed inline - match on the number (e.g. `inode.op == 0` for unlink).
 ## Generic
 
 - COMMON
-- `process.filepath` - string
 
 ---
 
@@ -27,9 +26,6 @@ listed inline - match on the number (e.g. `inode.op == 0` for unlink).
 - COMMON
 - `socket.old_state` - string
 - `socket.new_state` - string
-- `socket.port` - int
-- `socket.family` - int
-- `socket.op` - int
 - `network.saddr` - ip
 - `network.daddr` - ip
 - `network.sport` - int
@@ -82,8 +78,6 @@ listed inline - match on the number (e.g. `inode.op == 0` for unlink).
 
 - COMMON
 - `inode.filename` - string
-- `inode.old_filename` - string
-- `inode.new_filename` - string
 - `inode.op` - int
   - `0` = unlink
   - `1` = mkdir
@@ -97,7 +91,6 @@ listed inline - match on the number (e.g. `inode.op == 0` for unlink).
 - `inode.filename` - string
 - `inode.old_filename` - string
 - `inode.new_filename` - string
-- `inode.op` - int
 - `inode.mutation.type` - int
   - `0` = rename
   - `1` = link

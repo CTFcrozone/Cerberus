@@ -55,7 +55,7 @@ fn op_cost(cond: &CompiledCondition) -> u8 {
 
 		(Op::StartsWith, _) => 5,
 		(Op::Contains, _) => 6,
-		(Op::Regex, _) => 7,
+		(Op::Regex | Op::NotRegex, _) => 7,
 	}
 }
 

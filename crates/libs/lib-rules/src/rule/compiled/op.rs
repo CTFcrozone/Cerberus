@@ -13,6 +13,7 @@ pub enum Op {
 	Contains,
 	StartsWith,
 	Regex,
+	NotRegex,
 	BitAnd,
 	Exists,
 }
@@ -30,6 +31,7 @@ pub fn compile_op(s: &str) -> Result<Op> {
 		"contains" => Op::Contains,
 		"starts_with" => Op::StartsWith,
 		"regex" | "matches_regex" => Op::Regex,
+		"not_regex" => Op::NotRegex,
 		"bit_and" => Op::BitAnd,
 		"exists" => Op::Exists,
 		_ => return Err(Error::UnknownOp { op: s.into() }),

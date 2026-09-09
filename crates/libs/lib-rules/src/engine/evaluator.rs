@@ -26,6 +26,11 @@ impl Evaluator {
 				_ => false,
 			},
 
+			Op::NotRegex => match (left, &cond.value) {
+				(Some(FieldValue::String(text)), FieldValue::Regex(regex)) => !regex.is_match(text),
+				_ => false,
+			},
+
 			Op::BitAnd => match (left, &cond.value) {
 				(Some(FieldValue::Int(a)), FieldValue::Int(b)) => (a & b) != 0,
 				_ => false,
